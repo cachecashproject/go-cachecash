@@ -1,0 +1,350 @@
+syntax = "proto3";
+package ccmsg;
+
+
+// ------------------------
+// Common structs
+// ------------------------
+
+message Error {
+    uint64 code = 1;
+    string message = 2;
+}
+
+message PublicKey {
+    // TODO: Add an enum for key type.
+    bytes public_key = 1; // Must be exactly 33 bytes.
+
+}
+
+message Envelope {
+    uint32 version = 1;
+    
+    oneof msg {
+        ContentRequest content_request = 2;
+    }
+}
+
+message EscrowInfo {
+    PublicKey public_key = 1;
+    PublicKey provider_public_key = 2;  // XXX: Do we need this?
+        
+    uint64 draw_delay = 3;  // number of blocks after issue that lottery draws occur
+    uint64 expiration_delay = 4;  // number of blocks after draw that tickets expire
+
+    uint64 start_block = 5;
+    repeated Segment tickets_per_block = 6; // number of blocks is sum of segment lengths
+
+    // If we are using block/transaction-index based IDs, then this field must not be part of what is actually committed
+    // to the blockchain.
+    EscrowID id = 7;
+}
+
+message Segment {
+    uint64 length = 1;
+    uint64 value = 2;
+}
+
+message TicketBundle {
+    TicketBundleRemainder remainder = 1;
+
+    repeated TicketRequest ticket_request = 5;
+    repeated TicketL1 ticket_l1 = 6;
+    
+    bytes encrypted_ticket_l2 = 10;
+
+    // ---- Fields below this point are not covered by the message hash.
+    
+    BatchSignature batch_sig = 8;
+    Certificate bundle_signer_cert = 11;
+
+    // This field contains connection information for the caches mentioned in the ticket requests.
+    // (XXX: There's not any particularly great/specific reason why this couldn't be covered by the hash.)
+    repeated CacheInfo cache_info = 9;
+}
+
+// XXX: This needs a better name.
+message TicketBundleRemainder {
+    // XXX: Is having the request-sequence number as part of the input to the keyed PRF important?
+    // TODO: Remove this in favor of the field in the ContentResponse envelope.
+    uint64 request_sequence_no = 2;
+
+    EscrowID escrow_id = 1;
+    uint64 object_id = 3;
+    
+    ColocationPuzzleInfo puzzle_info = 7;
+
+    PublicKey client_public_key = 8;
+}
+
+message CacheInfo {
+    NetworkAddress addr = 1;
+}
+
+// XXX: Is this a good name if this message includes a port number?
+message NetworkAddress {
+    // XXX: Or, we could represent this as an AF_* constant and a []byte addr.
+    bytes inetaddr = 1;
+    bytes inet6addr = 2;
+
+    uint32 port = 3;
+}
+
+message ColocationPuzzleInfo {
+    bytes goal = 2;
+
+    // THese fields come from the `colocationpuzzle.Parameters` struct.
+    uint32 rounds = 1;
+    uint64 start_offset = 3;
+    uint64 start_range = 4;
+}
+
+message BatchSignature {
+    repeated bool path_direction = 2;
+    repeated bytes path_digest = 3;
+    bytes root_signature = 4;
+    PublicKey signing_key = 5;
+}
+
+message BlockKey {
+    // TODO: Add an enum for key type.
+    bytes key = 1; // Must be exactly 32 bytes -- XXX: what cipher is this?
+}
+
+// This is what the client will present to the cache.  It's not individually signed, but it's covered by the batch
+// signature.
+message TicketRequest {
+    uint64 block_idx = 2;  // XXX: This'll need to change if we remove the 1:1 cache-to-block correspondence.
+    BlockKey inner_key = 3; // XXX: Why is this here?
+
+    PublicKey cache_public_key = 4;
+}
+
+// XXX: I suspect that the ticket number may be the only thing here's that's actually important, since it could be used
+// in proofs of double-spending (on the CP's behalf).
+message TicketL1 {
+    // The CP must sign a message that proves it issued a particular ticket to a particular cache.  The ticket is
+    // identified by the escrow's public key and its ticket number within that escrow.  The cache is identified by its
+    // public key.
+
+    // XXX: TODO: Still, I'm not sure that we actually need to repeat these values here, so long as they're covered by the
+    // same batch-signature.
+
+    // XXX: TODO: Similarly, do we actually need to repeat the draw-time and expiration-time here?  What if the CP lies
+    // to the cache?
+    
+    // XXX: TODO: Do we need to explicitly give the issue-time here?  Can't that be determined by comparing the ticket
+    // number to the parameters in the escrow transaction?
+
+    // PublicKey escrow_public_key = 1;
+    uint64 ticket_no = 2;
+
+    // XXX: This is *also* duplicated between TicketL1 and TicketRequest.
+    PublicKey cache_public_key = 3;
+
+    // XXX: This is duplicated between this message and the TicketRequest, which could probably be avoided.  However,
+    // the cache does need to be able to work out which block-index the L1 ticket corresponds to so that it can derive
+    // the right outer key to give to the client.
+    uint64 block_idx = 4;
+    
+    
+    // ts1 -- "block index (in blockchain) that will be used for the lottery draw; see 6.10"
+    // ts2 -- "time of the lottery draw"
+    // ts3 -- Expiration time; after this block, the cache cannot redeem a winning ticket.
+
+    // Folks storing tickets will also want the CP's public key, the cache's public key, and the escrow's public key.
+}
+
+// By the time the L2 ticket is decrypted by the client, all of the caches must have provided data and outer encryption
+// keys to the client; these are the inputs to the colocation puzzle, whose output is used to decrypt the L2 ticket.
+message TicketL2 {
+    //  // Lottery ticket sequence number.
+    // uint64 ticket_no = 1;
+
+    // XXX: It seems like it might not be too hard for a cache to guess the plaintext L2 ticket that corresponds to the
+    // hash that it knows.  This would be harder if we didn't tell each cache the toher caches' public keys *and*
+    // included all of those keys in the hashed ticket L2.  However, it still seems as though the group of hashes trying
+    // to claim the ticket could find each other when they all show up to try to claim their win.
+    bytes nonce = 2;
+    
+    // // XXX: Formerly ts1/ts2/ts3.  Are these necessary, or can they be inferred from the escrow?
+    // uint64 time_issue = 3; // Block index in the blockchain that will be used for the lottery draw (see 6.10).
+    // uint64 time_draw = 4; // Time of the lottery draw.
+    // uint64 time_expiry = 5; // Redeem time after which a cache cannot redeem a winning ticket.
+
+// - num_caches: Number of caches to which this ticket is destined.
+// - cache_pubkey: Public keys of all recipient caches.
+
+// - cp_pubkey: Content provider;s public key.
+// - escrow_pubkey: Escrow's public key.
+
+// - puzzle_result: The output of the hash-encryption puzzle that is used to mask this ticket.
+// - inner_keys: Inner keys for all recipient clients.
+
+    // The inner session keys are here in order to force the client to solve the colocation puzzle (which is required in
+    // order to decrypt the L2 ticket).
+    repeated BlockKey inner_session_key = 3;
+    
+}
+
+// Globally-unique identifier for an escrow, based on the position of the transaction that started the escrow.
+message EscrowID {
+    uint64 block_idx = 1;
+    uint32 transaction_idx = 2;
+}
+
+
+message TicketL2Info {
+    bytes encrypted_ticket_l2 = 1;
+    bytes puzzle_secret = 2;
+}
+
+// Signed by escrow key; ensures that the key that produced the batch signature is authorized.
+message Certificate {
+    PublicKey subject_public_key = 1;
+    EscrowID escrow_id = 2;
+    string usage = 3;
+    bytes signature = 4;
+}
+
+// Containss enough data to let a cache recompute/verify the ticket-bundle digest.
+message TicketBundleSubdigests {
+    repeated bytes ticket_request_digest = 1;
+    repeated bytes ticket_l1_digest = 2;
+    bytes encrypted_ticket_l2_digest = 3;
+    bytes remainder_digest = 4;
+}
+
+
+// ------------------------
+// Client<->Provider protocol
+// ------------------------
+
+service ClientProvider {
+    rpc GetContent(ContentRequest) returns (ContentResponse) {}
+}
+
+// Client-to-provider
+message ContentRequest {
+    // TODO: This does not actually need to be repeated with each request, if we are using a connection-oriented
+    // transport.
+    PublicKey client_public_key  = 1;
+
+    string path = 2;
+    
+    repeated uint64 block_idx = 3;
+
+    uint64 sequence_no = 4; // XXX: I'm not sure that this is required.  It's a unique-per-client value fed into the keyed PRF used to derive inner keys.
+    
+    // request sequence number (what is this used for?  just used to avoid unintentional duplicate requests?)
+
+    // TODO: Add parameters for range requests.
+}
+
+// Response to a ContentRequest.
+message ContentResponse {
+    // Identifies the request that this message is a response to.
+    uint64 request_sequence_no = 1;
+
+    // Exactly one of these fields may be present.
+    Error error = 2;
+    TicketBundle bundle = 3;
+}
+
+
+// ------------------------
+// Client<->Cache protocol
+// ------------------------
+
+service ClientCache {
+    /*
+    // XXX: These are standardized names and types.
+    rpc GetBlock(GetBlockRequest) returns (GetBlockResponse) {}
+    rpc ExchangeTicketL1(ExchangeTicketL1Request) returns (ExchangeTicketL1Response) {}
+    rpc ExchangeTicketL2(ExchangeTicketL2Request) returns (ExchangeTicketL2Response) {}
+    */
+    
+    rpc GetBlock(ClientCacheRequest) returns (ClientCacheResponseData) {}
+    rpc ExchangeTicketL1(ClientCacheRequest) returns (ClientCacheResponseL1) {}
+    rpc ExchangeTicketL2(ClientCacheRequest) returns (ClientCacheResponseL2) {}
+}
+
+/*
+message GetBlockRequest {
+}
+
+message GetBlockResponse {
+}
+
+message ExchangeTicketL1Request {
+}
+
+message ExchangeTicketL1Response {
+}
+
+message ExchangeTicketL2Request {
+}
+
+message ExchangeTicketL2Response {
+}
+*/
+
+// --- old-style messages below this line ---
+
+message ClientCacheRequest {
+    uint64 sequence_no = 8;
+
+    TicketBundleRemainder bundle_remainder = 1;
+
+    oneof ticket {
+        TicketRequest ticket_request = 5;
+        TicketL1 ticket_l1 = 6;
+        TicketL2Info ticket_l2 = 7;
+    }
+
+    // Together, these fields allow the cache to verify that the request is authorized.
+    TicketBundleSubdigests ticket_bundle_subdigests = 2;
+    BatchSignature bundle_sig = 3;
+    Certificate bundle_signer_cert = 4;
+
+}
+
+// XXX: Remove me!  This is not used over the wire; it's used only in the `cache` package.
+message ClientCacheResponse {
+    // Identifies the request that this message is a response to.
+    uint64 request_sequence_no = 1;
+
+    oneof msg {
+        Error error = 2;
+        ClientCacheResponseData data_response = 3;
+        ClientCacheResponseL1 l1_response = 4;
+        ClientCacheResponseL2 l2_response = 5;
+    }
+}
+
+message ClientCacheResponseData {
+    bytes data = 1;
+}
+
+message ClientCacheResponseL1 {
+    // contains the outer key
+    BlockKey outer_key = 1;
+}
+
+message ClientCacheResponseL2 {
+    // Deliberately empty (?)
+}
+
+
+// ------------------------
+// Cache<->Provider protocol
+// ------------------------
+
+/*
+service CacheProvider {
+    rpc CacheMiss(xxx) returns (yyy) {]
+}
+*/
+
+
+// ------------------------

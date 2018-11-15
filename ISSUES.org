@@ -1,0 +1,3 @@
+- What happens if a cache has multiple IP addresses?  What happens if its IP address changes (e.g. because it is dynamic)?
+- What happens if a cache temporarily goes offline?
+- IPv6?
