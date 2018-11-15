@@ -7,7 +7,7 @@ Google's data interchange format.
 Copyright 2010 The Go Authors.
 https://github.com/golang/protobuf
 
-This package and the code it generates requires at least Go 1.6.
+This package and the code it generates requires at least Go 1.9.
 
 This software implements Go bindings for protocol buffers.  For
 information about protocol buffers themselves, see
@@ -161,9 +161,6 @@ Consider file test.proto, containing
 	  required string label = 1;
 	  optional int32 type = 2 [default=77];
 	  repeated int64 reps = 3;
-	  optional group OptionalGroup = 4 {
-	    required string RequiredField = 5;
-	  }
 	}
 ```
 
@@ -180,13 +177,10 @@ To create and play with a Test object from the example package,
 	)
 
 	func main() {
-		test := &example.Test {
+		test := &example.Test{
 			Label: proto.String("hello"),
 			Type:  proto.Int32(17),
 			Reps:  []int64{1, 2, 3},
-			Optionalgroup: &example.Test_OptionalGroup {
-				RequiredField: proto.String("good bye"),
-			},
 		}
 		data, err := proto.Marshal(test)
 		if err != nil {
