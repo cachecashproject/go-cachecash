@@ -93,7 +93,7 @@ func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolve() {
 
 	// It's only actually important that the secret be the same on both sides, but it would be very odd if multiple
 	// offsets led to correct solutions to the puzzle.
-	assert.Equal(t, puzzle.Offset, offset, "generator and solevr do not agree on starting offset")
+	assert.Equal(t, puzzle.Offset, offset, "generator and solver do not agree on starting offset")
 	assert.Equal(t, puzzle.Secret, secret, "generator and solver do not agree on secret")
 }
 
