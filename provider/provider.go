@@ -79,6 +79,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		return nil, errors.Wrap(err, "failed to reserve ticket numbers")
 	}
 
+	// XXX: If the object doesn't exist, we shouldn't reserve ticket numbers to satisfy the request!
 	obj, objID, err := escrow.GetObjectByPath(ctx, req.Path)
 	if err != nil {
 		return nil, errors.Wrap(err, "no object for path")
