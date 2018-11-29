@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +19,8 @@ type CatalogTestSuite struct {
 	ts  *httptest.Server
 	cat *catalog
 
-	upstreamRequestQty int
+	upstreamRequestQty    int
+	upstreamResponseDelay time.Duration
 }
 
 func TestCatalogTestSuite(t *testing.T) {
@@ -44,6 +46,7 @@ func (suite *CatalogTestSuite) TearDownTest() {
 
 func (suite *CatalogTestSuite) handleUpstreamRequest(w http.ResponseWriter, r *http.Request) {
 	suite.upstreamRequestQty++
+	time.Sleep(suite.upstreamResponseDelay)
 	fmt.Fprintln(w, "Hello, client")
 }
 
@@ -61,4 +64,42 @@ func (suite *CatalogTestSuite) TestSimple() {
 	// This should indicate a Content-Length of 14 ("Hello, client\n").
 	// TODO: Replace with an assertion once the test server is serving actual data.
 	fmt.Printf("object metadata: %v\n", m)
+}
+
+// Tests that when a downstream request is received when an upstream request is already in flight, a new upstream
+// request is not made; the result of the single upstream request is provided to all downstream requests.
+func (suite *CatalogTestSuite) TestCoalescing() {
+	t := suite.T()
+	cat := suite.cat
+
+	suite.upstreamResponseDelay = 1 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+
+	mm := make([]*objectMetadata, 2)
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			m, err := cat.getObjectMetadata(ctx, "/foo/bar")
+			assert.Nil(t, err)
+			assert.NotNil(t, m)
+
+			mm[i] = m
+		}(i)
+	}
+	wg.Wait()
+
+	// This should indicate a Content-Length of 14 ("Hello, client\n").
+	// TODO: Replace with an assertion once the test server is serving actual data.
+	for i := 0; i < len(mm); i++ {
+		fmt.Printf("object metadata %v: %v\n", i, mm[i])
+	}
+
+	// Due to coalescing, only a single request should be sent upstream.
+	assert.Equal(t, 1, suite.upstreamRequestQty)
 }
