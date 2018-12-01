@@ -8,6 +8,23 @@ import (
 	"sync"
 )
 
+/*
+
+- The provider can decide how each object is split into blocks; the cache must accept whatever decision the provider
+  made.
+
+- The provider won't use a CacheCash upstream; caches may be told to.
+
+
+Things that need to be extended here:
+- Upstream may not be HTTP.  Need interface.
+- Fetches may time out or return transient/permanent errors.
+- Periodically, we need to revalidate the metadata (and data) we have.
+- Once we know that metadata is valid, we need to fetch any necessary blocks.
+  This will need the same coalescing logic.
+
+*/
+
 type objectMetadata struct {
 	c *catalog
 
@@ -40,7 +57,8 @@ func (m *objectMetadata) Fresh() bool {
 // BlockSize returns the size of a particular data block in bytes.
 // TODO: Do we really need this?
 func (m *objectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
-	return 0, nil
+	// Fixed 128 KiB block size.
+	return 128 * 1024, nil
 }
 
 func (m *objectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {

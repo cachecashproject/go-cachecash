@@ -80,7 +80,7 @@ func (suite *CatalogTestSuite) TestCoalescing() {
 	var wg sync.WaitGroup
 
 	mm := make([]*objectMetadata, 2)
-	for i := 0; i < 2; i++ {
+	for i := 0; i < len(mm); i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -103,3 +103,35 @@ func (suite *CatalogTestSuite) TestCoalescing() {
 	// Due to coalescing, only a single request should be sent upstream.
 	assert.Equal(t, 1, suite.upstreamRequestQty)
 }
+
+// Once we have a valid cache entry, receiving another downstream request should not cause us to make an upstream
+// request.
+func (suite *CatalogTestSuite) TestCacheValid() {
+	t := suite.T()
+	cat := suite.cat
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	mm := make([]*objectMetadata, 2)
+	for i := 0; i < len(mm); i++ {
+		m, err := cat.getObjectMetadata(ctx, "/foo/bar")
+		assert.Nil(t, err)
+		assert.NotNil(t, m)
+
+		mm[i] = m
+	}
+
+	// This should indicate a Content-Length of 14 ("Hello, client\n").
+	// TODO: Replace with an assertion once the test server is serving actual data.
+	for i := 0; i < len(mm); i++ {
+		fmt.Printf("object metadata %v: %v\n", i, mm[i])
+	}
+
+	// Due to caching, only a single request should be sent upstream.
+	assert.Equal(t, 1, suite.upstreamRequestQty)
+}
+
+// TestCacheExpired
+//  - case: object has not changed; revalidated
+//  - case: object has changed; not revalidated
