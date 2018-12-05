@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -16,6 +17,7 @@ import (
 type CatalogTestSuite struct {
 	suite.Suite
 
+	l   *logrus.Logger
 	ts  *httptest.Server
 	cat *catalog
 
@@ -30,6 +32,7 @@ func TestCatalogTestSuite(t *testing.T) {
 func (suite *CatalogTestSuite) SetupTest() {
 	t := suite.T()
 
+	suite.l = logrus.New()
 	suite.upstreamRequestQty = 0
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 
@@ -38,7 +41,7 @@ func (suite *CatalogTestSuite) SetupTest() {
 		t.Fatalf("failed to create HTTP upstream: %v", err)
 	}
 
-	suite.cat, err = newCatalog(upstream)
+	suite.cat, err = newCatalog(suite.l, upstream)
 	if err != nil {
 		t.Fatalf("failed to create catalog: %v", err)
 	}
@@ -158,6 +161,51 @@ func (suite *CatalogTestSuite) TestNotFound() {
 	assert.NotNil(t, m)
 	assert.Nil(t, m.respErr)
 	assert.Equal(t, StatusNotFound, m.status)
+}
+
+func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
+	t := suite.T()
+
+	/// Deliberately pick a port we know nothing will be listening on.
+	ts := httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
+	ts.Close()
+
+	upstream, err := NewHTTPUpstream(ts.URL)
+	if err != nil {
+		t.Fatalf("failed to create HTTP upstream: %v", err)
+	}
+
+	cat, err := newCatalog(suite.l, upstream)
+	if err != nil {
+		t.Fatalf("failed to create catalog: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	m, err := cat.getObjectMetadata(ctx, "/foo/bar")
+	assert.Nil(t, err)
+	assert.NotNil(t, m)
+
+	// This should indicate a Content-Length of 14 ("Hello, client\n").
+	// TODO: Replace with an assertion once the test server is serving actual data.
+	fmt.Printf("object metadata: %v\n", m)
+
+}
+
+// TestUpstreamTimeout covers what happens if the upstream does not respond before our request times out.
+func (suite *CatalogTestSuite) TestUpstreamTimeout() {
+	t := suite.T()
+	cat := suite.cat
+
+	suite.upstreamResponseDelay = 1 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	m, err := cat.getObjectMetadata(ctx, "/foo/bar")
+	assert.Equal(t, context.DeadlineExceeded, err)
+	assert.Nil(t, m)
 }
 
 // TestCacheExpired

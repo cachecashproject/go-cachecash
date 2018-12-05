@@ -125,7 +125,8 @@ func (m *objectMetadata) fetchMetadata(ctx context.Context, path string, doneCh 
 
 	r, err := m.c.upstream.FetchData(ctx, path, true, 0, 0)
 	if err != nil {
-		panic("cannot return an error from here; oh no")
+		m.c.l.WithError(err).Error("failed to fetch from upstream")
+		return
 	}
 
 	// XXX: I'm not sure that we still want to do this.

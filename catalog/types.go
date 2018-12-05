@@ -14,6 +14,7 @@ const (
 	StatusOK
 	StatusNotFound
 	StatusInternalError
+	StatusUpstreamUnreachable
 	StatusUpstreamError
 )
 

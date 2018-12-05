@@ -3,6 +3,8 @@ package catalog
 import (
 	"context"
 	"sync"
+
+	"github.com/Sirupsen/logrus"
 )
 
 // - Different objects may have different block strategies: different sizes; fixed-size vs. rolling-hash blocks, etc.
@@ -35,14 +37,17 @@ type policy struct {
 }
 
 type catalog struct {
+	l *logrus.Logger
+
 	upstream Upstream
 
 	mu      sync.Mutex
 	objects map[string]*objectMetadata
 }
 
-func newCatalog(upstream Upstream) (*catalog, error) {
+func newCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	return &catalog{
+		l:        l,
 		upstream: upstream,
 		objects:  make(map[string]*objectMetadata),
 	}, nil
