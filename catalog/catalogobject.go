@@ -2,9 +2,7 @@ package catalog
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"sync"
 )
 
@@ -120,31 +118,13 @@ func (m *objectMetadata) ensureFresh(ctx context.Context, path string) error {
 func (m *objectMetadata) fetchMetadata(ctx context.Context, path string, doneCh chan struct{}) {
 	defer close(m.reqDoneCh)
 
-	// XXX: We don't want to blow all of this away until we know that it's expired.
-	m.respHeader = nil
-	m.respData = nil
-	m.respErr = nil
-
-	pathURL, err := url.Parse(path)
+	r, err := m.c.upstream.FetchData(ctx, path, true, 0, 0)
 	if err != nil {
-		// XXX: Fix me.
 		panic("cannot return an error from here; oh no")
 	}
-	u := m.c.upstreamURL.ResolveReference(pathURL)
 
-	resp, err := http.Get(u.String())
-	if err != nil {
-		m.respErr = err
-		return
-	}
-
-	// XXX: Should be using a HEAD request instead.
-	// XXX: Should be acting on HTTP status code.
-
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	body, err := ioutil.ReadAll(resp.Body)
-	m.respHeader = resp.Header
-	m.respData = body
+	// XXX: I'm not sure that we still want to do this.
+	m.respHeader = r.header
+	m.respData = r.data
+	m.respErr = r.err
 }

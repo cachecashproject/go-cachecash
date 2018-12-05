@@ -33,8 +33,12 @@ func (suite *CatalogTestSuite) SetupTest() {
 	suite.upstreamRequestQty = 0
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 
-	var err error
-	suite.cat, err = newCatalog(suite.ts.URL)
+	upstream, err := NewHTTPUpstream(suite.ts.URL)
+	if err != nil {
+		t.Fatalf("failed to create HTTP upstream: %v", err)
+	}
+
+	suite.cat, err = newCatalog(upstream)
 	if err != nil {
 		t.Fatalf("failed to create catalog: %v", err)
 	}

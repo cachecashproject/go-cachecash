@@ -2,10 +2,7 @@ package catalog
 
 import (
 	"context"
-	"net/url"
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
 // - Different objects may have different block strategies: different sizes; fixed-size vs. rolling-hash blocks, etc.
@@ -38,23 +35,16 @@ type policy struct {
 }
 
 type catalog struct {
+	upstream Upstream
+
 	mu      sync.Mutex
 	objects map[string]*objectMetadata
-
-	// This will need to be replaced with a much more flexible way of telling the catalog where it's getting data about
-	// particular objects.
-	upstreamURL *url.URL
 }
 
-func newCatalog(upstreamURL string) (*catalog, error) {
-	u, err := url.Parse(upstreamURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse upstream URL")
-	}
-
+func newCatalog(upstream Upstream) (*catalog, error) {
 	return &catalog{
-		upstreamURL: u,
-		objects:     make(map[string]*objectMetadata),
+		upstream: upstream,
+		objects:  make(map[string]*objectMetadata),
 	}, nil
 }
 
