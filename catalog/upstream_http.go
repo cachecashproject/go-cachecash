@@ -48,13 +48,36 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 		_ = resp.Body.Close()
 	}()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read request body")
+	// Need to handle
+	// 203 Non-Authoritative Information
+	// 204 No Content
+	// 206 Partial Content
+	// 3xx redirections (handled by the Golang HTTP client?)
+	// 304 Not Changed
+	// 4xx client errors (probably point to a configuration problem?)
+	var status ObjectStatus
+	switch {
+	case resp.StatusCode == http.StatusOK:
+		status = StatusOK
+	case resp.StatusCode == http.StatusNotFound:
+		status = StatusNotFound
+	case resp.StatusCode >= 500 && resp.StatusCode < 600:
+		status = StatusUpstreamError
+	default:
+		panic("unhandled HTTP status code from upstream")
+	}
+
+	var body []byte
+	if status == StatusOK {
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to read request body")
+		}
 	}
 
 	return &FetchResult{
 		header: resp.Header,
 		data:   body,
+		status: status,
 	}, nil
 }

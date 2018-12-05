@@ -5,13 +5,25 @@ import (
 	"net/http"
 )
 
+//go:generate stringer -type=ObjectStatus
+
+type ObjectStatus int
+
+const (
+	StatusUnknown ObjectStatus = iota
+	StatusOK
+	StatusNotFound
+	StatusInternalError
+	StatusUpstreamError
+)
+
 // FetchResult describes the metadata, data, and/or errors returned by an Upstream in response to a single request.
 // They are consumed by the catalog, which uses them to update its cache.
 type FetchResult struct {
 	// XXX: This should be changed; this struct is supposed to be protocol-agnostic.
 	header http.Header
 	data   []byte
-	err    error
+	status ObjectStatus
 }
 
 type Upstream interface {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"time"
 )
 
 /*
@@ -29,6 +30,10 @@ type objectMetadata struct {
 	// blockStrategy describes how the object has been split into blocks.  This is necessary to map byte positions into
 	// block positions and vice versa.
 	// blockStrategy ...
+
+	status      ObjectStatus
+	lastUpdate  time.Time
+	lastAttempt time.Time
 
 	nonempty bool // XXX: This will probably be replaced with something else (e.g. the real data members) shortly.
 
@@ -126,5 +131,6 @@ func (m *objectMetadata) fetchMetadata(ctx context.Context, path string, doneCh 
 	// XXX: I'm not sure that we still want to do this.
 	m.respHeader = r.header
 	m.respData = r.data
-	m.respErr = r.err
+	m.status = r.status
+	// TODO: Update last-fetched/last-attempted times based on status.
 }

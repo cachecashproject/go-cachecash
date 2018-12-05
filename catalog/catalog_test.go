@@ -51,7 +51,13 @@ func (suite *CatalogTestSuite) TearDownTest() {
 func (suite *CatalogTestSuite) handleUpstreamRequest(w http.ResponseWriter, r *http.Request) {
 	suite.upstreamRequestQty++
 	time.Sleep(suite.upstreamResponseDelay)
-	fmt.Fprintln(w, "Hello, client")
+
+	switch r.URL.Path {
+	case "/foo/bar":
+		fmt.Fprintln(w, "Hello, client")
+	default:
+		w.WriteHeader(http.StatusNotFound)
+	}
 }
 
 func (suite *CatalogTestSuite) TestSimple() {
@@ -92,6 +98,8 @@ func (suite *CatalogTestSuite) TestCoalescing() {
 			m, err := cat.getObjectMetadata(ctx, "/foo/bar")
 			assert.Nil(t, err)
 			assert.NotNil(t, m)
+			assert.Nil(t, m.respErr)
+			assert.Equal(t, StatusOK, m.status)
 
 			mm[i] = m
 		}(i)
@@ -122,6 +130,8 @@ func (suite *CatalogTestSuite) TestCacheValid() {
 		m, err := cat.getObjectMetadata(ctx, "/foo/bar")
 		assert.Nil(t, err)
 		assert.NotNil(t, m)
+		assert.Nil(t, m.respErr)
+		assert.Equal(t, StatusOK, m.status)
 
 		mm[i] = m
 	}
@@ -136,6 +146,21 @@ func (suite *CatalogTestSuite) TestCacheValid() {
 	assert.Equal(t, 1, suite.upstreamRequestQty)
 }
 
+func (suite *CatalogTestSuite) TestNotFound() {
+	t := suite.T()
+	cat := suite.cat
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	m, err := cat.getObjectMetadata(ctx, "/bogus")
+	assert.Nil(t, err)
+	assert.NotNil(t, m)
+	assert.Nil(t, m.respErr)
+	assert.Equal(t, StatusNotFound, m.status)
+}
+
 // TestCacheExpired
 //  - case: object has not changed; revalidated
 //  - case: object has changed; not revalidated
+// Test that coalescing, caching, etc. work with error responses (e.g. 404s) too.
