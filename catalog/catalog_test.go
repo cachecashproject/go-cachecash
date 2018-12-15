@@ -212,3 +212,12 @@ func (suite *CatalogTestSuite) TestUpstreamTimeout() {
 //  - case: object has not changed; revalidated
 //  - case: object has changed; not revalidated
 // Test that coalescing, caching, etc. work with error responses (e.g. 404s) too.
+
+// Test sub-object granularity:
+//  - metadata-only requests should generate HEAD requests to upstream
+//  - request range for [a,b] with...
+//     - nothing in cache
+//     - [a,b] in cache
+//     - cache contains data overlapping a or b but not both; one subrange request is generated
+//     - cache contains data from within [a,b] but not overlapping [a,b]; two subrange requests are generated
+// Also, behavior of above when error(s) are generated
