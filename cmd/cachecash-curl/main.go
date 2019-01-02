@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"time"
@@ -30,7 +31,24 @@ func mainC() error {
 
 	// e.g. "cachecash://localhost:8080/foo/bar"
 	rawURI := flag.Arg(0)
-	l.Infof("raw URI: %v", rawURI)
+
+	// TODO: This URI parsing should probably be moved into a library function somewhere.  The reason that it's being
+	// done here is that `client.Client` only supports a single provider right now, so the `GetObject` function can't
+	// take whole URIs directly.
+	// XXX: We silently ignore other parts of the URI (user, password, query string).  That's probably not a good idea;
+	// we should either support them or return an error if they are present.
+	u, err := url.Parse(rawURI)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse URI")
+	}
+	if u.Scheme != "cachecash" {
+		return errors.New("unexpected scheme in URI")
+	}
+	providerAddr := u.Hostname()
+	if u.Port() != "" {
+		providerAddr += ":" + u.Port()
+	}
+	objPath := u.Path
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -46,13 +64,13 @@ func mainC() error {
 		}
 	}()
 
-	cl, err := client.New(l)
+	cl, err := client.New(l, providerAddr) // e.g. "localhost:8080"
 	if err != nil {
 		return errors.Wrap(err, "failed to create client")
 	}
 	log.Printf("created client\n")
 
-	o, err := cl.GetObject(ctx, rawURI)
+	o, err := cl.GetObject(ctx, objPath) // e.g. "/foo/bar"
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch object")
 	}

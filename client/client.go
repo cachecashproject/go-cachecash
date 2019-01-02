@@ -50,14 +50,14 @@ type client struct {
 
 var _ Client = (*client)(nil)
 
-func New(l *logrus.Logger) (Client, error) {
+func New(l *logrus.Logger, addr string) (Client, error) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate keypair")
 	}
 
 	ctx := context.Background() // XXX:
-	pc, err := newProviderConnection(ctx, l, "localhost:8080")
+	pc, err := newProviderConnection(ctx, l, addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to provider")
 	}
@@ -95,7 +95,7 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	// bgr := cl.requestBlockGroup(ctx,
 
 	// XXX: This is hardwired for test purposes.
-	err := cl.requestBlockGroup(ctx)
+	err := cl.requestBlockGroup(ctx, path)
 	return nil, err
 }
 
@@ -149,10 +149,10 @@ type blockRequest struct {
 	err     error
 }
 
-func (cl *client) requestBlockGroup(ctx context.Context) error {
+func (cl *client) requestBlockGroup(ctx context.Context, path string) error {
 	req := &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
-		Path:            "/foo/bar",
+		Path:            path,
 		BlockIdx:        []uint64{0, 1, 2, 3},
 	}
 
