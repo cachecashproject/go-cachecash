@@ -9,7 +9,6 @@ import (
 	"crypto/aes"
 	"crypto/sha512"
 	"encoding/binary"
-	"log"
 	"math/rand"
 	"time"
 
@@ -49,7 +48,6 @@ func (p *Puzzle) IV() []byte {
 }
 
 func (p *Puzzle) Key() []byte {
-	log.Printf("(*Puzzle).Key -- p.Secret has len %v\n", len(p.Secret))
 	return p.Secret[IVSize : IVSize+KeySize]
 }
 
@@ -111,12 +109,6 @@ func Generate(params Parameters, obj cachecash.ContentObject, blocks []uint32, i
 	goal, secret, err := runPuzzle(params.Rounds, uint32(len(blocks)), startOffset, getBlockFn)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate outputs of colocation puzzle")
-	}
-
-	// TEMP: ...
-	log.Printf("(*Puzzle).Generate() -- secret length is %v\n", len(secret))
-	if len(secret) == 0 {
-		panic("what doing?")
 	}
 
 	return &Puzzle{
