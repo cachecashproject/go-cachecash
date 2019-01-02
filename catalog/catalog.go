@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // - Different objects may have different block strategies: different sizes; fixed-size vs. rolling-hash blocks, etc.
