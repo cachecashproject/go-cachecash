@@ -21,6 +21,12 @@ import (
 testserverd runs a content provider and a set of caches.  Running them in a single process is more convenient for
 development purposes, but most importantly lets us proceed before cache/provider interactions are fleshed out.
 
+The intent is that
+  $ ./bin/cachecash-curl cachecash://localhost:8080/file0.bin
+should return the same output as
+  $ curl http://localhost:8081/file0.bin
+(The CacheCash provider runs on port 8080; the HTTP upstream that it pulls content from runs on port 8081.)
+
 TODO:
 - We need a way to signal how large the object is, so that the client knows how many requests to make.
 - Using the `cachecash-curl` binary to fetch an object that doesn't exist should return a 404 error.
