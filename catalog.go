@@ -1,5 +1,9 @@
 package cachecash
 
+/*
+N.B.: DEPRECATED: This will be removed in favor of the `catalog` subpackage.
+*/
+
 import (
 	"context"
 	"os"
