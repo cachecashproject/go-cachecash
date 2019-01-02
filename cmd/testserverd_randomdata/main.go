@@ -41,7 +41,7 @@ func (ts *TestServer) setup() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to generate provider keypair")
 	}
-	prov, err := provider.NewContentProvider(providerPrivateKey)
+	prov, err := provider.NewContentProvider(ts.l, providerPrivateKey)
 	if err != nil {
 		return err
 	}

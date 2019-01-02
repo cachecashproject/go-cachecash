@@ -17,8 +17,16 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-// testserverd runs a content provider and a set of caches.  Running them in a single process is more convenient for
-// development purposes, but most importantly lets us proceed before cache/provider interactions are fleshed out.
+/*
+testserverd runs a content provider and a set of caches.  Running them in a single process is more convenient for
+development purposes, but most importantly lets us proceed before cache/provider interactions are fleshed out.
+
+TODO:
+- We need a way to signal how large the object is, so that the client knows how many requests to make.
+- Using the `cachecash-curl` binary to fetch an object that doesn't exist should return a 404 error.
+- Should actually serve the requested object instead of random data.
+- Eventually, this and the `testserverd_randomdata` binary should share most of their code.
+*/
 
 type TestServer struct {
 	l *logrus.Logger
@@ -50,7 +58,7 @@ func (ts *TestServer) setup() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to generate provider keypair")
 	}
-	prov, err := provider.NewContentProvider(providerPrivateKey)
+	prov, err := provider.NewContentProvider(ts.l, providerPrivateKey)
 	if err != nil {
 		return err
 	}
@@ -80,7 +88,10 @@ func (ts *TestServer) setup() error {
 	}
 	escrow.Objects["/foo/bar"] = provider.EscrowObjectInfo{
 		Object: obj,
-		ID:     999,
+		// N.B.: This becomes BundleParams.ObjectID
+		// XXX: What's that used for?  Are it and BlockIdx used to uniquely identify blocks on the cache?  I think we're
+		// using content addressing, aren't we?
+		ID: 999,
 	}
 	ts.obj = obj
 

@@ -10,6 +10,7 @@ import (
 	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/kelleyk/go-cachecash/testutil"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/ed25519"
@@ -32,13 +33,15 @@ func TestTicketBundleTestSuite(t *testing.T) {
 func (suite *TicketBundleTestSuite) SetupTest() {
 	t := suite.T()
 
+	l := logrus.New()
+
 	var err error
 
 	_, priv, err := ed25519.GenerateKey(nil) // TOOS: use faster, lower-quality entropy?
 	if err != nil {
 		panic(errors.Wrap(err, "failed to generate keypair"))
 	}
-	suite.provider, err = NewContentProvider(priv)
+	suite.provider, err = NewContentProvider(l, priv)
 	if err != nil {
 		panic(errors.Wrap(err, "failed to construct provider"))
 	}

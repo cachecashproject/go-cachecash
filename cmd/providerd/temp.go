@@ -9,18 +9,20 @@ import (
 	"github.com/kelleyk/go-cachecash/provider"
 	"github.com/kelleyk/go-cachecash/testutil"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
 )
 
 // TEMP: Cribbed from `integration_test.go`.
 func makeProvider() (*provider.ContentProvider, error) {
+	l := logrus.New()
 
 	// Create a provider.
 	_, providerPrivateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate provider keypair")
 	}
-	prov, err := provider.NewContentProvider(providerPrivateKey)
+	prov, err := provider.NewContentProvider(l, providerPrivateKey)
 	if err != nil {
 		return nil, err
 	}

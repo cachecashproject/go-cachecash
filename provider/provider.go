@@ -8,12 +8,15 @@ import (
 	"github.com/kelleyk/go-cachecash/batchsignature"
 	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
 )
 
 type ContentProvider struct {
 	// The ContentProvider knows each cache's "inner master key" (aka "master key")?  This is an AES key.
 	// For each cache, it also knows an IP address, a port number, and a public key.
+
+	l *logrus.Logger
 
 	signer crypto.Signer
 
@@ -27,8 +30,9 @@ type CacheInfo struct {
 	// ...
 }
 
-func NewContentProvider(signer crypto.Signer) (*ContentProvider, error) {
+func NewContentProvider(l *logrus.Logger, signer crypto.Signer) (*ContentProvider, error) {
 	p := &ContentProvider{
+		l:      l,
 		signer: signer,
 	}
 
@@ -50,6 +54,7 @@ func (p *ContentProvider) getEscrowByRequest(req *ccmsg.ContentRequest) (*Escrow
 }
 
 func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
+	p.l.WithFields(logrus.Fields{"path": req.Path}).Info("content request")
 
 	// Validate request.
 	// - The request is for a list of blocks of a particular object.

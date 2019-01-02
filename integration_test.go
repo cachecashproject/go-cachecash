@@ -17,6 +17,7 @@ import (
 	"github.com/kelleyk/go-cachecash/testutil"
 	"github.com/kelleyk/go-cachecash/util"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/ed25519"
@@ -44,12 +45,14 @@ func (suite *IntegrationTestSuite) TestTransfer() {
 func (suite *IntegrationTestSuite) testTransferC() error {
 	t := suite.T()
 
+	l := logrus.New()
+
 	// Create a provider.
 	_, providerPrivateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate provider keypair")
 	}
-	prov, err := provider.NewContentProvider(providerPrivateKey)
+	prov, err := provider.NewContentProvider(l, providerPrivateKey)
 	if err != nil {
 		return err
 	}
