@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	cachecash "github.com/kelleyk/go-cachecash"
 )
 
 /*
@@ -45,6 +47,8 @@ type ObjectMetadata struct {
 	reqDoneCh chan struct{}
 }
 
+var _ cachecash.ContentObject = (*ObjectMetadata)(nil)
+
 func newObjectMetadata(c *catalog) *ObjectMetadata {
 	return &ObjectMetadata{c: c}
 }
@@ -60,8 +64,8 @@ func (m *ObjectMetadata) Fresh() bool {
 // BlockSize returns the size of a particular data block in bytes.
 // TODO: Do we really need this?
 func (m *ObjectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
-	// Fixed 128 KiB block size.
-	return 128 * 1024, nil
+	// Fixed 512 KiB block size.
+	return 512 * 1024, nil
 }
 
 func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {

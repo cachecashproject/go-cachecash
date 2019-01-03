@@ -5,7 +5,6 @@ import (
 	"crypto"
 	"fmt"
 
-	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/batchsignature"
 	"github.com/kelleyk/go-cachecash/catalog"
 	"github.com/kelleyk/go-cachecash/ccmsg"
@@ -124,6 +123,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		// TODO: Return 4xx, since this is a bad request from the client.
 		return nil, errors.New("invalid range")
 	}
+	// XXX: We also have `ContentObject.BlockSize()`; should pick one or the other.
 	rangeBegin := uint64(req.RangeBegin / defaultBlockSize)
 	rangeEnd := uint64(req.RangeEnd / defaultBlockSize) // XXX: This probably needs a ceil()
 	// TODO: Return multiple block-groups if appropriate.
@@ -181,8 +181,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		}
 	*/
 	var objID uint64
-	var obj cachecash.ContentObject
-	_ = objMeta
+	obj := objMeta // XXX: ...
 
 	// Reserve a lottery ticket for each cache.  (Recall that lottery ticket numbers must be unique, and we are limited
 	// in the number that we can issue during each blockchain block to the number that we declared in our begin-escrow
