@@ -46,3 +46,7 @@ type Upstream interface {
 	//
 	FetchData(ctx context.Context, path string, forceMetadata bool, blockOffset, blockCount int) (*FetchResult, error)
 }
+
+type ContentCatalog interface {
+	GetObjectMetadata(ctx context.Context, path string) (*ObjectMetadata, error)
+}

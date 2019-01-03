@@ -24,33 +24,33 @@ Things that need to be extended here:
 
 */
 
-type objectMetadata struct {
+type ObjectMetadata struct {
 	c *catalog
 
 	// blockStrategy describes how the object has been split into blocks.  This is necessary to map byte positions into
 	// block positions and vice versa.
 	// blockStrategy ...
 
-	status      ObjectStatus
-	lastUpdate  time.Time
-	lastAttempt time.Time
+	Status      ObjectStatus
+	LastUpdate  time.Time
+	LastAttempt time.Time
 
-	nonempty bool // XXX: This will probably be replaced with something else (e.g. the real data members) shortly.
+	Nonempty bool // XXX: This will probably be replaced with something else (e.g. the real data members) shortly.
 
-	respHeader http.Header // Probably don't want to store these directly.
-	respData   []byte
-	respErr    error
+	RespHeader http.Header // Probably don't want to store these directly.
+	RespData   []byte
+	RespErr    error
 
 	mu        sync.Mutex
 	reqDoneCh chan struct{}
 }
 
-func newObjectMetadata(c *catalog) *objectMetadata {
-	return &objectMetadata{c: c}
+func newObjectMetadata(c *catalog) *ObjectMetadata {
+	return &ObjectMetadata{c: c}
 }
 
-func (m *objectMetadata) Fresh() bool {
-	if !m.nonempty {
+func (m *ObjectMetadata) Fresh() bool {
+	if !m.Nonempty {
 		return false
 	}
 
@@ -59,34 +59,34 @@ func (m *objectMetadata) Fresh() bool {
 
 // BlockSize returns the size of a particular data block in bytes.
 // TODO: Do we really need this?
-func (m *objectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
+func (m *ObjectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
 	// Fixed 128 KiB block size.
 	return 128 * 1024, nil
 }
 
-func (m *objectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
+func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
 	return nil, nil
 }
 
 // GetCipherBlock returns an individual cipher block (aka "sub-block") of a particular data block (a protocol-level
 // block).  The return value will be aes.BlockSize bytes long (16 bytes).  ciperBlockIdx is taken modulo the number
 // of whole cipher blocks that exist in the data block.
-func (m *objectMetadata) GetCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]byte, error) {
+func (m *ObjectMetadata) GetCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]byte, error) {
 	return nil, nil
 }
 
 // BlockCount returns the number of blocks in this object.
-func (m *objectMetadata) BlockCount() int {
+func (m *ObjectMetadata) BlockCount() int {
 	return 0
 }
 
-func (m *objectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
+func (m *ObjectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
 	return nil, nil
 }
 
 // ensureFresh returns immediately if the object's metadata is already in-cache and fresh.  Otherwise, it ensures that
 // exactly one request for the metadata is made.
-func (m *objectMetadata) ensureFresh(ctx context.Context, path string) error {
+func (m *ObjectMetadata) ensureFresh(ctx context.Context, path string) error {
 	// N.B.: At this point, all goroutines will have a pointer to the same m.
 
 	if m.Fresh() {
@@ -120,7 +120,7 @@ func (m *objectMetadata) ensureFresh(ctx context.Context, path string) error {
 	return nil
 }
 
-func (m *objectMetadata) fetchMetadata(ctx context.Context, path string, doneCh chan struct{}) {
+func (m *ObjectMetadata) fetchMetadata(ctx context.Context, path string, doneCh chan struct{}) {
 	defer close(m.reqDoneCh)
 
 	r, err := m.c.upstream.FetchData(ctx, path, true, 0, 0)
@@ -130,8 +130,8 @@ func (m *objectMetadata) fetchMetadata(ctx context.Context, path string, doneCh 
 	}
 
 	// XXX: I'm not sure that we still want to do this.
-	m.respHeader = r.header
-	m.respData = r.data
-	m.status = r.status
+	m.RespHeader = r.header
+	m.RespData = r.data
+	m.Status = r.status
 	// TODO: Update last-fetched/last-attempted times based on status.
 }

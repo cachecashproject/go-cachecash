@@ -42,14 +42,16 @@ type catalog struct {
 	upstream Upstream
 
 	mu      sync.Mutex
-	objects map[string]*objectMetadata
+	objects map[string]*ObjectMetadata
 }
 
-func newCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
+var _ ContentCatalog = (*catalog)(nil)
+
+func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	return &catalog{
 		l:        l,
 		upstream: upstream,
-		objects:  make(map[string]*objectMetadata),
+		objects:  make(map[string]*ObjectMetadata),
 	}, nil
 }
 
@@ -57,7 +59,7 @@ func (c *catalog) getObjectPolicy(path string) (*policy, error) {
 	return nil, nil
 }
 
-func (c *catalog) getObjectMetadata(ctx context.Context, path string) (*objectMetadata, error) {
+func (c *catalog) GetObjectMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {
 	// There are several cases to consider.
 	// - There may be no record of the object in the cache.
 	// - There may be a record of the object, and...

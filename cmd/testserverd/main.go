@@ -8,6 +8,7 @@ import (
 
 	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/cache"
+	"github.com/kelleyk/go-cachecash/catalog"
 	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/provider"
@@ -59,12 +60,22 @@ func (ts *TestServer) setup() error {
 
 	ts.l = logrus.New()
 
+	// Create content catalog.
+	upstream, err := catalog.NewHTTPUpstream("http://localhost:8081")
+	if err != nil {
+		return errors.Wrap(err, "failed to create HTTP upstream")
+	}
+	cat, err := catalog.NewCatalog(ts.l, upstream)
+	if err != nil {
+		return errors.Wrap(err, "failed to create catalog")
+	}
+
 	// Create a provider.
 	_, providerPrivateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate provider keypair")
 	}
-	prov, err := provider.NewContentProvider(ts.l, providerPrivateKey)
+	prov, err := provider.NewContentProvider(ts.l, cat, providerPrivateKey)
 	if err != nil {
 		return err
 	}

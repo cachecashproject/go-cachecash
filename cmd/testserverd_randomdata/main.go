@@ -41,7 +41,9 @@ func (ts *TestServer) setup() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to generate provider keypair")
 	}
-	prov, err := provider.NewContentProvider(ts.l, providerPrivateKey)
+	// XXX: The addition of the content catalog has broken this program.  In order to fix it, we need a catalog upstream
+	// that will return the randomly-generated object.
+	prov, err := provider.NewContentProvider(ts.l, nil, providerPrivateKey)
 	if err != nil {
 		return err
 	}

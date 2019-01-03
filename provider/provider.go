@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/kelleyk/go-cachecash/batchsignature"
+	"github.com/kelleyk/go-cachecash/catalog"
 	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -18,7 +19,8 @@ type ContentProvider struct {
 
 	l *logrus.Logger
 
-	signer crypto.Signer
+	signer  crypto.Signer
+	catalog catalog.ContentCatalog
 
 	escrows []*Escrow
 
@@ -30,10 +32,11 @@ type CacheInfo struct {
 	// ...
 }
 
-func NewContentProvider(l *logrus.Logger, signer crypto.Signer) (*ContentProvider, error) {
+func NewContentProvider(l *logrus.Logger, catalog catalog.ContentCatalog, signer crypto.Signer) (*ContentProvider, error) {
 	p := &ContentProvider{
-		l:      l,
-		signer: signer,
+		l:       l,
+		signer:  signer,
+		catalog: catalog,
 	}
 
 	return p, nil
@@ -53,6 +56,25 @@ func (p *ContentProvider) getEscrowByRequest(req *ccmsg.ContentRequest) (*Escrow
 	return p.escrows[0], nil
 }
 
+/*
+XXX: Temporary notes:
+
+Object identifier (path) -> escrow-object (escrow & ID pair; do the IDs really matter?)
+
+    The provider will probably want to maintain a list of existing escrow-ID pairs for each object;
+    it may also, at its option, create a new pair and return that.  (That is, it can choose to serve
+    the request out of an escrow that's already been used to serve the object, or it can choose to serve
+    the request out of an escrow that hasn't been.)
+
+    This should be designed so that cache rollover/reuse between escrows is possible.
+
+The provider must also ensure that the metadata and data required to generate the puzzle is available
+in the local catalog.  (The provider doesn't use the catalog yet; that needs to be implemented.)
+
+The provider will also need to decide on LCM slot IDs for each block it asks a cache to serve.  These can vary per
+cache, per escrow.  They should also be designed to support escrow rollover.
+
+*/
 func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
 	p.l.WithFields(logrus.Fields{"path": req.Path}).Info("content request")
 

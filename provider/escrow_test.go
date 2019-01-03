@@ -41,7 +41,8 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 	if err != nil {
 		panic(errors.Wrap(err, "failed to generate keypair"))
 	}
-	suite.provider, err = NewContentProvider(l, priv)
+	// XXX: Once we start using the catalog, passing nil is going to cause runtime panics.
+	suite.provider, err = NewContentProvider(l, nil, priv)
 	if err != nil {
 		panic(errors.Wrap(err, "failed to construct provider"))
 	}

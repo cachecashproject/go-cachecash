@@ -41,7 +41,7 @@ func (suite *CatalogTestSuite) SetupTest() {
 		t.Fatalf("failed to create HTTP upstream: %v", err)
 	}
 
-	suite.cat, err = newCatalog(suite.l, upstream)
+	suite.cat, err = NewCatalog(suite.l, upstream)
 	if err != nil {
 		t.Fatalf("failed to create catalog: %v", err)
 	}
@@ -70,7 +70,7 @@ func (suite *CatalogTestSuite) TestSimple() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	m, err := cat.getObjectMetadata(ctx, "/foo/bar")
+	m, err := cat.GetObjectMetadata(ctx, "/foo/bar")
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 
@@ -92,17 +92,17 @@ func (suite *CatalogTestSuite) TestCoalescing() {
 
 	var wg sync.WaitGroup
 
-	mm := make([]*objectMetadata, 2)
+	mm := make([]*ObjectMetadata, 2)
 	for i := 0; i < len(mm); i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 
-			m, err := cat.getObjectMetadata(ctx, "/foo/bar")
+			m, err := cat.GetObjectMetadata(ctx, "/foo/bar")
 			assert.Nil(t, err)
 			assert.NotNil(t, m)
-			assert.Nil(t, m.respErr)
-			assert.Equal(t, StatusOK, m.status)
+			assert.Nil(t, m.RespErr)
+			assert.Equal(t, StatusOK, m.Status)
 
 			mm[i] = m
 		}(i)
@@ -128,13 +128,13 @@ func (suite *CatalogTestSuite) TestCacheValid() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	mm := make([]*objectMetadata, 2)
+	mm := make([]*ObjectMetadata, 2)
 	for i := 0; i < len(mm); i++ {
-		m, err := cat.getObjectMetadata(ctx, "/foo/bar")
+		m, err := cat.GetObjectMetadata(ctx, "/foo/bar")
 		assert.Nil(t, err)
 		assert.NotNil(t, m)
-		assert.Nil(t, m.respErr)
-		assert.Equal(t, StatusOK, m.status)
+		assert.Nil(t, m.RespErr)
+		assert.Equal(t, StatusOK, m.Status)
 
 		mm[i] = m
 	}
@@ -156,11 +156,11 @@ func (suite *CatalogTestSuite) TestNotFound() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	m, err := cat.getObjectMetadata(ctx, "/bogus")
+	m, err := cat.GetObjectMetadata(ctx, "/bogus")
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
-	assert.Nil(t, m.respErr)
-	assert.Equal(t, StatusNotFound, m.status)
+	assert.Nil(t, m.RespErr)
+	assert.Equal(t, StatusNotFound, m.Status)
 }
 
 func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
@@ -175,7 +175,7 @@ func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
 		t.Fatalf("failed to create HTTP upstream: %v", err)
 	}
 
-	cat, err := newCatalog(suite.l, upstream)
+	cat, err := NewCatalog(suite.l, upstream)
 	if err != nil {
 		t.Fatalf("failed to create catalog: %v", err)
 	}
@@ -183,7 +183,7 @@ func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	m, err := cat.getObjectMetadata(ctx, "/foo/bar")
+	m, err := cat.GetObjectMetadata(ctx, "/foo/bar")
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 
@@ -203,7 +203,7 @@ func (suite *CatalogTestSuite) TestUpstreamTimeout() {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	m, err := cat.getObjectMetadata(ctx, "/foo/bar")
+	m, err := cat.GetObjectMetadata(ctx, "/foo/bar")
 	assert.Equal(t, context.DeadlineExceeded, err)
 	assert.Nil(t, m)
 }

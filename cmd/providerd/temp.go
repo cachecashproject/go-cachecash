@@ -22,7 +22,9 @@ func makeProvider() (*provider.ContentProvider, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate provider keypair")
 	}
-	prov, err := provider.NewContentProvider(l, providerPrivateKey)
+	// XXX: The addition of the content catalog has broken this program.  Once things stabilize, we should rebuild this
+	// application based on the relevant portions of `testserverd`.
+	prov, err := provider.NewContentProvider(l, nil, providerPrivateKey)
 	if err != nil {
 		return nil, err
 	}

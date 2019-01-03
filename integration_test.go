@@ -52,7 +52,8 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to generate provider keypair")
 	}
-	prov, err := provider.NewContentProvider(l, providerPrivateKey)
+	// XXX: Once we start using the catalog, passing nil is going to cause runtime panics.
+	prov, err := provider.NewContentProvider(l, nil, providerPrivateKey)
 	if err != nil {
 		return err
 	}
