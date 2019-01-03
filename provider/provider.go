@@ -222,6 +222,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		return nil, err
 	}
 
+	p.l.Debug("done; returning bundle")
 	return bundle, nil
 }
 
