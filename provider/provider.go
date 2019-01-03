@@ -120,7 +120,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The provider may also choose how
 	//   many blocks it would like to serve, and how many block-groups they will be divided into.  (The following steps
 	//   are repeated for each block-group; the results are returned together in a single response to the client.)
-	if req.RangeEnd <= req.RangeBegin {
+	if req.RangeEnd != 0 && req.RangeEnd <= req.RangeBegin {
 		// TODO: Return 4xx, since this is a bad request from the client.
 		return nil, errors.New("invalid range")
 	}
@@ -133,6 +133,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	//   valid.  (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A
 	//   future enhancement might require that the provider fetch only the cipher-blocks that will be used in puzzle
 	//   generation, instead of all of the cipher-blocks in the data blocks.)
+	p.l.Debug("pulling metadata and blocks into catalog")
 	objMeta, err := p.catalog.GetObjectMetadata(ctx, req.Path)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get metadata for requested object")
@@ -140,6 +141,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 
 	// - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by
 	// the provider.  (Our implementation uses the block's digest.)
+	p.l.Debug("mapping block indices into block identifiers")
 	blockIDs := make([]uint64, 0, rangeEnd-rangeBegin)
 	for blockIdx := rangeBegin; blockIdx < rangeEnd; blockIdx++ {
 		//blockIDs = append(blockIDs, objMeta.GetBlockID(blockIdx))
@@ -148,6 +150,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	}
 
 	// - The provider selects a single escrow that will be used to service the request.
+	p.l.Debug("selecting escrow")
 	escrow, err := p.getEscrowByRequest(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get escrow for request")
@@ -157,6 +160,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	//   place the same blocks on the same caches (expanding the number in rotation as demand for the chunks grows), and
 	//   to reuse the same caches for consecutive block-groups served to a single client (so that connection reuse and
 	//   pipelining can improve performance, once implemented).
+	p.l.Debug("selecting caches")
 	if len(escrow.Caches) < len(blockIDs) {
 		return nil, errors.New(fmt.Sprintf("not enough caches: have %v; need %v", len(escrow.Caches), len(blockIDs)))
 	}
@@ -184,11 +188,13 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	// in the number that we can issue during each blockchain block to the number that we declared in our begin-escrow
 	// transaction.)
 	// XXX: We need to make sure that these numbers are released to be reused if the request fails.
+	p.l.Debug("reserving tickets")
 	ticketNos, err := escrow.reserveTicketNumbers(len(caches))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to reserve ticket numbers")
 	}
 
+	p.l.Debug("building bundle parameters")
 	bp := &BundleParams{
 		Escrow:            escrow,
 		RequestSequenceNo: req.SequenceNo,
@@ -206,6 +212,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		})
 	}
 
+	p.l.Debug("generating and signing bundle")
 	batchSigner, err := batchsignature.NewTrivialBatchSigner(p.signer)
 	if err != nil {
 		return nil, err

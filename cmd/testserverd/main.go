@@ -60,6 +60,9 @@ func (ts *TestServer) setup() error {
 
 	ts.l = logrus.New()
 
+	// XXX: This should be configurable by flag or environment variable.
+	ts.l.SetLevel(logrus.DebugLevel)
+
 	// Create content catalog.
 	upstream, err := catalog.NewHTTPUpstream("http://localhost:8081")
 	if err != nil {
