@@ -231,8 +231,11 @@ message ContentRequest {
     PublicKey client_public_key  = 1;
 
     string path = 2;
-    
-    repeated uint64 block_idx = 3;
+
+    // In bytes; the provider can map that to blocks however it pleases.  range_begin is inclusive and range_end is
+    // exclusive.  A value of zero for range_end means "the end of the object".
+    uint64 range_begin = 5;
+    uint64 range_end = 6;
 
     uint64 sequence_no = 4; // XXX: I'm not sure that this is required.  It's a unique-per-client value fed into the keyed PRF used to derive inner keys.
     

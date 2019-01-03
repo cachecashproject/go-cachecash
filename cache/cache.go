@@ -8,6 +8,7 @@ import (
 	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/batchsignature"
 	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/util"
 	"github.com/pkg/errors"
 )
@@ -25,7 +26,7 @@ func (e *Escrow) Active() bool {
 }
 
 type Cache struct {
-	Escrows map[ccmsg.EscrowID]*Escrow
+	Escrows map[common.EscrowID]*Escrow
 }
 
 func (c *Cache) getDataBlock(escrowID *ccmsg.EscrowID, objectID uint64, blockIdx uint64) ([]byte, error) {
@@ -43,7 +44,10 @@ func (c *Cache) getDataBlock(escrowID *ccmsg.EscrowID, objectID uint64, blockIdx
 }
 
 func (c *Cache) getEscrow(escrowID *ccmsg.EscrowID) (*Escrow, error) {
-	escrow, ok := c.Escrows[*escrowID]
+	// XXX: Don't just ignore the escrow ID!
+	var escrowIDbuf common.EscrowID
+
+	escrow, ok := c.Escrows[escrowIDbuf]
 	if !ok {
 		return nil, errors.New("no such escrow")
 	}

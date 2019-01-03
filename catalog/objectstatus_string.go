@@ -4,9 +4,9 @@ package catalog
 
 import "strconv"
 
-const _ObjectStatus_name = "StatusUnknownStatusOKStatusNotFoundStatusInternalErrorStatusUpstreamError"
+const _ObjectStatus_name = "StatusUnknownStatusOKStatusNotFoundStatusInternalErrorStatusUpstreamUnreachableStatusUpstreamError"
 
-var _ObjectStatus_index = [...]uint8{0, 13, 21, 35, 54, 73}
+var _ObjectStatus_index = [...]uint8{0, 13, 21, 35, 54, 79, 98}
 
 func (i ObjectStatus) String() string {
 	if i < 0 || i >= ObjectStatus(len(_ObjectStatus_index)-1) {

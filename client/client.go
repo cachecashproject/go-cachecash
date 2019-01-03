@@ -153,7 +153,8 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string) error {
 	req := &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            path,
-		BlockIdx:        []uint64{0, 1, 2, 3},
+		RangeBegin:      0,
+		RangeEnd:        0, // "continue to the end of the object"
 	}
 
 	// Send request to provider; get TicketBundle in response.

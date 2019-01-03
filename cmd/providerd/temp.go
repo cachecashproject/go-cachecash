@@ -6,6 +6,7 @@ import (
 	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/cache"
 	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/provider"
 	"github.com/kelleyk/go-cachecash/testutil"
 	"github.com/pkg/errors"
@@ -74,7 +75,7 @@ func makeProvider() (*provider.ContentProvider, error) {
 		})
 
 		c := &cache.Cache{
-			Escrows: make(map[ccmsg.EscrowID]*cache.Escrow),
+			Escrows: make(map[common.EscrowID]*cache.Escrow),
 		}
 		ce := &cache.Escrow{
 			InnerMasterKey: innerMasterKey,
@@ -82,7 +83,7 @@ func makeProvider() (*provider.ContentProvider, error) {
 			Objects:        make(map[uint64]cachecash.ContentObject),
 		}
 		ce.Objects[999] = obj
-		c.Escrows[*(escrow.ID())] = ce
+		c.Escrows[escrow.ID()] = ce
 		caches = append(caches, c)
 		_ = private
 	}

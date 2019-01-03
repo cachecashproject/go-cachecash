@@ -39,7 +39,7 @@ type Escrow struct {
 }
 
 type EscrowObjectInfo struct {
-	Object cachecash.ContentObject
+	Object cachecash.ContentObject // XXX: This has to be removed in favor of the content catalog.
 	ID     uint64
 }
 
@@ -99,11 +99,10 @@ type BundleEntryParams struct {
 	Cache    *ParticipatingCache
 }
 
-func (e *Escrow) ID() *ccmsg.EscrowID {
-	return &ccmsg.EscrowID{
-		BlockIdx:       33, // XXX: Temporary; replace me!
-		TransactionIdx: 7,
-	}
+func (e *Escrow) ID() common.EscrowID {
+	// XXX: Temporary; replace me!
+	var id common.EscrowID
+	return id
 }
 
 func (e *Escrow) GetObjectByPath(ctx context.Context, path string) (cachecash.ContentObject, uint64, error) {
@@ -138,7 +137,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 		// EscrowPublicKey:   cachecash.PublicKeyMessage(e.PublicKey),
 		Remainder: &ccmsg.TicketBundleRemainder{
 			RequestSequenceNo: bp.RequestSequenceNo,
-			EscrowId:          bp.Escrow.ID(),
+			EscrowId:          nil, // XXX: Should be `bp.Escrow.ID()`
 			ObjectId:          bp.ObjectID,
 			// PuzzleInfo is filled in later
 			ClientPublicKey: cachecash.PublicKeyMessage(bp.ClientPublicKey),

@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"fmt"
 
+	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/batchsignature"
 	"github.com/kelleyk/go-cachecash/catalog"
 	"github.com/kelleyk/go-cachecash/ccmsg"
@@ -57,6 +58,37 @@ func (p *ContentProvider) getEscrowByRequest(req *ccmsg.ContentRequest) (*Escrow
 }
 
 /*
+The process of satisfying a request
+
+  - A request arrives for an object, identified by a _path_, which is actually an opaque series of bytes.  (In our
+    implementation, they're HTTP-like paths.)  It (optionally) includes a _byte range_, which may be open-ended (which
+    means "continue until the end of the object").
+
+  - The _byte range_ is translated to a _block range_ depending on how the provider would like to chunk the object.
+    (Right now, we only support fixed-size blocks, but this is not inherent.)  The provider may also choose how many
+    blocks it would like to serve, and how many block-groups they will be divided into.  (The following steps are
+    repeated for each block-group; the results are returned together in a single response to the client.)
+
+  - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and valid.
+    (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A future
+    enhancement might require that the provider fetch only the cipher-blocks that will be used in puzzle generation,
+    instead of all of the cipher-blocks in the data blocks.)
+
+  - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by the
+    provider.  (Our implementation uses the block's digest.)
+
+  - The provider selects a single escrow that will be used to service the request.
+
+  - The provider selects a set of caches that are enrolled in that escrow.  This selection should be designed to place
+    the same blocks on the same caches (expanding the number in rotation as demand for the chunks grows), and to reuse
+    the same caches for consecutive block-groups served to a single client (so that connection reuse and pipelining can
+    improve performance, once implemented).
+
+  - For each cache, the provider chooses a logical slot index.  (For details, see documentation on the logical cache
+    model.)  This slot index should be consistent between requests for the cache to serve the same block.
+
+***************************************************************
+
 XXX: Temporary notes:
 
 Object identifier (path) -> escrow-object (escrow & ID pair; do the IDs really matter?)
@@ -75,7 +107,120 @@ The provider will also need to decide on LCM slot IDs for each block it asks a c
 cache, per escrow.  They should also be designed to support escrow rollover.
 
 */
+
+const (
+	defaultBlockSize = 512 * 1024
+	blocksPerGroup   = 4
+)
+
 func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
+	p.l.WithFields(logrus.Fields{"path": req.Path}).Info("content request")
+
+	// - The _byte range_ is translated to a _block range_ depending on how the provider would like to chunk the object.
+	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The provider may also choose how
+	//   many blocks it would like to serve, and how many block-groups they will be divided into.  (The following steps
+	//   are repeated for each block-group; the results are returned together in a single response to the client.)
+	if req.RangeEnd <= req.RangeBegin {
+		// TODO: Return 4xx, since this is a bad request from the client.
+		return nil, errors.New("invalid range")
+	}
+	rangeBegin := uint64(req.RangeBegin / defaultBlockSize)
+	rangeEnd := uint64(req.RangeEnd / defaultBlockSize) // XXX: This probably needs a ceil()
+	// TODO: Return multiple block-groups if appropriate.
+	rangeEnd = rangeBegin + blocksPerGroup
+
+	// - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and
+	//   valid.  (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A
+	//   future enhancement might require that the provider fetch only the cipher-blocks that will be used in puzzle
+	//   generation, instead of all of the cipher-blocks in the data blocks.)
+	objMeta, err := p.catalog.GetObjectMetadata(ctx, req.Path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get metadata for requested object")
+	}
+
+	// - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by
+	// the provider.  (Our implementation uses the block's digest.)
+	blockIDs := make([]uint64, 0, rangeEnd-rangeBegin)
+	for blockIdx := rangeBegin; blockIdx < rangeEnd; blockIdx++ {
+		//blockIDs = append(blockIDs, objMeta.GetBlockID(blockIdx))
+		// XXX: TEMP: Use block index as block ID.  This WILL NOT WORK as soon as we have multiple objects.
+		blockIDs = append(blockIDs, blockIdx)
+	}
+
+	// - The provider selects a single escrow that will be used to service the request.
+	escrow, err := p.getEscrowByRequest(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get escrow for request")
+	}
+
+	// - The provider selects a set of caches that are enrolled in that escrow.  This selection should be designed to
+	//   place the same blocks on the same caches (expanding the number in rotation as demand for the chunks grows), and
+	//   to reuse the same caches for consecutive block-groups served to a single client (so that connection reuse and
+	//   pipelining can improve performance, once implemented).
+	if len(escrow.Caches) < len(blockIDs) {
+		return nil, errors.New(fmt.Sprintf("not enough caches: have %v; need %v", len(escrow.Caches), len(blockIDs)))
+	}
+	caches := escrow.Caches[0:len(blockIDs)]
+
+	// - For each cache, the provider chooses a logical slot index.  (For details, see documentation on the logical
+	//   cache model.)  This slot index should be consistent between requests for the cache to serve the same block.
+
+	// *********************************************************
+
+	/*
+		// XXX: If the object doesn't exist, we shouldn't reserve ticket numbers to satisfy the request!
+		// XXX: This is what we need to remove to make the change to the content catalog; the `obj` here allows access to
+		//      the entire contents of the object!
+		obj, objID, err := escrow.GetObjectByPath(ctx, req.Path)
+		if err != nil {
+			return nil, errors.Wrap(err, "no object for path")
+		}
+	*/
+	var objID uint64
+	var obj cachecash.ContentObject
+	_ = objMeta
+
+	// Reserve a lottery ticket for each cache.  (Recall that lottery ticket numbers must be unique, and we are limited
+	// in the number that we can issue during each blockchain block to the number that we declared in our begin-escrow
+	// transaction.)
+	// XXX: We need to make sure that these numbers are released to be reused if the request fails.
+	ticketNos, err := escrow.reserveTicketNumbers(len(caches))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to reserve ticket numbers")
+	}
+
+	bp := &BundleParams{
+		Escrow:            escrow,
+		RequestSequenceNo: req.SequenceNo,
+		ClientPublicKey:   ed25519.PublicKey(req.ClientPublicKey.PublicKey),
+		Object:            obj,
+		ObjectID:          objID,
+	}
+	for i, bid := range blockIDs {
+		bp.Entries = append(bp.Entries, BundleEntryParams{
+			TicketNo: ticketNos[i],
+			// XXX: fix typing; also, we're stuffing a block ID into a block index!  Should we change the message to use
+			// block ID, or the code to provide block index?
+			BlockIdx: uint32(bid),
+			Cache:    caches[i],
+		})
+	}
+
+	batchSigner, err := batchsignature.NewTrivialBatchSigner(p.signer)
+	if err != nil {
+		return nil, err
+	}
+	gen := NewBundleGenerator(batchSigner)
+	bundle, err := gen.GenerateTicketBundle(bp)
+	if err != nil {
+		return nil, err
+	}
+
+	return bundle, nil
+}
+
+/*
+func (p *ContentProvider) DEPRECATED_HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
 	p.l.WithFields(logrus.Fields{"path": req.Path}).Info("content request")
 
 	// Validate request.
@@ -107,6 +252,8 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	}
 
 	// XXX: If the object doesn't exist, we shouldn't reserve ticket numbers to satisfy the request!
+	// XXX: This is what we need to remove to make the change to the content catalog; the `obj` here allows access to
+	//      the entire contents of the object!
 	obj, objID, err := escrow.GetObjectByPath(ctx, req.Path)
 	if err != nil {
 		return nil, errors.Wrap(err, "no object for path")
@@ -139,3 +286,4 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 
 	return bundle, nil
 }
+*/

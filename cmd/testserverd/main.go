@@ -131,7 +131,7 @@ func (ts *TestServer) setup() error {
 		})
 
 		c := &cache.Cache{
-			Escrows: make(map[ccmsg.EscrowID]*cache.Escrow),
+			Escrows: make(map[common.EscrowID]*cache.Escrow),
 		}
 		ce := &cache.Escrow{
 			InnerMasterKey: innerMasterKey,
@@ -139,7 +139,7 @@ func (ts *TestServer) setup() error {
 			Objects:        make(map[uint64]cachecash.ContentObject),
 		}
 		ce.Objects[999] = obj
-		c.Escrows[*(escrow.ID())] = ce
+		c.Escrows[escrow.ID()] = ce
 		caches = append(caches, c)
 		_ = private
 	}
