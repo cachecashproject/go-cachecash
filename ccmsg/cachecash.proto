@@ -343,11 +343,24 @@ message ClientCacheResponseL2 {
 // Cache<->Provider protocol
 // ------------------------
 
-/*
 service CacheProvider {
-    rpc CacheMiss(xxx) returns (yyy) {]
+    rpc CacheMiss(CacheMissRequest) returns (CacheMissResponse) {}
 }
-*/
 
+message CacheMissRequest {
+    // XXX: What's the correct type for this?
+    uint64 block_id = 1;
+}
+
+message CacheMissResponse {
+    oneof source {
+        BlockSourceHTTP http = 1;
+    }
+}
+
+message BlockSourceHTTP {
+    string url = 1;
+    string range = 2;
+}
 
 // ------------------------
