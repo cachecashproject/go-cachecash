@@ -7,21 +7,24 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type httpUpstream struct {
+	l       *logrus.Logger
 	baseURL *url.URL
 }
 
 var _ Upstream = (*httpUpstream)(nil)
 
-func NewHTTPUpstream(baseURL string) (Upstream, error) {
+func NewHTTPUpstream(l *logrus.Logger, baseURL string) (Upstream, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse upstream URL")
 	}
 
 	return &httpUpstream{
+		l:       l,
 		baseURL: u,
 	}, nil
 }
@@ -29,6 +32,7 @@ func NewHTTPUpstream(baseURL string) (Upstream, error) {
 // XXX: What is the difference between an error returned from this function and an error stored in the FetchResult
 // struct?  When should we do one vs. the other?
 func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadata bool, blockOffset, blockCount int) (*FetchResult, error) {
+	up.l.WithFields(logrus.Fields{"path": path}).Info("upstream fetch")
 
 	pathURL, err := url.Parse(path)
 	if err != nil {

@@ -2,11 +2,13 @@ package catalog
 
 import (
 	"context"
+	"crypto/aes"
 	"net/http"
 	"sync"
 	"time"
 
 	cachecash "github.com/kelleyk/go-cachecash"
+	"github.com/pkg/errors"
 )
 
 /*
@@ -61,31 +63,48 @@ func (m *ObjectMetadata) Fresh() bool {
 	return true
 }
 
+const (
+	defaultBlockSize = 512 * 1024 // Fixed 512 KiB block size.
+)
+
 // BlockSize returns the size of a particular data block in bytes.
 // TODO: Do we really need this?
 func (m *ObjectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
-	// Fixed 512 KiB block size.
-	return 512 * 1024, nil
+
+	return defaultBlockSize, nil
 }
 
 func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
-	return nil, nil
+	// XXX: Do better range checking/etc.  Obviously, this won't work once we are doing multiple partial fetches.
+	block := m.RespData[defaultBlockSize*dataBlockIdx : defaultBlockSize*(dataBlockIdx+1)]
+	m.c.l.Debugf("ObjectMetadata.GetBlock() len(rval)=%v", len(block))
+	return block, nil
 }
 
 // GetCipherBlock returns an individual cipher block (aka "sub-block") of a particular data block (a protocol-level
 // block).  The return value will be aes.BlockSize bytes long (16 bytes).  ciperBlockIdx is taken modulo the number
 // of whole cipher blocks that exist in the data block.
 func (m *ObjectMetadata) GetCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]byte, error) {
-	return nil, nil
+	dataBlock, err := m.GetBlock(dataBlockIdx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get data block")
+	}
+
+	cipherBlockIdx = cipherBlockIdx % uint32(len(dataBlock)/aes.BlockSize)
+	cipherBlock := dataBlock[cipherBlockIdx*aes.BlockSize : (cipherBlockIdx+1)*aes.BlockSize]
+	m.c.l.Debugf("ObjectMetadata.GetCipherBlock() len(rval)=%v", len(cipherBlock))
+	return cipherBlock, nil
 }
 
 // BlockCount returns the number of blocks in this object.
 func (m *ObjectMetadata) BlockCount() int {
-	return 0
+	panic("no impl")
+	// return 0
 }
 
 func (m *ObjectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
-	return nil, nil
+	panic("no impl")
+	// return nil, nil
 }
 
 // ensureFresh returns immediately if the object's metadata is already in-cache and fresh.  Otherwise, it ensures that

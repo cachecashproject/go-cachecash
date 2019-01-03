@@ -64,7 +64,7 @@ func (ts *TestServer) setup() error {
 	ts.l.SetLevel(logrus.DebugLevel)
 
 	// Create content catalog.
-	upstream, err := catalog.NewHTTPUpstream("http://localhost:8081")
+	upstream, err := catalog.NewHTTPUpstream(ts.l, "http://localhost:8081")
 	if err != nil {
 		return errors.Wrap(err, "failed to create HTTP upstream")
 	}

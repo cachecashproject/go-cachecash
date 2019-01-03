@@ -36,7 +36,7 @@ func (suite *CatalogTestSuite) SetupTest() {
 	suite.upstreamRequestQty = 0
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 
-	upstream, err := NewHTTPUpstream(suite.ts.URL)
+	upstream, err := NewHTTPUpstream(suite.l, suite.ts.URL)
 	if err != nil {
 		t.Fatalf("failed to create HTTP upstream: %v", err)
 	}
@@ -170,7 +170,7 @@ func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
 	ts := httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 	ts.Close()
 
-	upstream, err := NewHTTPUpstream(ts.URL)
+	upstream, err := NewHTTPUpstream(ts.l, ts.URL)
 	if err != nil {
 		t.Fatalf("failed to create HTTP upstream: %v", err)
 	}
