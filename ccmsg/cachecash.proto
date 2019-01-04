@@ -349,13 +349,21 @@ service CacheProvider {
 
 message CacheMissRequest {
     // XXX: What's the correct type for this?
-    uint64 block_id = 1;
+    uint64 block_id = 1;    
 }
 
 message CacheMissResponse {
+    repeated uint64 slot_idx = 1;
+    
+    // TODO: How do we communicate information about how the object should be divided into blocks?  Just a 'block_size'
+    // parameter?
+    uint64 block_size = 2;
+    
     oneof source {
-        BlockSourceHTTP http = 1;
+        BlockSourceHTTP http = 10;
     }
+
+    // XXX: We probably need batch_sig and etc. once we want to use this as part of a proof-of-cheating.
 }
 
 message BlockSourceHTTP {

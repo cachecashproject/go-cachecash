@@ -25,3 +25,13 @@ func (s *grpcClientProviderServer) GetContent(ctx context.Context, req *ccmsg.Co
 		Bundle: bundle,
 	}, nil
 }
+
+type grpcCacheProviderServer struct {
+	provider *ContentProvider
+}
+
+var _ ccmsg.CacheProviderServer = (*grpcCacheProviderServer)(nil)
+
+func (s *grpcCacheProviderServer) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
+	return s.provider.CacheMiss(ctx, req)
+}

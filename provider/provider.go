@@ -24,6 +24,8 @@ type ContentProvider struct {
 
 	escrows []*Escrow
 
+	reverseMapping map[uint64]reverseMappingEntry
+
 	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
 	// caches map[cachecash.PublicKey]*ParticipatingCache
 }
@@ -32,11 +34,17 @@ type CacheInfo struct {
 	// ...
 }
 
+type reverseMappingEntry struct {
+	path     string
+	blockIdx uint64
+}
+
 func NewContentProvider(l *logrus.Logger, catalog catalog.ContentCatalog, signer crypto.Signer) (*ContentProvider, error) {
 	p := &ContentProvider{
-		l:       l,
-		signer:  signer,
-		catalog: catalog,
+		l:              l,
+		signer:         signer,
+		catalog:        catalog,
+		reverseMapping: make(map[uint64]reverseMappingEntry),
 	}
 
 	return p, nil
@@ -146,7 +154,10 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	for blockIdx := rangeBegin; blockIdx < rangeEnd; blockIdx++ {
 		//blockIDs = append(blockIDs, objMeta.GetBlockID(blockIdx))
 		// XXX: TEMP: Use block index as block ID.  This WILL NOT WORK as soon as we have multiple objects.
-		blockIDs = append(blockIDs, blockIdx)
+		// XXX: TEMP: The need to maintain this mapping is a flaw.
+		blockID := blockIdx
+		p.reverseMapping[blockIdx] = reverseMappingEntry{path: req.Path, blockIdx: blockIdx}
+		blockIDs = append(blockIDs, blockID)
 	}
 
 	// - The provider selects a single escrow that will be used to service the request.
@@ -294,3 +305,39 @@ func (p *ContentProvider) DEPRECATED_HandleContentRequest(ctx context.Context, r
 	return bundle, nil
 }
 */
+
+func (p *ContentProvider) assignSlot(path string, blockIdx uint64) uint64 {
+	// XXX: should depend on number of slots available to cache, etc.
+	return blockIdx
+}
+
+func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
+	// TODO: How do we identify the cache submitting the request?
+
+	// First, at least for the HTTP upstream, we need to map the block ID back to a (path, block index) tuple.
+	//
+	// TODO: This is clearly not a great thing to make the publisher maintain; should investigate ways to remove this
+	// requirement.
+	//
+	// TODO: Should also verify that this cache has a reason to be requesting this content.  Could have the cache
+	// provide the request ticket from the client.  Might also be a good way to avoid the reverse-mapping issue.
+	rme, ok := p.reverseMapping[req.BlockId]
+	if !ok {
+		return nil, errors.New("no reverse mapping found for block ID")
+	}
+
+	// XXX:
+	blockIdx := rme.blockIdx
+	path := rme.path
+
+	// Get source information from the upstream module (in the case of HTTP, that's a URL and byte range)/
+	msg, err := p.catalog.CacheMiss(path, blockIdx, blockIdx+1)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate source information")
+	}
+
+	// Select logical cache slots for each block.
+	msg.SlotIdx = []uint64{p.assignSlot(path, blockIdx)}
+
+	return msg, nil
+}

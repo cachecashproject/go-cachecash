@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/sirupsen/logrus"
 )
 
@@ -84,4 +85,8 @@ func (c *catalog) GetObjectMetadata(ctx context.Context, path string) (*ObjectMe
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *catalog) CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error) {
+	return c.upstream.CacheMiss(path, rangeBegin, rangeEnd)
 }

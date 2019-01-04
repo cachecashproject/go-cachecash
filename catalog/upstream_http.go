@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -29,18 +30,35 @@ func NewHTTPUpstream(l *logrus.Logger, baseURL string) (Upstream, error) {
 	}, nil
 }
 
+func (up *httpUpstream) upstreamURL(path string) (string, error) {
+
+	// XXX: Need to ensure that `pathURL` is not an absolute URL; that could be used to make the publisher fetch
+	// arbitrary data.
+	pathURL, err := url.Parse(path)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to parse object path")
+	}
+	u := up.baseURL.ResolveReference(pathURL)
+
+	return u.String(), nil
+}
+
+// N.B.: Only the `Source` field should be populated in the return value.
+func (up *httpUpstream) CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error) {
+	panic("no impl")
+}
+
 // XXX: What is the difference between an error returned from this function and an error stored in the FetchResult
 // struct?  When should we do one vs. the other?
 func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadata bool, blockOffset, blockCount int) (*FetchResult, error) {
 	up.l.WithFields(logrus.Fields{"path": path}).Info("upstream fetch")
 
-	pathURL, err := url.Parse(path)
+	u, err := up.upstreamURL(path)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse object path")
+		return nil, errors.Wrap(err, "failed to get upstream URL")
 	}
-	u := up.baseURL.ResolveReference(pathURL)
 
-	resp, err := http.Get(u.String())
+	resp, err := http.Get(u)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed HTTP fetch")
 	}

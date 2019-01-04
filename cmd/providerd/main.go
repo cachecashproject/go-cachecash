@@ -18,9 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	conf := &provider.Config{
-		ClientProtocolAddr: ":8080",
-	}
+	conf := &provider.Config{}
 
 	// Serve traffic!
 	a, err := provider.NewApplication(l, prov, conf)

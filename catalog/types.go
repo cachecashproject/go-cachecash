@@ -3,6 +3,8 @@ package catalog
 import (
 	"context"
 	"net/http"
+
+	"github.com/kelleyk/go-cachecash/ccmsg"
 )
 
 //go:generate stringer -type=ObjectStatus
@@ -45,8 +47,12 @@ type Upstream interface {
 	//   will need to know block sizes in order to translate block indices into byte ranges.  How should this be done?
 	//
 	FetchData(ctx context.Context, path string, forceMetadata bool, blockOffset, blockCount int) (*FetchResult, error)
+
+	CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error)
 }
 
 type ContentCatalog interface {
 	GetObjectMetadata(ctx context.Context, path string) (*ObjectMetadata, error)
+
+	CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error)
 }

@@ -166,9 +166,7 @@ func (ts *TestServer) Start() error {
 	}()
 
 	// Start provider.
-	ps, err := provider.NewApplication(ts.l, ts.provider, &provider.Config{
-		ClientProtocolAddr: ":8080",
-	})
+	ps, err := provider.NewApplication(ts.l, ts.provider, &provider.Config{})
 	if err != nil {
 		return errors.Wrap(err, "failed to create provider application")
 	}
