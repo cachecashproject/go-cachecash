@@ -170,7 +170,7 @@ func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
 	ts := httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 	ts.Close()
 
-	upstream, err := NewHTTPUpstream(ts.l, ts.URL)
+	upstream, err := NewHTTPUpstream(suite.l, ts.URL)
 	if err != nil {
 		t.Fatalf("failed to create HTTP upstream: %v", err)
 	}
