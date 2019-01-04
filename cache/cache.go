@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 
@@ -29,7 +30,7 @@ type Cache struct {
 	Escrows map[common.EscrowID]*Escrow
 }
 
-func (c *Cache) getDataBlock(escrowID *ccmsg.EscrowID, objectID uint64, blockIdx uint64) ([]byte, error) {
+func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, objectID uint64, blockIdx uint64) ([]byte, error) {
 	escrow, err := c.getEscrow(escrowID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get escrow")
@@ -62,7 +63,7 @@ func (c *Cache) storeTicketL2(req *ccmsg.ClientCacheRequest) error {
 	return nil
 }
 
-func (c *Cache) HandleRequest(req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponse, error) {
+func (c *Cache) HandleRequest(ctx context.Context, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponse, error) {
 	// Make sure that we're participating in this escrow.
 	escrow, err := c.getEscrow(req.BundleRemainder.EscrowId)
 	if err != nil {
@@ -85,23 +86,23 @@ func (c *Cache) HandleRequest(req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCache
 
 	switch req.Ticket.(type) {
 	case *ccmsg.ClientCacheRequest_TicketRequest:
-		return c.handleDataRequest(escrow, req)
+		return c.handleDataRequest(ctx, escrow, req)
 	case *ccmsg.ClientCacheRequest_TicketL1:
-		return c.handleTicketL1Request(escrow, req)
+		return c.handleTicketL1Request(ctx, escrow, req)
 	case *ccmsg.ClientCacheRequest_TicketL2:
-		return c.handleTicketL2Request(escrow, req)
+		return c.handleTicketL2Request(ctx, escrow, req)
 	default:
 		return nil, errors.New("unexpected ticket type in client request")
 	}
 }
 
-func (c *Cache) handleDataRequest(escrow *Escrow, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponse, error) {
+func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponse, error) {
 	// XXX: Refactoring dust!
 	ticketRequest := req.Ticket.(*ccmsg.ClientCacheRequest_TicketRequest).TicketRequest
 
 	// If we don't have the block, ask the CP how to get it.
 	// XXX: This will need more arguments.
-	dataBlock, err := c.getDataBlock(req.BundleRemainder.EscrowId, req.BundleRemainder.ObjectId, ticketRequest.BlockIdx)
+	dataBlock, err := c.getDataBlock(ctx, req.BundleRemainder.EscrowId, req.BundleRemainder.ObjectId, ticketRequest.BlockIdx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get data block")
 	}
@@ -146,7 +147,7 @@ func (c *Cache) handleDataRequest(escrow *Escrow, req *ccmsg.ClientCacheRequest)
 	}, nil
 }
 
-func (c *Cache) handleTicketL1Request(escrow *Escrow, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponse, error) {
+func (c *Cache) handleTicketL1Request(ctx context.Context, escrow *Escrow, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponse, error) {
 	if err := c.storeTicketL1(req); err != nil {
 		return nil, errors.Wrap(err, "failed to store ticket")
 	}
@@ -169,7 +170,7 @@ func (c *Cache) handleTicketL1Request(escrow *Escrow, req *ccmsg.ClientCacheRequ
 	}, nil
 }
 
-func (c *Cache) handleTicketL2Request(escrow *Escrow, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponse, error) {
+func (c *Cache) handleTicketL2Request(ctx context.Context, escrow *Escrow, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponse, error) {
 	if err := c.storeTicketL2(req); err != nil {
 		return nil, errors.Wrap(err, "failed to store ticket")
 	}

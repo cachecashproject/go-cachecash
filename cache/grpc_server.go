@@ -14,7 +14,7 @@ type grpcClientCacheServer struct {
 var _ ccmsg.ClientCacheServer = (*grpcClientCacheServer)(nil)
 
 func (s *grpcClientCacheServer) GetBlock(ctx context.Context, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponseData, error) {
-	resp, err := s.cache.HandleRequest(req)
+	resp, err := s.cache.HandleRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func (s *grpcClientCacheServer) GetBlock(ctx context.Context, req *ccmsg.ClientC
 }
 
 func (s *grpcClientCacheServer) ExchangeTicketL1(ctx context.Context, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponseL1, error) {
-	resp, err := s.cache.HandleRequest(req)
+	resp, err := s.cache.HandleRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (s *grpcClientCacheServer) ExchangeTicketL1(ctx context.Context, req *ccmsg
 }
 
 func (s *grpcClientCacheServer) ExchangeTicketL2(ctx context.Context, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponseL2, error) {
-	resp, err := s.cache.HandleRequest(req)
+	resp, err := s.cache.HandleRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
