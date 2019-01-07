@@ -35,6 +35,8 @@ type Upstream interface {
 	//
 	// forceMetadata requires that object metadata be fetched even if it would not otherwise be fetched.
 	//
+	// rangeEnd must be >= rangeBegin.  rangeEnd == 0 means "continue to he end of the object".
+	//
 	// Cases:
 	// - We want to fetch metadata only.
 	// - We want to fetch metadata *and* a series of blocks.

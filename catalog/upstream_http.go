@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -58,12 +59,27 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 		"forceMetadata": forceMetadata,
 	}).Info("upstream fetch")
 
+	if rangeEnd != 0 && rangeEnd <= rangeBegin {
+		return nil, errors.New("invalid byte range")
+	}
+
 	u, err := up.upstreamURL(path)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get upstream URL")
 	}
 
-	resp, err := http.Get(u)
+	// TODO: Check Accept-Ranges header via HEAD; check Content-Range header in response; handle 416 responses.
+	req, _ := http.NewRequest("GET", u, nil)
+	if rangeBegin != 0 {
+		if rangeEnd != 0 {
+			req.Header.Add("Range", fmt.Sprintf("bytes=%v-%v", rangeBegin, rangeEnd))
+		} else {
+			req.Header.Add("Range", fmt.Sprintf("bytes=%v-", rangeBegin))
+		}
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed HTTP fetch")
 	}

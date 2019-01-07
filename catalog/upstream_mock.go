@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"net/http"
 
 	"github.com/kelleyk/go-cachecash/ccmsg"
@@ -35,6 +36,10 @@ func (up *MockUpstream) FetchData(ctx context.Context, path string, forceMetadat
 		"rangeEnd":      rangeEnd,
 		"forceMetadata": forceMetadata,
 	}).Info("upstream fetch")
+
+	if rangeBegin != 0 || rangeEnd != 0 {
+		return nil, errors.New("mock upstream does not support range requests")
+	}
 
 	data, ok := up.Objects[path]
 	if !ok {
