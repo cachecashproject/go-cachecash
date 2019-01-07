@@ -50,8 +50,13 @@ func (up *httpUpstream) CacheMiss(path string, rangeBegin, rangeEnd uint64) (*cc
 
 // XXX: What is the difference between an error returned from this function and an error stored in the FetchResult
 // struct?  When should we do one vs. the other?
-func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadata bool, blockOffset, blockCount int) (*FetchResult, error) {
-	up.l.WithFields(logrus.Fields{"path": path}).Info("upstream fetch")
+func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadata bool, rangeBegin, rangeEnd uint) (*FetchResult, error) {
+	up.l.WithFields(logrus.Fields{
+		"path":          path,
+		"rangeBegin":    rangeBegin,
+		"rangeEnd":      rangeEnd,
+		"forceMetadata": forceMetadata,
+	}).Info("upstream fetch")
 
 	u, err := up.upstreamURL(path)
 	if err != nil {

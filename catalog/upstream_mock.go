@@ -28,7 +28,14 @@ func (up *MockUpstream) CacheMiss(path string, rangeBegin, rangeEnd uint64) (*cc
 	panic("no impl")
 }
 
-func (up *MockUpstream) FetchData(ctx context.Context, path string, forceMetadata bool, blockOffset, blockCount int) (*FetchResult, error) {
+func (up *MockUpstream) FetchData(ctx context.Context, path string, forceMetadata bool, rangeBegin, rangeEnd uint) (*FetchResult, error) {
+	up.l.WithFields(logrus.Fields{
+		"path":          path,
+		"rangeBegin":    rangeBegin,
+		"rangeEnd":      rangeEnd,
+		"forceMetadata": forceMetadata,
+	}).Info("upstream fetch")
+
 	data, ok := up.Objects[path]
 	if !ok {
 		return &FetchResult{status: StatusNotFound}, nil

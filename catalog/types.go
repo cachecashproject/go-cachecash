@@ -42,11 +42,10 @@ type Upstream interface {
 	//   any extra effort.  We want to fetch a series of blocks.
 	//
 	// Questions:
-	// - Should we require that the blockIndices be a range?
 	// - Some upstreams will require CacheCash (not upstream) metadata for the object.  For example, the HTTP upstream
 	//   will need to know block sizes in order to translate block indices into byte ranges.  How should this be done?
 	//
-	FetchData(ctx context.Context, path string, forceMetadata bool, blockOffset, blockCount int) (*FetchResult, error)
+	FetchData(ctx context.Context, path string, forceMetadata bool, rangeBegin, rangeEnd uint) (*FetchResult, error)
 
 	CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error)
 }
