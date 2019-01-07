@@ -8,35 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// - Different objects may have different block strategies: different sizes; fixed-size vs. rolling-hash blocks, etc.
-
-/*
-type upstreamRequest struct {
-	doneCh chan struct{}
-
-	resp *http.Response
-	err  error
-}
-
-func makeUpstreamRequest(path string) *upstreamRequest {
-	r := &upstreamRequest{
-		doneCh: make(chan struct{}),
-	}
-	defer close(r.doneCh)
-	go r.fetch(path)
-	return r
-}
-func (r *upstreamRequest) fetch(path string) {
-
-	// XXX: This should become a HEAD request.
-}
-*/
-
-// policy describes how an object will be divided into blocks, etc.  This is information other than what is returned
-// from the upstream HTTP source.
-type policy struct {
-}
-
 type catalog struct {
 	l *logrus.Logger
 
@@ -54,10 +25,6 @@ func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 		upstream: upstream,
 		objects:  make(map[string]*ObjectMetadata),
 	}, nil
-}
-
-func (c *catalog) getObjectPolicy(path string) (*policy, error) {
-	return nil, nil
 }
 
 func (c *catalog) GetObjectMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {

@@ -372,3 +372,18 @@ message BlockSourceHTTP {
 }
 
 // ------------------------
+
+message ObjectMetadata {
+    uint64 size = 1;
+    uint64 block_size = 2;
+    // repeated string header = 3;
+
+    // Passed through by publisher from HTTP upstream.
+    bytes etag = 4;
+    string last_modified = 5;
+
+    // Decided by publisher based on HTTP headers.
+    string cache_expiration = 6;
+}
+
+// ------------------------
