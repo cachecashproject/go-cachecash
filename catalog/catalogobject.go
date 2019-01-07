@@ -143,6 +143,7 @@ func (m *ObjectMetadata) ensureFresh(ctx context.Context, path string) error {
 	return nil
 }
 
+// XXX: We take doneCh as an argument but ignore it in favor of m.reqDoneCh.
 func (m *ObjectMetadata) fetchMetadata(ctx context.Context, path string, doneCh chan struct{}) {
 	defer close(m.reqDoneCh)
 
