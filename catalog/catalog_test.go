@@ -33,7 +33,10 @@ func (suite *CatalogTestSuite) SetupTest() {
 	t := suite.T()
 
 	suite.l = logrus.New()
+	suite.l.SetLevel(logrus.DebugLevel)
+
 	suite.upstreamRequestQty = 0
+
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 
 	upstream, err := NewHTTPUpstream(suite.l, suite.ts.URL)
@@ -134,7 +137,7 @@ func (suite *CatalogTestSuite) TestCacheValid() {
 		assert.Nil(t, err)
 		assert.NotNil(t, m)
 		// assert.Nil(t, m.RespErr)
-		assert.Equal(t, StatusOK, m.Status)
+		assert.Equal(t, StatusOK, m.Status, "unexpected response status")
 
 		mm[i] = m
 	}
@@ -146,7 +149,7 @@ func (suite *CatalogTestSuite) TestCacheValid() {
 	}
 
 	// Due to caching, only a single request should be sent upstream.
-	assert.Equal(t, 1, suite.upstreamRequestQty)
+	assert.Equal(t, 1, suite.upstreamRequestQty, "request for cached data should not create another upstream request")
 }
 
 func (suite *CatalogTestSuite) TestNotFound() {
@@ -207,6 +210,9 @@ func (suite *CatalogTestSuite) TestUpstreamTimeout() {
 	assert.Equal(t, context.DeadlineExceeded, err)
 	assert.Nil(t, m)
 }
+
+// TODO:
+// - Test that metadata is populated after a successful request.
 
 // TestCacheExpired
 //  - case: object has not changed; revalidated

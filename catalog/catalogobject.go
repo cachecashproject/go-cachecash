@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/aes"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -128,7 +129,7 @@ func (m *ObjectMetadata) blockRange(rangeBegin, rangeEnd uint64) (uint64, uint64
 	if rangeEnd == 0 {
 		blockRangeEnd = 0
 	} else {
-		blockRangeEnd = rangeEnd / defaultBlockSize
+		blockRangeEnd = uint64(math.Ceil(float64(m.metadata.ObjectSize) / float64(m.metadata.BlockSize)))
 	}
 
 	return blockRangeBegin, blockRangeEnd
@@ -141,16 +142,19 @@ func (m *ObjectMetadata) rangeInCache(rangeBegin, rangeEnd uint64) bool {
 	if blockRangeEnd == 0 {
 		if m.metadata == nil || m.metadata.ObjectSize == 0 {
 			// We don't know how long the object is yet, so we must need to make an upstream request.
+			m.c.l.Debugf("rangeInCache() - unfilled metadata")
 			return false
 		}
 		blockRangeEnd = uint64(m.BlockCount())
 	}
 
-	if int(blockRangeEnd) >= len(m.blocks) {
+	if int(blockRangeEnd) > len(m.blocks) {
+		m.c.l.Debugf("rangeInCache() - cache too short to cover request")
 		return false
 	}
 	for i := blockRangeBegin; i < blockRangeEnd; i++ {
 		if m.blocks[i] == nil {
+			m.c.l.Debugf("rangeInCache() - cache missing block %v", i)
 			return false
 		}
 	}
@@ -165,6 +169,7 @@ func (m *ObjectMetadata) ensureFresh(ctx context.Context, req *ccmsg.ContentRequ
 	fresh := m.Fresh()
 	m.mu.Unlock()
 
+	m.c.l.Debugf("ensureFresh for byte range [%v, %v) -> covered=%v fresh=%v", req.RangeBegin, req.RangeEnd, covered, fresh)
 	if covered && fresh {
 		return nil
 	}
@@ -194,22 +199,50 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 	defer m.mu.Unlock()
 
 	blockRangeBegin, blockRangeEnd := m.blockRange(req.RangeBegin, req.RangeEnd)
+	m.c.l.Debugf("fetchData for requested blockRange [%v, %v)", blockRangeBegin, blockRangeEnd)
 
-	// XXX: What about error responses from upstream?
-	if r.status != StatusOK {
-		panic("error from upsream; no impl")
+	// Populate metadata.
+	if m.metadata == nil {
+		m.metadata = &ccmsg.ObjectMetadata{BlockSize: defaultBlockSize}
+	}
+	size, err := strconv.Atoi(r.header.Get("Content-Length"))
+	if err != nil {
+		panic("error parsing metadata")
+	}
+	m.metadata.ObjectSize = uint64(size)
+	m.c.l.Debugf("fetchData populates metadata; ObjectSize=%v", m.metadata.ObjectSize)
+
+	if blockRangeEnd == 0 {
+		blockRangeEnd = uint64(m.BlockCount())
+	}
+	m.c.l.Debugf("fetchData using blockRange [%v, %v)", blockRangeBegin, blockRangeEnd)
+
+	// XXX: Error responses from upstream shouldn't make us immediately drop the entire object on the floor.
+	m.c.l.Debugf("fetchData - r.status=%v (%d)", r.status, r.status)
+	m.Status = r.status
+	if m.Status != StatusOK {
+		return
 	}
 
 	// XXX: Handle case where we need to invalidate the data that's already in the cache.
 
-	// Ensure len(m.blocks) >= blockRangeEnd-1.
-	if len(m.blocks) > int(blockRangeEnd) {
-		m.blocks = append(m.blocks, make([][]byte, int(blockRangeEnd)-len(m.blocks)-1)...)
+	// Ensure len(m.blocks) >= blockRangeEnd.
+	if len(m.blocks) <= int(blockRangeEnd) {
+		m.blocks = append(m.blocks, make([][]byte, int(blockRangeEnd)-len(m.blocks))...)
 	}
+	m.c.l.Debugf("fetchData: after extend, len(m.blocks)=%v", len(m.blocks))
 
 	// XXX: Should not assume that response range matches request range.
 	blockSize := defaultBlockSize // XXX:
 	for i := 0; i < int(blockRangeEnd-blockRangeBegin); i++ {
-		m.blocks[i+int(blockRangeBegin)] = r.data[i*blockSize : (i+1)*blockSize]
+		m.c.l.Debugf("inserting object block into cache: %v", i+int(blockRangeBegin))
+
+		blockEnd := (i + 1) * blockSize
+		if blockEnd > len(r.data) {
+			blockEnd = len(r.data)
+		}
+		buf := r.data[i*blockSize : blockEnd]
+
+		m.blocks[i+int(blockRangeBegin)] = buf
 	}
 }
