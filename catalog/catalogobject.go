@@ -3,11 +3,12 @@ package catalog
 import (
 	"context"
 	"crypto/aes"
-	"net/http"
+	"math"
 	"sync"
 	"time"
 
 	cachecash "github.com/kelleyk/go-cachecash"
+	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 )
 
@@ -39,30 +40,28 @@ type ObjectMetadata struct {
 	LastUpdate  time.Time
 	LastAttempt time.Time
 
-	Nonempty bool // XXX: This will probably be replaced with something else (e.g. the real data members) shortly.
+	mu sync.RWMutex
 
-	RespHeader http.Header // Probably don't want to store these directly.
-	RespData   []byte
-	RespErr    error
-
-	mu        sync.Mutex
-	reqDoneCh chan struct{}
+	// Covered by `mu`.
+	metadata *ccmsg.ObjectMetadata
+	blocks   [][]byte
 }
 
 var _ cachecash.ContentObject = (*ObjectMetadata)(nil)
 
 func newObjectMetadata(c *catalog) *ObjectMetadata {
-	return &ObjectMetadata{c: c}
+	return &ObjectMetadata{
+		c:      c,
+		blocks: make([][]byte, 0),
+	}
 }
 
+// XXX: Needs real implementation.
 func (m *ObjectMetadata) Fresh() bool {
-	if !m.Nonempty {
-		return false
-	}
-
 	return true
 }
 
+// XXX: Un-hardwire this!
 const (
 	defaultBlockSize = 512 * 1024 // Fixed 512 KiB block size.
 )
@@ -75,17 +74,32 @@ func (m *ObjectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
 }
 
 func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
-	// XXX: Do better range checking/etc.  Obviously, this won't work once we are doing multiple partial fetches.
-	block := m.RespData[defaultBlockSize*dataBlockIdx : defaultBlockSize*(dataBlockIdx+1)]
-	m.c.l.Debugf("ObjectMetadata.GetBlock() len(rval)=%v", len(block))
-	return block, nil
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.getBlock(dataBlockIdx)
+}
+
+func (m *ObjectMetadata) getBlock(dataBlockIdx uint32) ([]byte, error) {
+	if int(dataBlockIdx) > len(m.blocks) || m.blocks[dataBlockIdx] == nil {
+		return nil, errors.New("block not in cache")
+	}
+
+	return m.blocks[dataBlockIdx], nil
+}
+
+func (m *ObjectMetadata) GetCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.getCipherBlock(dataBlockIdx, cipherBlockIdx)
 }
 
 // GetCipherBlock returns an individual cipher block (aka "sub-block") of a particular data block (a protocol-level
 // block).  The return value will be aes.BlockSize bytes long (16 bytes).  ciperBlockIdx is taken modulo the number
 // of whole cipher blocks that exist in the data block.
-func (m *ObjectMetadata) GetCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]byte, error) {
-	dataBlock, err := m.GetBlock(dataBlockIdx)
+func (m *ObjectMetadata) getCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]byte, error) {
+	dataBlock, err := m.getBlock(dataBlockIdx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get data block")
 	}
@@ -97,9 +111,9 @@ func (m *ObjectMetadata) GetCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]
 }
 
 // BlockCount returns the number of blocks in this object.
+// XXX: This is a problem; m.metadata may be nil if we don't know anything about the object.
 func (m *ObjectMetadata) BlockCount() int {
-	panic("no impl")
-	// return 0
+	return int(math.Ceil(float64(m.metadata.ObjectSize) / float64(m.metadata.BlockSize)))
 }
 
 func (m *ObjectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
@@ -107,55 +121,95 @@ func (m *ObjectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
 	// return nil, nil
 }
 
-// ensureFresh returns immediately if the object's metadata is already in-cache and fresh.  Otherwise, it ensures that
-// exactly one request for the metadata is made.
-func (m *ObjectMetadata) ensureFresh(ctx context.Context, path string) error {
-	// N.B.: At this point, all goroutines will have a pointer to the same m.
+func (m *ObjectMetadata) blockRange(rangeBegin, rangeEnd uint64) (uint64, uint64) {
+	blockRangeBegin := rangeBegin / defaultBlockSize // XXX:
 
-	if m.Fresh() {
+	var blockRangeEnd uint64
+	if rangeEnd == 0 {
+		blockRangeEnd = 0
+	} else {
+		blockRangeEnd = rangeEnd / defaultBlockSize
+	}
+
+	return blockRangeBegin, blockRangeEnd
+}
+
+// Requires that the caller hold a read lock on `m.mu`.
+func (m *ObjectMetadata) rangeInCache(rangeBegin, rangeEnd uint64) bool {
+	blockRangeBegin, blockRangeEnd := m.blockRange(rangeBegin, rangeEnd)
+
+	if blockRangeEnd == 0 {
+		if m.metadata == nil || m.metadata.ObjectSize == 0 {
+			// We don't know how long the object is yet, so we must need to make an upstream request.
+			return false
+		}
+		blockRangeEnd = uint64(m.BlockCount())
+	}
+
+	if int(blockRangeEnd) >= len(m.blocks) {
+		return false
+	}
+	for i := blockRangeBegin; i < blockRangeEnd; i++ {
+		if m.blocks[i] == nil {
+			return false
+		}
+	}
+	return true
+}
+
+// ensureFresh ensures that the object's metadata is valid (i.e. has not changed/expired), and that the block(s)
+// described by req are present in cache.
+func (m *ObjectMetadata) ensureFresh(ctx context.Context, req *ccmsg.ContentRequest) error {
+	m.mu.Lock()
+	covered := m.rangeInCache(req.RangeBegin, req.RangeEnd)
+	fresh := m.Fresh()
+	m.mu.Unlock()
+
+	if covered && fresh {
 		return nil
 	}
 
-	// m is not fresh; either it's an empty/new metadata object or the metadata we have has expired.
-	// We want exactly one upstream request to update it.
+	doneCh := make(chan struct{})
+	go m.fetchData(ctx, req, doneCh)
 
-	m.mu.Lock()
-	if m.reqDoneCh == nil {
-		m.reqDoneCh = make(chan struct{})
-		go m.fetchMetadata(ctx, path, m.reqDoneCh)
-	}
-	reqDoneCh := m.reqDoneCh
-	m.mu.Unlock()
-
-	// XXX: What if the request finishes before this point is reached?
 	select {
-	case <-reqDoneCh:
+	case <-doneCh:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 
-	// XXX: TODO: We don't actually want all of the requesters to get the outcome out the upstream request!  We want it
-	// to be processed once, and for the objectMetadata to be updated.  All of the other requesters need only be
-	// notified once the objectMetadata struct is ready for them to use!
-
-	// XXX: The metadata object itself may indicate that the object does not exist, etc.  Should we translate that into
-	// an error here?
 	return nil
 }
 
-// XXX: We take doneCh as an argument but ignore it in favor of m.reqDoneCh.
-func (m *ObjectMetadata) fetchMetadata(ctx context.Context, path string, doneCh chan struct{}) {
-	defer close(m.reqDoneCh)
+func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentRequest, doneCh chan struct{}) {
+	defer close(doneCh)
 
-	r, err := m.c.upstream.FetchData(ctx, path, true, 0, 0)
+	r, err := m.c.upstream.FetchData(ctx, req.Path, true, uint(req.RangeBegin), uint(req.RangeEnd))
 	if err != nil {
 		m.c.l.WithError(err).Error("failed to fetch from upstream")
 		return
 	}
 
-	// XXX: I'm not sure that we still want to do this.
-	m.RespHeader = r.header
-	m.RespData = r.data
-	m.Status = r.status
-	// TODO: Update last-fetched/last-attempted times based on status.
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	blockRangeBegin, blockRangeEnd := m.blockRange(req.RangeBegin, req.RangeEnd)
+
+	// XXX: What about error responses from upstream?
+	if r.status != StatusOK {
+		panic("error from upsream; no impl")
+	}
+
+	// XXX: Handle case where we need to invalidate the data that's already in the cache.
+
+	// Ensure len(m.blocks) >= blockRangeEnd-1.
+	if len(m.blocks) > int(blockRangeEnd) {
+		m.blocks = append(m.blocks, make([][]byte, int(blockRangeEnd)-len(m.blocks)-1)...)
+	}
+
+	// XXX: Should not assume that response range matches request range.
+	blockSize := defaultBlockSize // XXX:
+	for i := 0; i < int(blockRangeEnd-blockRangeBegin); i++ {
+		m.blocks[i+int(blockRangeBegin)] = r.data[i*blockSize : (i+1)*blockSize]
+	}
 }

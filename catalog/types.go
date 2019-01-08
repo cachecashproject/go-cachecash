@@ -57,3 +57,7 @@ type ContentCatalog interface {
 
 	CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error)
 }
+
+type ContentLocator interface {
+	GetContentSource(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error)
+}

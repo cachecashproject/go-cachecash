@@ -27,7 +27,8 @@ func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	}, nil
 }
 
-func (c *catalog) GetObjectMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {
+// XXX: Should return type be different?
+func (c *catalog) GetData(ctx context.Context, req *ccmsg.ContentRequest) (*ObjectMetadata, error) {
 	// There are several cases to consider.
 	// - There may be no record of the object in the cache.
 	// - There may be a record of the object, and...
@@ -38,20 +39,28 @@ func (c *catalog) GetObjectMetadata(ctx context.Context, path string) (*ObjectMe
 	// TODO: What if our requests to the upstream origin fail with retryable errors?  We should back off and retry
 	// without discarding data.
 
+	path := req.Path
+
 	// XXX: We don't need to hold a global lock this entire time, and we absolutely shouldn't hold it while we are
 	// watiing for requests in flight to resolve.
 	c.mu.Lock()
-	m, ok := c.objects[path]
+	m, ok := c.objects[req.Path]
 	if !ok {
 		m = newObjectMetadata(c)
 		c.objects[path] = m
 	}
 	c.mu.Unlock()
 
-	if err := m.ensureFresh(ctx, path); err != nil {
+	if err := m.ensureFresh(ctx, req); err != nil {
 		return nil, err
 	}
 	return m, nil
+
+}
+
+// XXX: Temporary; remove once refactoring is complete.
+func (c *catalog) GetObjectMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {
+	return c.GetData(ctx, &ccmsg.ContentRequest{Path: path})
 }
 
 func (c *catalog) CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error) {

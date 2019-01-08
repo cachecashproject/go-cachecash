@@ -347,17 +347,19 @@ service CacheProvider {
     rpc CacheMiss(CacheMissRequest) returns (CacheMissResponse) {}
 }
 
+// XXX: See similarities to ContentRequest.
 message CacheMissRequest {
-    // XXX: What's the correct type for this?
-    uint64 block_id = 1;    
+    string path = 1;
+
+    // In bytes.
+    uint64 range_begin = 2;
+    uint64 range_end = 3;
 }
 
 message CacheMissResponse {
     repeated uint64 slot_idx = 1;
-    
-    // TODO: How do we communicate information about how the object should be divided into blocks?  Just a 'block_size'
-    // parameter?
-    uint64 block_size = 2;
+
+    ObjectMetadata metadata = 2;
     
     oneof source {
         BlockSourceHTTP http = 10;
@@ -374,7 +376,7 @@ message BlockSourceHTTP {
 // ------------------------
 
 message ObjectMetadata {
-    uint64 size = 1;
+    uint64 object_size = 1;
     uint64 block_size = 2;
     // repeated string header = 3;
 

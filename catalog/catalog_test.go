@@ -101,7 +101,7 @@ func (suite *CatalogTestSuite) TestCoalescing() {
 			m, err := cat.GetObjectMetadata(ctx, "/foo/bar")
 			assert.Nil(t, err)
 			assert.NotNil(t, m)
-			assert.Nil(t, m.RespErr)
+			// assert.Nil(t, m.RespErr)
 			assert.Equal(t, StatusOK, m.Status)
 
 			mm[i] = m
@@ -133,7 +133,7 @@ func (suite *CatalogTestSuite) TestCacheValid() {
 		m, err := cat.GetObjectMetadata(ctx, "/foo/bar")
 		assert.Nil(t, err)
 		assert.NotNil(t, m)
-		assert.Nil(t, m.RespErr)
+		// assert.Nil(t, m.RespErr)
 		assert.Equal(t, StatusOK, m.Status)
 
 		mm[i] = m
@@ -159,7 +159,7 @@ func (suite *CatalogTestSuite) TestNotFound() {
 	m, err := cat.GetObjectMetadata(ctx, "/bogus")
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
-	assert.Nil(t, m.RespErr)
+	// assert.Nil(t, m.RespErr)
 	assert.Equal(t, StatusNotFound, m.Status)
 }
 

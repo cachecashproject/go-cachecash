@@ -314,30 +314,34 @@ func (p *ContentProvider) assignSlot(path string, blockIdx uint64) uint64 {
 func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
 	// TODO: How do we identify the cache submitting the request?
 
-	// First, at least for the HTTP upstream, we need to map the block ID back to a (path, block index) tuple.
-	//
-	// TODO: This is clearly not a great thing to make the publisher maintain; should investigate ways to remove this
-	// requirement.
-	//
-	// TODO: Should also verify that this cache has a reason to be requesting this content.  Could have the cache
-	// provide the request ticket from the client.  Might also be a good way to avoid the reverse-mapping issue.
-	rme, ok := p.reverseMapping[req.BlockId]
-	if !ok {
-		return nil, errors.New("no reverse mapping found for block ID")
-	}
+	/*
+			// First, at least for the HTTP upstream, we need to map the block ID back to a (path, block index) tuple.
+			//
+			// TODO: This is clearly not a great thing to make the publisher maintain; should investigate ways to remove this
+			// requirement.
+			//
+			// TODO: Should also verify that this cache has a reason to be requesting this content.  Could have the cache
+			// provide the request ticket from the client.  Might also be a good way to avoid the reverse-mapping issue.
+			rme, ok := p.reverseMapping[req.BlockId]
+			if !ok {
+				return nil, errors.New("no reverse mapping found for block ID")
+			}
 
-	// XXX:
-	blockIdx := rme.blockIdx
-	path := rme.path
+			// XXX:
+			blockIdx := rme.blockIdx
+			path := rme.path
 
-	// Get source information from the upstream module (in the case of HTTP, that's a URL and byte range)/
-	msg, err := p.catalog.CacheMiss(path, blockIdx, blockIdx+1)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate source information")
-	}
+		// Get source information from the upstream module (in the case of HTTP, that's a URL and byte range)/
+		msg, err := p.catalog.CacheMiss(path, blockIdx, blockIdx+1)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate source information")
+		}
 
-	// Select logical cache slots for each block.
-	msg.SlotIdx = []uint64{p.assignSlot(path, blockIdx)}
+		// Select logical cache slots for each block.
+		msg.SlotIdx = []uint64{p.assignSlot(path, blockIdx)}
 
-	return msg, nil
+		return msg, nil
+	*/
+
+	panic("no impl")
 }
