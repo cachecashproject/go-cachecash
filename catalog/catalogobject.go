@@ -122,14 +122,14 @@ func (m *ObjectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
 	// return nil, nil
 }
 
+// Converts a byte range to a block range.  An end value of 0, which indicates that the range continues to the end of
+// the object, converts to a 0.
 func (m *ObjectMetadata) blockRange(rangeBegin, rangeEnd uint64) (uint64, uint64) {
-	blockRangeBegin := rangeBegin / defaultBlockSize // XXX:
+	blockRangeBegin := rangeBegin / m.metadata.BlockSize
 
 	var blockRangeEnd uint64
-	if rangeEnd == 0 {
-		blockRangeEnd = 0
-	} else {
-		blockRangeEnd = uint64(math.Ceil(float64(m.metadata.ObjectSize) / float64(m.metadata.BlockSize)))
+	if rangeEnd != 0 {
+		blockRangeEnd = uint64(math.Ceil(float64(rangeEnd) / float64(m.metadata.BlockSize)))
 	}
 
 	return blockRangeBegin, blockRangeEnd
