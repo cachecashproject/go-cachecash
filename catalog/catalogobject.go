@@ -49,6 +49,8 @@ type ObjectMetadata struct {
 	blocks   [][]byte
 }
 
+// ObjectPolicy contains provider-determined metadata such as block size.  This is distinct from ccmsg.ObjectMetadata,
+// which contains metadata cached from the upstream.
 type ObjectPolicy struct {
 	BlockSize int
 }
@@ -194,6 +196,7 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 	r, err := m.c.upstream.FetchData(ctx, req.Path, true, uint(req.RangeBegin), uint(req.RangeEnd))
 	if err != nil {
 		m.c.l.WithError(err).Error("failed to fetch from upstream")
+		// XXX: Should set m.metadata.Status, right?  Why isn't this covered by the test suite?
 		return
 	}
 

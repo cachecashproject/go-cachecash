@@ -21,8 +21,10 @@ type CatalogTestSuite struct {
 	ts  *httptest.Server
 	cat *catalog
 
-	upstreamRequestQty    int
 	upstreamResponseDelay time.Duration
+
+	muMetrics          sync.Mutex
+	upstreamRequestQty int
 }
 
 func TestCatalogTestSuite(t *testing.T) {
@@ -55,7 +57,10 @@ func (suite *CatalogTestSuite) TearDownTest() {
 }
 
 func (suite *CatalogTestSuite) handleUpstreamRequest(w http.ResponseWriter, r *http.Request) {
+	suite.muMetrics.Lock()
 	suite.upstreamRequestQty++
+	suite.muMetrics.Unlock()
+
 	time.Sleep(suite.upstreamResponseDelay)
 
 	switch r.URL.Path {
@@ -82,6 +87,8 @@ func (suite *CatalogTestSuite) TestSimple() {
 	fmt.Printf("object metadata: %v\n", m)
 }
 
+/*
+XXX: Removed coalescing support.
 // Tests that when a downstream request is received when an upstream request is already in flight, a new upstream
 // request is not made; the result of the single upstream request is provided to all downstream requests.
 func (suite *CatalogTestSuite) TestCoalescing() {
@@ -105,7 +112,10 @@ func (suite *CatalogTestSuite) TestCoalescing() {
 			assert.Nil(t, err)
 			assert.NotNil(t, m)
 			// assert.Nil(t, m.RespErr)
+
+			// m.mu.Lock()
 			assert.Equal(t, StatusOK, m.Status)
+			// m.mu.Unlock()
 
 			mm[i] = m
 		}(i)
@@ -121,6 +131,7 @@ func (suite *CatalogTestSuite) TestCoalescing() {
 	// Due to coalescing, only a single request should be sent upstream.
 	assert.Equal(t, 1, suite.upstreamRequestQty)
 }
+*/
 
 // Once we have a valid cache entry, receiving another downstream request should not cause us to make an upstream
 // request.
