@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"crypto/aes"
+	"fmt"
 	"math"
 	"strconv"
 	"sync"
@@ -210,9 +211,10 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 	if m.metadata == nil {
 		m.metadata = &ccmsg.ObjectMetadata{}
 	}
+	// XXX: What if header is absent?
 	size, err := strconv.Atoi(r.header.Get("Content-Length"))
 	if err != nil {
-		panic("error parsing metadata")
+		panic(fmt.Sprintf("error parsing metadata: %v", err))
 	}
 	m.metadata.ObjectSize = uint64(size)
 	m.c.l.Debugf("fetchData populates metadata; ObjectSize=%v", m.metadata.ObjectSize)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/kelleyk/go-cachecash/ccmsg"
@@ -47,7 +48,9 @@ func (up *MockUpstream) FetchData(ctx context.Context, path string, forceMetadat
 	}
 
 	return &FetchResult{
-		header: http.Header{},
+		header: http.Header{
+			"Content-Length": []string{fmt.Sprintf("%v", len(data))},
+		},
 		data:   data,
 		status: StatusOK,
 	}, nil
