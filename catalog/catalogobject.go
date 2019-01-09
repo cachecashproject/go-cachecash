@@ -44,8 +44,13 @@ type ObjectMetadata struct {
 	mu sync.RWMutex
 
 	// Covered by `mu`.
+	policy   *ObjectPolicy
 	metadata *ccmsg.ObjectMetadata
 	blocks   [][]byte
+}
+
+type ObjectPolicy struct {
+	BlockSize int
 }
 
 var _ cachecash.ContentObject = (*ObjectMetadata)(nil)
@@ -54,6 +59,9 @@ func newObjectMetadata(c *catalog) *ObjectMetadata {
 	return &ObjectMetadata{
 		c:      c,
 		blocks: make([][]byte, 0),
+		policy: &ObjectPolicy{
+			BlockSize: 512 * 1024, // Fixed 512 KiB block size.  XXX: Don't hardwire this!
+		},
 	}
 }
 
@@ -62,16 +70,10 @@ func (m *ObjectMetadata) Fresh() bool {
 	return true
 }
 
-// XXX: Un-hardwire this!
-const (
-	defaultBlockSize = 512 * 1024 // Fixed 512 KiB block size.
-)
-
 // BlockSize returns the size of a particular data block in bytes.
 // TODO: Do we really need this?
 func (m *ObjectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
-
-	return defaultBlockSize, nil
+	return m.policy.BlockSize, nil
 }
 
 func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
@@ -114,7 +116,7 @@ func (m *ObjectMetadata) getCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]
 // BlockCount returns the number of blocks in this object.
 // XXX: This is a problem; m.metadata may be nil if we don't know anything about the object.
 func (m *ObjectMetadata) BlockCount() int {
-	return int(math.Ceil(float64(m.metadata.ObjectSize) / float64(m.metadata.BlockSize)))
+	return int(math.Ceil(float64(m.metadata.ObjectSize) / float64(m.policy.BlockSize)))
 }
 
 func (m *ObjectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
@@ -125,11 +127,11 @@ func (m *ObjectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
 // Converts a byte range to a block range.  An end value of 0, which indicates that the range continues to the end of
 // the object, converts to a 0.
 func (m *ObjectMetadata) blockRange(rangeBegin, rangeEnd uint64) (uint64, uint64) {
-	blockRangeBegin := rangeBegin / m.metadata.BlockSize
+	blockRangeBegin := rangeBegin / uint64(m.policy.BlockSize)
 
 	var blockRangeEnd uint64
 	if rangeEnd != 0 {
-		blockRangeEnd = uint64(math.Ceil(float64(rangeEnd) / float64(m.metadata.BlockSize)))
+		blockRangeEnd = uint64(math.Ceil(float64(rangeEnd) / float64(m.policy.BlockSize)))
 	}
 
 	return blockRangeBegin, blockRangeEnd
@@ -203,7 +205,7 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 
 	// Populate metadata.
 	if m.metadata == nil {
-		m.metadata = &ccmsg.ObjectMetadata{BlockSize: defaultBlockSize}
+		m.metadata = &ccmsg.ObjectMetadata{}
 	}
 	size, err := strconv.Atoi(r.header.Get("Content-Length"))
 	if err != nil {
@@ -233,7 +235,7 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 	m.c.l.Debugf("fetchData: after extend, len(m.blocks)=%v", len(m.blocks))
 
 	// XXX: Should not assume that response range matches request range.
-	blockSize := defaultBlockSize // XXX:
+	blockSize := m.policy.BlockSize // XXX:
 	for i := 0; i < int(blockRangeEnd-blockRangeBegin); i++ {
 		m.c.l.Debugf("inserting object block into cache: %v", i+int(blockRangeBegin))
 
