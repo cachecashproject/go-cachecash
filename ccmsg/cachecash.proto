@@ -117,6 +117,8 @@ message TicketRequest {
     uint64 block_idx = 2;  // XXX: This'll need to change if we remove the 1:1 cache-to-block correspondence.
     BlockKey inner_key = 3; // XXX: Why is this here?
 
+    uint64 block_id = 5; // @KK: Added temporarily; need to figure out which of ID, index, etc. are necessary.
+
     PublicKey cache_public_key = 4;
 }
 
@@ -318,11 +320,12 @@ service CacheProvider {
 
 // XXX: See similarities to ContentRequest.
 message CacheMissRequest {
-    string path = 1;
-
-    // In bytes.
+    // In blocks.
+    // XXX: This was formerly in bytes.  Was there a good reason for that?
     uint64 range_begin = 2;
     uint64 range_end = 3;
+
+    uint64 object_id = 4;
 }
 
 message CacheMissResponse {
@@ -339,7 +342,8 @@ message CacheMissResponse {
 
 message BlockSourceHTTP {
     string url = 1;
-    string range = 2;
+    uint64 range_begin = 2;
+    uint64 range_end = 3;    
 }
 
 // ------------------------

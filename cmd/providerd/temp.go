@@ -6,7 +6,6 @@ import (
 	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/cache"
 	"github.com/kelleyk/go-cachecash/ccmsg"
-	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/provider"
 	"github.com/kelleyk/go-cachecash/testutil"
 	"github.com/pkg/errors"
@@ -46,8 +45,11 @@ func makeProvider() (*provider.ContentProvider, error) {
 		return nil, err
 	}
 
-	// Create a content object.
-	obj, err := cachecash.RandomContentBuffer(16, 128*1024) // 16 blocks of 128 KiB
+	// Create a content object: 16 blocks of 128 KiB.
+	blockSize := uint32(128 * 1024)
+	blockCount := uint32(16)
+	objectSize := blockSize * blockCount
+	obj, err := cachecash.RandomContentBuffer(blockCount, blockSize)
 	if err != nil {
 		return nil, err
 	}
@@ -74,15 +76,29 @@ func makeProvider() (*provider.ContentProvider, error) {
 			Port:           uint32(9000 + i),
 		})
 
-		c := &cache.Cache{
-			Escrows: make(map[common.EscrowID]*cache.Escrow),
+		c, err := cache.NewCache(l)
+		if err != nil {
+			return nil, err
 		}
 		ce := &cache.Escrow{
 			InnerMasterKey: innerMasterKey,
 			OuterMasterKey: testutil.RandBytes(16),
-			Objects:        make(map[uint64]cachecash.ContentObject),
 		}
-		ce.Objects[999] = obj
+		if err := c.Storage.PutMetadata(42, 999, &ccmsg.ObjectMetadata{
+			BlockSize:  uint64(blockSize),
+			ObjectSize: uint64(objectSize),
+		}); err != nil {
+			return nil, err
+		}
+		for j := 0; j < obj.BlockCount(); j++ {
+			data, err := obj.GetBlock(uint32(j))
+			if err != nil {
+				return nil, err
+			}
+			if err := c.Storage.PutData(42, uint64(j), data); err != nil {
+				return nil, err
+			}
+		}
 		c.Escrows[escrow.ID()] = ce
 		caches = append(caches, c)
 		_ = private

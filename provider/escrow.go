@@ -172,6 +172,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 		// Generate a ticket-request for each cache.
 		resp.TicketRequest = append(resp.TicketRequest, &ccmsg.TicketRequest{
 			BlockIdx:       uint64(bep.BlockIdx),
+			BlockId:        uint64(10000 + bep.BlockIdx), // XXX: This should be a hash, not just a reused block index.
 			CachePublicKey: cachecash.PublicKeyMessage(bep.Cache.PublicKey),
 
 			// XXX: Why is 'inner_key' in this message?  Regardless, we need the submessage not to be nil, or we'll get

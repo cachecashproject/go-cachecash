@@ -5,21 +5,24 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 
-	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/batchsignature"
 	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/util"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 type Escrow struct {
 	InnerMasterKey []byte // XXX: Shared with provider?
 	OuterMasterKey []byte
 
-	// XXX: Temporary:
-	Objects map[uint64]cachecash.ContentObject
+	ProviderCacheServiceAddr string
 }
 
 func (e *Escrow) Active() bool {
@@ -27,9 +30,91 @@ func (e *Escrow) Active() bool {
 }
 
 type Cache struct {
+	l *logrus.Logger
+
 	Escrows map[common.EscrowID]*Escrow
+
+	Storage *CacheStorage
 }
 
+func NewCache(l *logrus.Logger) (*Cache, error) {
+	return &Cache{
+		l:       l,
+		Escrows: make(map[common.EscrowID]*Escrow),
+	}, nil
+}
+
+func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, objectID uint64, blockIdx, blockID uint64) ([]byte, error) {
+	// XXX: Need to decide on a type and replace this with a real escrow ID.
+	var intEscrowID uint64
+
+	// Can we satisfy the request out of cache?
+
+	data, err := c.Storage.GetData(intEscrowID, blockID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get data block")
+	}
+
+	if data == nil {
+		escrow, err := c.getEscrow(escrowID)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get escrow")
+		}
+
+		// XXX: No transport security!
+		// XXX: Should not create a new connection for each attempt.
+		c.l.Info("dialing provider's cache-facing service")
+		conn, err := grpc.Dial(escrow.ProviderCacheServiceAddr, grpc.WithInsecure())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to dial")
+		}
+		grpcClient := ccmsg.NewCacheProviderClient(conn)
+
+		// First, contact the provider's cache-facing service and ask where to fetch this block from.
+		c.l.Info("asking provider for cache-miss info")
+		resp, err := grpcClient.CacheMiss(ctx, &ccmsg.CacheMissRequest{
+			ObjectId:   objectID,
+			RangeBegin: blockIdx,
+			RangeEnd:   blockIdx + 1,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to fetch upstream info from provider")
+		}
+
+		// Fetch it.
+		c.l.Info("fetching data from HTTP upstream")
+		source := resp.Source.(*ccmsg.CacheMissResponse_Http).Http
+		req, err := http.NewRequest("GET", source.Url, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to build HTTP request")
+		}
+		req.Header.Set("Range", fmt.Sprintf("%v-%v", source.RangeBegin, source.RangeEnd))
+		httpClient := &http.Client{}
+		httpResp, err := httpClient.Do(req)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to fetch object from HTTP upstream")
+		}
+		defer httpResp.Body.Close()
+		data, err = ioutil.ReadAll(httpResp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to read body of object from HTTP upstream")
+		}
+
+		// Insert it into the cache.
+		c.l.Info("inserting data into cache")
+		if err := c.Storage.PutMetadata(intEscrowID, blockID, resp.Metadata); err != nil {
+			return nil, errors.Wrap(err, "failed to store metadata in cache")
+		}
+		if err := c.Storage.PutData(intEscrowID, blockID, data); err != nil {
+			return nil, errors.Wrap(err, "failed to store data in cache")
+		}
+	}
+
+	c.l.Info("cache returns data")
+	return data, nil
+}
+
+/*
 func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, objectID uint64, blockIdx uint64) ([]byte, error) {
 	escrow, err := c.getEscrow(escrowID)
 	if err != nil {
@@ -43,6 +128,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 
 	return obj.GetBlock(uint32(blockIdx)) // XXX: Fix typing.
 }
+*/
 
 func (c *Cache) getEscrow(escrowID *ccmsg.EscrowID) (*Escrow, error) {
 	// XXX: Don't just ignore the escrow ID!
@@ -101,8 +187,7 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 	ticketRequest := req.Ticket.(*ccmsg.ClientCacheRequest_TicketRequest).TicketRequest
 
 	// If we don't have the block, ask the CP how to get it.
-	// XXX: This will need more arguments.
-	dataBlock, err := c.getDataBlock(ctx, req.BundleRemainder.EscrowId, req.BundleRemainder.ObjectId, ticketRequest.BlockIdx)
+	dataBlock, err := c.getDataBlock(ctx, req.BundleRemainder.EscrowId, req.BundleRemainder.ObjectId, ticketRequest.BlockIdx, ticketRequest.BlockId)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get data block")
 	}

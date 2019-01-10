@@ -66,8 +66,11 @@ func (ts *TestServer) setup() error {
 	}
 	ts.escrow = escrow
 
-	// Create a content object.
-	obj, err := cachecash.RandomContentBuffer(16, 128*1024) // 16 blocks of 128 KiB
+	// Create a content object: 16 blocks of 128 KiB.
+	blockSize := uint32(128 * 1024)
+	blockCount := uint32(16)
+	objectSize := blockSize * blockCount
+	obj, err := cachecash.RandomContentBuffer(blockCount, blockSize)
 	if err != nil {
 		return err
 	}
@@ -95,15 +98,29 @@ func (ts *TestServer) setup() error {
 			Port:           uint32(9000 + i),
 		})
 
-		c := &cache.Cache{
-			Escrows: make(map[common.EscrowID]*cache.Escrow),
+		c, err := cache.NewCache(ts.l)
+		if err != nil {
+			return err
 		}
 		ce := &cache.Escrow{
 			InnerMasterKey: innerMasterKey,
 			OuterMasterKey: testutil.RandBytes(16),
-			Objects:        make(map[uint64]cachecash.ContentObject),
 		}
-		ce.Objects[999] = obj
+		if err := c.Storage.PutMetadata(42, 999, &ccmsg.ObjectMetadata{
+			BlockSize:  uint64(blockSize),
+			ObjectSize: uint64(objectSize),
+		}); err != nil {
+			return err
+		}
+		for j := 0; j < obj.BlockCount(); j++ {
+			data, err := obj.GetBlock(uint32(j))
+			if err != nil {
+				return err
+			}
+			if err := c.Storage.PutData(42, uint64(j), data); err != nil {
+				return err
+			}
+		}
 		c.Escrows[escrow.ID()] = ce
 		caches = append(caches, c)
 		_ = private
