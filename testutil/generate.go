@@ -34,8 +34,9 @@ func (ts *TestScenario) BlockCount() uint64 {
 	return uint64(math.Ceil(float64(ts.Params.ObjectSize) / float64(ts.Params.BlockSize)))
 }
 
-func GenerateTestScenario(params *TestScenarioParams) (*TestScenario, error) {
+func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestScenario, error) {
 	ts := &TestScenario{
+		L:      l,
 		Params: params,
 	}
 

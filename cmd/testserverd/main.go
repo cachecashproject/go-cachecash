@@ -3,19 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 
 	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/cache"
-	"github.com/kelleyk/go-cachecash/catalog"
-	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/provider"
 	"github.com/kelleyk/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ed25519"
 )
 
 /*
@@ -57,113 +53,21 @@ type Config struct {
 
 // XXX: Cribbed from `integration_test.go`.
 func (ts *TestServer) setup() error {
-
 	ts.l = logrus.New()
-
-	// XXX: This should be configurable by flag or environment variable.
 	ts.l.SetLevel(logrus.DebugLevel)
 
-	// Create content catalog.
-	upstream, err := catalog.NewHTTPUpstream(ts.l, "http://localhost:8081")
-	if err != nil {
-		return errors.Wrap(err, "failed to create HTTP upstream")
-	}
-	cat, err := catalog.NewCatalog(ts.l, upstream)
-	if err != nil {
-		return errors.Wrap(err, "failed to create catalog")
-	}
-
-	// Create a provider.
-	_, providerPrivateKey, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		return errors.Wrap(err, "failed to generate provider keypair")
-	}
-	prov, err := provider.NewContentProvider(ts.l, cat, providerPrivateKey)
-	if err != nil {
-		return err
-	}
-	ts.provider = prov
-
-	// Create escrow and add it to the provider.
-	escrow, err := prov.NewEscrow(&ccmsg.EscrowInfo{
-		DrawDelay:       5,
-		ExpirationDelay: 5,
-		StartBlock:      42,
-		TicketsPerBlock: []*ccmsg.Segment{
-			&ccmsg.Segment{Length: 10, Value: 100},
-		},
+	scen, err := testutil.GenerateTestScenario(ts.l, &testutil.TestScenarioParams{
+		BlockSize:  128 * 1024,
+		ObjectSize: 128 * 1024 * 16,
 	})
 	if err != nil {
 		return err
 	}
-	if err := prov.AddEscrow(escrow); err != nil {
-		return err
-	}
-	ts.escrow = escrow
 
-	// Create a content object: 16 blocks of 128 KiB.
-	blockSize := uint32(128 * 1024)
-	blockCount := uint32(16)
-	objectSize := blockSize * blockCount
-	obj, err := cachecash.RandomContentBuffer(blockCount, blockSize)
-	if err != nil {
-		return err
-	}
-	escrow.Objects["/foo/bar"] = provider.EscrowObjectInfo{
-		Object: obj,
-		// N.B.: This becomes BundleParams.ObjectID
-		// XXX: What's that used for?  Are it and BlockIdx used to uniquely identify blocks on the cache?  I think we're
-		// using content addressing, aren't we?
-		ID: 999,
-	}
-	ts.obj = obj
-
-	// Create caches that are participating in this escrow.
-	var caches []*cache.Cache
-	for i := 0; i < 4; i++ {
-		public, private, err := ed25519.GenerateKey(nil)
-		if err != nil {
-			return errors.Wrap(err, "failed to generate cache keypair")
-		}
-
-		// XXX: generate master-key
-		innerMasterKey := testutil.RandBytes(16)
-
-		escrow.Caches = append(escrow.Caches, &provider.ParticipatingCache{
-			InnerMasterKey: innerMasterKey,
-			PublicKey:      public,
-			Inetaddr:       net.ParseIP("127.0.0.1"),
-			Port:           uint32(9000 + i),
-		})
-
-		c, err := cache.NewCache(ts.l)
-		if err != nil {
-			return err
-		}
-		ce := &cache.Escrow{
-			InnerMasterKey: innerMasterKey,
-			OuterMasterKey: testutil.RandBytes(16),
-		}
-		if err := c.Storage.PutMetadata(42, 999, &ccmsg.ObjectMetadata{
-			BlockSize:  uint64(blockSize),
-			ObjectSize: uint64(objectSize),
-		}); err != nil {
-			return err
-		}
-		for j := 0; j < obj.BlockCount(); j++ {
-			data, err := obj.GetBlock(uint32(j))
-			if err != nil {
-				return err
-			}
-			if err := c.Storage.PutData(42, uint64(j), data); err != nil {
-				return err
-			}
-		}
-		c.Escrows[escrow.ID()] = ce
-		caches = append(caches, c)
-		_ = private
-	}
-	ts.caches = caches
+	ts.provider = scen.Provider
+	ts.escrow = scen.Escrow
+	ts.obj = scen.Obj
+	ts.caches = scen.Caches
 
 	return nil
 }
