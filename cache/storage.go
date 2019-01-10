@@ -1,8 +1,12 @@
 package cache
 
-import "github.com/kelleyk/go-cachecash/ccmsg"
+import (
+	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/sirupsen/logrus"
+)
 
 type CacheStorage struct {
+	l       *logrus.Logger
 	escrows map[uint64]*escrowState
 }
 
@@ -11,8 +15,9 @@ type escrowState struct {
 	metadata map[uint64]*ccmsg.ObjectMetadata
 }
 
-func (s *CacheStorage) NewCacheStorage() (*CacheStorage, error) {
+func NewCacheStorage(l *logrus.Logger) (*CacheStorage, error) {
 	return &CacheStorage{
+		l:       l,
 		escrows: make(map[uint64]*escrowState),
 	}, nil
 }
@@ -25,7 +30,6 @@ func newEscrowState() *escrowState {
 }
 
 func (s *CacheStorage) getEscrowState(escrowID uint64) *escrowState {
-	panic("s.escrows is nil")
 	es, ok := s.escrows[escrowID]
 	if !ok {
 		es = newEscrowState()

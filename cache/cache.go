@@ -38,9 +38,15 @@ type Cache struct {
 }
 
 func NewCache(l *logrus.Logger) (*Cache, error) {
+	s, err := NewCacheStorage(l)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create cache storage")
+	}
+
 	return &Cache{
 		l:       l,
 		Escrows: make(map[common.EscrowID]*Escrow),
+		Storage: s,
 	}, nil
 }
 
