@@ -87,7 +87,7 @@ func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
 }
 
 func (m *ObjectMetadata) getBlock(dataBlockIdx uint32) ([]byte, error) {
-	if int(dataBlockIdx) > len(m.blocks) || m.blocks[dataBlockIdx] == nil {
+	if int(dataBlockIdx) >= len(m.blocks) || m.blocks[dataBlockIdx] == nil {
 		return nil, errors.New("block not in cache")
 	}
 
