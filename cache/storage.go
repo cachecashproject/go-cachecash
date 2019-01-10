@@ -11,6 +11,12 @@ type escrowState struct {
 	metadata map[uint64]*ccmsg.ObjectMetadata
 }
 
+func (s *CacheStorage) NewCacheStorage() (*CacheStorage, error) {
+	return &CacheStorage{
+		escrows: make(map[uint64]*escrowState),
+	}, nil
+}
+
 func newEscrowState() *escrowState {
 	return &escrowState{
 		data:     make(map[uint64][]byte),
@@ -18,11 +24,8 @@ func newEscrowState() *escrowState {
 	}
 }
 
-func (s *CacheStorage) NewCacheStorage() (*CacheStorage, error) {
-	return &CacheStorage{}, nil
-}
-
 func (s *CacheStorage) getEscrowState(escrowID uint64) *escrowState {
+	panic("s.escrows is nil")
 	es, ok := s.escrows[escrowID]
 	if !ok {
 		es = newEscrowState()

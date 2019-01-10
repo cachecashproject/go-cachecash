@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/kelleyk/go-cachecash/provider"
-	"github.com/kelleyk/go-cachecash/testutil"
+	"github.com/kelleyk/go-cachecash/testdatagen"
 	"github.com/sirupsen/logrus"
 )
 
@@ -11,7 +11,7 @@ func makeProvider() (*provider.ContentProvider, error) {
 	l := logrus.New()
 	l.SetLevel(logrus.DebugLevel)
 
-	scen, err := testutil.GenerateTestScenario(l, &testutil.TestScenarioParams{
+	scen, err := testdatagen.GenerateTestScenario(l, &testdatagen.TestScenarioParams{
 		BlockSize:  128 * 1024,
 		ObjectSize: 128 * 1024 * 16,
 	})

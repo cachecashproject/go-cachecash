@@ -1,4 +1,4 @@
-package testutil
+package testdatagen
 
 import (
 	"math"
@@ -9,6 +9,7 @@ import (
 	"github.com/kelleyk/go-cachecash/catalog"
 	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/kelleyk/go-cachecash/provider"
+	"github.com/kelleyk/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
@@ -103,7 +104,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		}
 
 		// XXX: generate master-key
-		innerMasterKey := RandBytes(16)
+		innerMasterKey := testutil.RandBytes(16)
 
 		escrow.Caches = append(escrow.Caches, &provider.ParticipatingCache{
 			InnerMasterKey: innerMasterKey,
@@ -118,7 +119,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		}
 		ce := &cache.Escrow{
 			InnerMasterKey: innerMasterKey,
-			OuterMasterKey: RandBytes(16),
+			OuterMasterKey: testutil.RandBytes(16),
 		}
 		if err := c.Storage.PutMetadata(42, 999, &ccmsg.ObjectMetadata{
 			BlockSize:  ts.Params.BlockSize,

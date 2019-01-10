@@ -9,7 +9,7 @@ import (
 	"github.com/kelleyk/go-cachecash/cache"
 	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/provider"
-	"github.com/kelleyk/go-cachecash/testutil"
+	"github.com/kelleyk/go-cachecash/testdatagen"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -56,7 +56,7 @@ func (ts *TestServer) setup() error {
 	ts.l = logrus.New()
 	ts.l.SetLevel(logrus.DebugLevel)
 
-	scen, err := testutil.GenerateTestScenario(ts.l, &testutil.TestScenarioParams{
+	scen, err := testdatagen.GenerateTestScenario(ts.l, &testdatagen.TestScenarioParams{
 		BlockSize:  128 * 1024,
 		ObjectSize: 128 * 1024 * 16,
 	})
