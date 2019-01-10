@@ -238,10 +238,6 @@ message ContentRequest {
     uint64 range_end = 6;
 
     uint64 sequence_no = 4; // XXX: I'm not sure that this is required.  It's a unique-per-client value fed into the keyed PRF used to derive inner keys.
-    
-    // request sequence number (what is this used for?  just used to avoid unintentional duplicate requests?)
-
-    // TODO: Add parameters for range requests.
 }
 
 // Response to a ContentRequest.
@@ -260,37 +256,10 @@ message ContentResponse {
 // ------------------------
 
 service ClientCache {
-    /*
-    // XXX: These are standardized names and types.
-    rpc GetBlock(GetBlockRequest) returns (GetBlockResponse) {}
-    rpc ExchangeTicketL1(ExchangeTicketL1Request) returns (ExchangeTicketL1Response) {}
-    rpc ExchangeTicketL2(ExchangeTicketL2Request) returns (ExchangeTicketL2Response) {}
-    */
-    
     rpc GetBlock(ClientCacheRequest) returns (ClientCacheResponseData) {}
     rpc ExchangeTicketL1(ClientCacheRequest) returns (ClientCacheResponseL1) {}
     rpc ExchangeTicketL2(ClientCacheRequest) returns (ClientCacheResponseL2) {}
 }
-
-/*
-message GetBlockRequest {
-}
-
-message GetBlockResponse {
-}
-
-message ExchangeTicketL1Request {
-}
-
-message ExchangeTicketL1Response {
-}
-
-message ExchangeTicketL2Request {
-}
-
-message ExchangeTicketL2Response {
-}
-*/
 
 // --- old-style messages below this line ---
 

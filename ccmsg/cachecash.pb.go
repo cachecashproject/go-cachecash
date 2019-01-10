@@ -35,7 +35,7 @@ func (m *Error) Reset()         { *m = Error{} }
 func (m *Error) String() string { return proto.CompactTextString(m) }
 func (*Error) ProtoMessage()    {}
 func (*Error) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{0}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{0}
 }
 func (m *Error) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -90,7 +90,7 @@ func (m *PublicKey) Reset()         { *m = PublicKey{} }
 func (m *PublicKey) String() string { return proto.CompactTextString(m) }
 func (*PublicKey) ProtoMessage()    {}
 func (*PublicKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{1}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{1}
 }
 func (m *PublicKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -140,7 +140,7 @@ func (m *Envelope) Reset()         { *m = Envelope{} }
 func (m *Envelope) String() string { return proto.CompactTextString(m) }
 func (*Envelope) ProtoMessage()    {}
 func (*Envelope) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{2}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{2}
 }
 func (m *Envelope) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -276,7 +276,7 @@ func (m *EscrowInfo) Reset()         { *m = EscrowInfo{} }
 func (m *EscrowInfo) String() string { return proto.CompactTextString(m) }
 func (*EscrowInfo) ProtoMessage()    {}
 func (*EscrowInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{3}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{3}
 }
 func (m *EscrowInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -366,7 +366,7 @@ func (m *Segment) Reset()         { *m = Segment{} }
 func (m *Segment) String() string { return proto.CompactTextString(m) }
 func (*Segment) ProtoMessage()    {}
 func (*Segment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{4}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{4}
 }
 func (m *Segment) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -428,7 +428,7 @@ func (m *TicketBundle) Reset()         { *m = TicketBundle{} }
 func (m *TicketBundle) String() string { return proto.CompactTextString(m) }
 func (*TicketBundle) ProtoMessage()    {}
 func (*TicketBundle) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{5}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{5}
 }
 func (m *TicketBundle) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -524,7 +524,7 @@ func (m *TicketBundleRemainder) Reset()         { *m = TicketBundleRemainder{} }
 func (m *TicketBundleRemainder) String() string { return proto.CompactTextString(m) }
 func (*TicketBundleRemainder) ProtoMessage()    {}
 func (*TicketBundleRemainder) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{6}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{6}
 }
 func (m *TicketBundleRemainder) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -599,7 +599,7 @@ func (m *CacheInfo) Reset()         { *m = CacheInfo{} }
 func (m *CacheInfo) String() string { return proto.CompactTextString(m) }
 func (*CacheInfo) ProtoMessage()    {}
 func (*CacheInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{7}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{7}
 }
 func (m *CacheInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -650,7 +650,7 @@ func (m *NetworkAddress) Reset()         { *m = NetworkAddress{} }
 func (m *NetworkAddress) String() string { return proto.CompactTextString(m) }
 func (*NetworkAddress) ProtoMessage()    {}
 func (*NetworkAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{8}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{8}
 }
 func (m *NetworkAddress) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -715,7 +715,7 @@ func (m *ColocationPuzzleInfo) Reset()         { *m = ColocationPuzzleInfo{} }
 func (m *ColocationPuzzleInfo) String() string { return proto.CompactTextString(m) }
 func (*ColocationPuzzleInfo) ProtoMessage()    {}
 func (*ColocationPuzzleInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{9}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{9}
 }
 func (m *ColocationPuzzleInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -786,7 +786,7 @@ func (m *BatchSignature) Reset()         { *m = BatchSignature{} }
 func (m *BatchSignature) String() string { return proto.CompactTextString(m) }
 func (*BatchSignature) ProtoMessage()    {}
 func (*BatchSignature) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{10}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{10}
 }
 func (m *BatchSignature) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -855,7 +855,7 @@ func (m *BlockKey) Reset()         { *m = BlockKey{} }
 func (m *BlockKey) String() string { return proto.CompactTextString(m) }
 func (*BlockKey) ProtoMessage()    {}
 func (*BlockKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{11}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{11}
 }
 func (m *BlockKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -906,7 +906,7 @@ func (m *TicketRequest) Reset()         { *m = TicketRequest{} }
 func (m *TicketRequest) String() string { return proto.CompactTextString(m) }
 func (*TicketRequest) ProtoMessage()    {}
 func (*TicketRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{12}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{12}
 }
 func (m *TicketRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -976,7 +976,7 @@ func (m *TicketL1) Reset()         { *m = TicketL1{} }
 func (m *TicketL1) String() string { return proto.CompactTextString(m) }
 func (*TicketL1) ProtoMessage()    {}
 func (*TicketL1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{13}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{13}
 }
 func (m *TicketL1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1046,7 +1046,7 @@ func (m *TicketL2) Reset()         { *m = TicketL2{} }
 func (m *TicketL2) String() string { return proto.CompactTextString(m) }
 func (*TicketL2) ProtoMessage()    {}
 func (*TicketL2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{14}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{14}
 }
 func (m *TicketL2) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1102,7 +1102,7 @@ func (m *EscrowID) Reset()         { *m = EscrowID{} }
 func (m *EscrowID) String() string { return proto.CompactTextString(m) }
 func (*EscrowID) ProtoMessage()    {}
 func (*EscrowID) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{15}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{15}
 }
 func (m *EscrowID) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1157,7 +1157,7 @@ func (m *TicketL2Info) Reset()         { *m = TicketL2Info{} }
 func (m *TicketL2Info) String() string { return proto.CompactTextString(m) }
 func (*TicketL2Info) ProtoMessage()    {}
 func (*TicketL2Info) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{16}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{16}
 }
 func (m *TicketL2Info) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1215,7 +1215,7 @@ func (m *Certificate) Reset()         { *m = Certificate{} }
 func (m *Certificate) String() string { return proto.CompactTextString(m) }
 func (*Certificate) ProtoMessage()    {}
 func (*Certificate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{17}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{17}
 }
 func (m *Certificate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1287,7 +1287,7 @@ func (m *TicketBundleSubdigests) Reset()         { *m = TicketBundleSubdigests{}
 func (m *TicketBundleSubdigests) String() string { return proto.CompactTextString(m) }
 func (*TicketBundleSubdigests) ProtoMessage()    {}
 func (*TicketBundleSubdigests) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{18}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{18}
 }
 func (m *TicketBundleSubdigests) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1364,7 +1364,7 @@ func (m *ContentRequest) Reset()         { *m = ContentRequest{} }
 func (m *ContentRequest) String() string { return proto.CompactTextString(m) }
 func (*ContentRequest) ProtoMessage()    {}
 func (*ContentRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{19}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{19}
 }
 func (m *ContentRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1444,7 +1444,7 @@ func (m *ContentResponse) Reset()         { *m = ContentResponse{} }
 func (m *ContentResponse) String() string { return proto.CompactTextString(m) }
 func (*ContentResponse) ProtoMessage()    {}
 func (*ContentResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{20}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{20}
 }
 func (m *ContentResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1515,7 +1515,7 @@ func (m *ClientCacheRequest) Reset()         { *m = ClientCacheRequest{} }
 func (m *ClientCacheRequest) String() string { return proto.CompactTextString(m) }
 func (*ClientCacheRequest) ProtoMessage()    {}
 func (*ClientCacheRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{21}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{21}
 }
 func (m *ClientCacheRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1739,7 +1739,7 @@ func (m *ClientCacheResponse) Reset()         { *m = ClientCacheResponse{} }
 func (m *ClientCacheResponse) String() string { return proto.CompactTextString(m) }
 func (*ClientCacheResponse) ProtoMessage()    {}
 func (*ClientCacheResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{22}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{22}
 }
 func (m *ClientCacheResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1957,7 +1957,7 @@ func (m *ClientCacheResponseData) Reset()         { *m = ClientCacheResponseData
 func (m *ClientCacheResponseData) String() string { return proto.CompactTextString(m) }
 func (*ClientCacheResponseData) ProtoMessage()    {}
 func (*ClientCacheResponseData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{23}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{23}
 }
 func (m *ClientCacheResponseData) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2005,7 +2005,7 @@ func (m *ClientCacheResponseL1) Reset()         { *m = ClientCacheResponseL1{} }
 func (m *ClientCacheResponseL1) String() string { return proto.CompactTextString(m) }
 func (*ClientCacheResponseL1) ProtoMessage()    {}
 func (*ClientCacheResponseL1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{24}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{24}
 }
 func (m *ClientCacheResponseL1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2051,7 +2051,7 @@ func (m *ClientCacheResponseL2) Reset()         { *m = ClientCacheResponseL2{} }
 func (m *ClientCacheResponseL2) String() string { return proto.CompactTextString(m) }
 func (*ClientCacheResponseL2) ProtoMessage()    {}
 func (*ClientCacheResponseL2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{25}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{25}
 }
 func (m *ClientCacheResponseL2) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2095,7 +2095,7 @@ func (m *CacheMissRequest) Reset()         { *m = CacheMissRequest{} }
 func (m *CacheMissRequest) String() string { return proto.CompactTextString(m) }
 func (*CacheMissRequest) ProtoMessage()    {}
 func (*CacheMissRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{26}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{26}
 }
 func (m *CacheMissRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2160,7 +2160,7 @@ func (m *CacheMissResponse) Reset()         { *m = CacheMissResponse{} }
 func (m *CacheMissResponse) String() string { return proto.CompactTextString(m) }
 func (*CacheMissResponse) ProtoMessage()    {}
 func (*CacheMissResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{27}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{27}
 }
 func (m *CacheMissResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2296,7 +2296,7 @@ func (m *BlockSourceHTTP) Reset()         { *m = BlockSourceHTTP{} }
 func (m *BlockSourceHTTP) String() string { return proto.CompactTextString(m) }
 func (*BlockSourceHTTP) ProtoMessage()    {}
 func (*BlockSourceHTTP) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{28}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{28}
 }
 func (m *BlockSourceHTTP) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2356,7 +2356,7 @@ func (m *ObjectMetadata) Reset()         { *m = ObjectMetadata{} }
 func (m *ObjectMetadata) String() string { return proto.CompactTextString(m) }
 func (*ObjectMetadata) ProtoMessage()    {}
 func (*ObjectMetadata) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cachecash_cbf26258c393e6fb, []int{29}
+	return fileDescriptor_cachecash_f7820c6acd461353, []int{29}
 }
 func (m *ObjectMetadata) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -9207,9 +9207,9 @@ var (
 	ErrIntOverflowCachecash   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("cachecash.proto", fileDescriptor_cachecash_cbf26258c393e6fb) }
+func init() { proto.RegisterFile("cachecash.proto", fileDescriptor_cachecash_f7820c6acd461353) }
 
-var fileDescriptor_cachecash_cbf26258c393e6fb = []byte{
+var fileDescriptor_cachecash_f7820c6acd461353 = []byte{
 	// 1865 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x58, 0x4f, 0x73, 0xdc, 0x4a,
 	0x11, 0x5f, 0xed, 0x1f, 0x5b, 0xdb, 0xfb, 0xd7, 0xe3, 0xc4, 0xd9, 0x97, 0x97, 0xe7, 0x18, 0x01,
