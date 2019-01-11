@@ -55,11 +55,16 @@ func (up *MockUpstream) FetchData(ctx context.Context, path string, forceMetadat
 
 	up.l.Debugf("mock upstream fetch: responding to request for bytes [%v, %v) with %v bytes", rangeBegin, rangeEnd, len(respData))
 
+	h := http.Header{
+		"Content-Length": []string{fmt.Sprintf("%v", len(respData))},
+	}
+	if rangeBegin != 0 || rangeEnd != 0 {
+		// TODO: This still isn't quite the same as "if they specified a range in the request..."
+		h["Content-Range"] = []string{fmt.Sprintf("bytes %v-%v/%v", rangeBegin, rangeEnd-1, len(data))}
+	}
+
 	return &FetchResult{
-		header: http.Header{
-			"Content-Length": []string{fmt.Sprintf("%v", len(respData))},
-			"Content-Range":  []string{fmt.Sprintf("bytes %v-%v/%v", rangeBegin, rangeEnd-1, len(data))},
-		},
+		header: h,
 		data:   respData,
 		status: StatusOK,
 	}, nil
