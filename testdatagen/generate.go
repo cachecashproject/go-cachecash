@@ -19,7 +19,8 @@ type TestScenarioParams struct {
 	BlockSize  uint64
 	ObjectSize uint64
 
-	MockUpstream bool
+	MockUpstream   bool
+	GenerateObject bool
 
 	// These are optional.  If provided, they override the default that would have been generated.
 	Upstream catalog.Upstream
@@ -69,11 +70,13 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	ts.L.SetLevel(logrus.DebugLevel)
 
 	// Create a content object.
-	obj, err := cachecash.RandomContentBuffer(uint32(ts.BlockCount()), uint32(ts.Params.BlockSize))
-	if err != nil {
-		return nil, err
+	if params.GenerateObject {
+		obj, err := cachecash.RandomContentBuffer(uint32(ts.BlockCount()), uint32(ts.Params.BlockSize))
+		if err != nil {
+			return nil, err
+		}
+		ts.Obj = obj
 	}
-	ts.Obj = obj
 
 	// Create upstream.
 	if ts.Upstream == nil {
@@ -82,11 +85,13 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to create mock upstream")
 			}
-			objData, err := contentObjectToBytes(ts.Obj)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to convert ContentObject to bytes")
+			if params.GenerateObject {
+				objData, err := contentObjectToBytes(ts.Obj)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to convert ContentObject to bytes")
+				}
+				mockUpstream.Objects["/foo/bar"] = objData
 			}
-			mockUpstream.Objects["/foo/bar"] = objData
 			ts.Upstream = mockUpstream
 		} else {
 			ts.Upstream, err = catalog.NewHTTPUpstream(ts.L, "http://localhost:8081")
@@ -132,12 +137,14 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	ts.Escrow = escrow
 
 	// Add object to escrow.  XXX: Is this still necessary?
-	escrow.Objects["/foo/bar"] = provider.EscrowObjectInfo{
-		Object: obj,
-		// N.B.: This becomes BundleParams.ObjectID
-		// XXX: What's that used for?  Are it and BlockIdx used to uniquely identify blocks on the cache?  I think we're
-		// using content addressing, aren't we?
-		ID: 999,
+	if params.GenerateObject {
+		escrow.Objects["/foo/bar"] = provider.EscrowObjectInfo{
+			Object: ts.Obj,
+			// N.B.: This becomes BundleParams.ObjectID
+			// XXX: What's that used for?  Are it and BlockIdx used to uniquely identify blocks on the cache?  I think we're
+			// using content addressing, aren't we?
+			ID: 999,
+		}
 	}
 
 	// Create caches that are participating in this escrow.
@@ -171,15 +178,17 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		}); err != nil {
 			return nil, err
 		}
-		for j := 0; j < obj.BlockCount(); j++ {
-			data, err := obj.GetBlock(uint32(j))
-			if err != nil {
-				return nil, err
-			}
-			blockID := 10000 + uint64(j) // XXX: This is hardwired here and in the provider; need to replace with e.g. something content-based.
-			intEscrowID := uint64(42)    // XXX: This is hardwired here and in the provider.
-			if err := c.Storage.PutData(intEscrowID, blockID, data); err != nil {
-				return nil, err
+		if params.GenerateObject {
+			for j := 0; j < ts.Obj.BlockCount(); j++ {
+				data, err := ts.Obj.GetBlock(uint32(j))
+				if err != nil {
+					return nil, err
+				}
+				blockID := 10000 + uint64(j) // XXX: This is hardwired here and in the provider; need to replace with e.g. something content-based.
+				intEscrowID := uint64(42)    // XXX: This is hardwired here and in the provider.
+				if err := c.Storage.PutData(intEscrowID, blockID, data); err != nil {
+					return nil, err
+				}
 			}
 		}
 		c.Escrows[escrow.ID()] = ce

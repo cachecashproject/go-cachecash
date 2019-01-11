@@ -47,9 +47,10 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 	ctx := context.Background()
 
 	scen, err := testdatagen.GenerateTestScenario(l, &testdatagen.TestScenarioParams{
-		BlockSize:    128 * 1024,
-		ObjectSize:   128 * 1024 * 16,
-		MockUpstream: true,
+		BlockSize:      128 * 1024,
+		ObjectSize:     128 * 1024 * 16,
+		MockUpstream:   true,
+		GenerateObject: true,
 	})
 	if err != nil {
 		return err
