@@ -52,7 +52,7 @@ func NewCache(l *logrus.Logger) (*Cache, error) {
 
 func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, objectID uint64, blockIdx, blockID uint64) ([]byte, error) {
 	// XXX: Need to decide on a type and replace this with a real escrow ID.
-	var intEscrowID uint64
+	intEscrowID := uint64(42)
 
 	// Can we satisfy the request out of cache?
 

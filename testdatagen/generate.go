@@ -176,7 +176,9 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			if err != nil {
 				return nil, err
 			}
-			if err := c.Storage.PutData(42, uint64(j), data); err != nil {
+			blockID := 10000 + uint64(j) // XXX: This is hardwired here and in the provider; need to replace with e.g. something content-based.
+			intEscrowID := uint64(42)    // XXX: This is hardwired here and in the provider.
+			if err := c.Storage.PutData(intEscrowID, blockID, data); err != nil {
 				return nil, err
 			}
 		}
