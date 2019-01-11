@@ -176,13 +176,13 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			InnerMasterKey: innerMasterKey,
 			OuterMasterKey: testutil.RandBytes(16),
 		}
-		if err := c.Storage.PutMetadata(42, 999, &ccmsg.ObjectMetadata{
-			BlockSize:  ts.Params.BlockSize,
-			ObjectSize: ts.Params.ObjectSize,
-		}); err != nil {
-			return nil, err
-		}
 		if params.GenerateObject {
+			if err := c.Storage.PutMetadata(42, 999, &ccmsg.ObjectMetadata{
+				BlockSize:  ts.Params.BlockSize,
+				ObjectSize: ts.Params.ObjectSize,
+			}); err != nil {
+				return nil, err
+			}
 			for j := 0; j < ts.Obj.BlockCount(); j++ {
 				data, err := ts.Obj.GetBlock(uint32(j))
 				if err != nil {
