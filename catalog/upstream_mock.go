@@ -53,12 +53,14 @@ func (up *MockUpstream) FetchData(ctx context.Context, path string, forceMetadat
 	}
 	respData = respData[rangeBegin:rangeEnd]
 
+	up.l.Debugf("mock upstream fetch: responding to request for bytes [%v, %v) with %v bytes", rangeBegin, rangeEnd, len(respData))
+
 	return &FetchResult{
 		header: http.Header{
-			"Content-Length": []string{fmt.Sprintf("%v", len(data))},
-			"Content-Range":  []string{fmt.Sprintf("%v-%v/%v", rangeBegin, rangeEnd-1, len(data))},
+			"Content-Length": []string{fmt.Sprintf("%v", len(respData))},
+			"Content-Range":  []string{fmt.Sprintf("bytes %v-%v/%v", rangeBegin, rangeEnd-1, len(data))},
 		},
-		data:   data,
+		data:   respData,
 		status: StatusOK,
 	}, nil
 }

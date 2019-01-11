@@ -5,7 +5,6 @@ import (
 	"crypto/aes"
 	"fmt"
 	"math"
-	"strconv"
 	"sync"
 	"time"
 
@@ -216,7 +215,7 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 		m.metadata = &ccmsg.ObjectMetadata{}
 	}
 	// XXX: What if header is absent?
-	size, err := strconv.Atoi(r.header.Get("Content-Length"))
+	size, err := r.ObjectSize()
 	if err != nil {
 		panic(fmt.Sprintf("error parsing metadata: %v", err))
 	}
@@ -242,6 +241,8 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 		m.blocks = append(m.blocks, make([][]byte, int(blockRangeEnd)-len(m.blocks))...)
 	}
 	m.c.l.Debugf("fetchData: after extend, len(m.blocks)=%v", len(m.blocks))
+
+	m.c.l.Debugf("fetchData: response len(data)=%v", len(r.data))
 
 	// XXX: Should not assume that response range matches request range.
 	blockSize := m.policy.BlockSize // XXX:

@@ -2,7 +2,11 @@ package catalog
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/kelleyk/go-cachecash/ccmsg"
 )
@@ -27,6 +31,39 @@ type FetchResult struct {
 	header http.Header
 	data   []byte
 	status ObjectStatus
+}
+
+// ObjectSize returns the size of the entire object; the response might actually contain data for only some part of it.
+// TODO: Support '*' in the Content-Range header.
+//
+// Valid formats for the 'Content-Range' header:
+//   'bytes 0-49/500'    // The first 50 bytes of a 500-byte object.
+//   'bytes 0-49/*'      // The first 50 bytes of an object whose length is unknown.
+//   'bytes */1234'      // Used in 416 (Range Not Satisfiable) responses.
+//
+func (r *FetchResult) ObjectSize() (int, error) {
+	cr := r.header.Get("Content-Range")
+	cl := r.header.Get("Content-Length")
+
+	if cr == "" {
+		if cl == "" {
+			return 0, errors.New("response contains neither Content-Length nor Content-Range header")
+		}
+		return strconv.Atoi(cl)
+	}
+
+	parts := strings.Fields(cr)
+	if len(parts) != 2 {
+		return 0, errors.New("Content-Range header has unexpected number of words")
+	}
+	if parts[0] != "bytes" {
+		return 0, errors.New("Content-Range header contains unsupported length unit")
+	}
+	var rangeBegin, rangeEnd, objectSize int
+	if _, err := fmt.Sscanf(parts[1], "%d-%d/%d", &rangeBegin, &rangeEnd, &objectSize); err != nil {
+		return 0, errors.New("Content-Range header has unexpected format")
+	}
+	return objectSize, nil
 }
 
 type Upstream interface {
