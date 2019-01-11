@@ -63,7 +63,7 @@ func newObjectMetadata(c *catalog) *ObjectMetadata {
 		c:      c,
 		blocks: make([][]byte, 0),
 		policy: &ObjectPolicy{
-			BlockSize: 512 * 1024, // Fixed 512 KiB block size.  XXX: Don't hardwire this!
+			BlockSize: 128 * 1024, // Fixed 128 KiB block size.  XXX: Don't hardwire this!
 		},
 	}
 }
@@ -87,6 +87,7 @@ func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
 }
 
 func (m *ObjectMetadata) getBlock(dataBlockIdx uint32) ([]byte, error) {
+	fmt.Printf(">>> getBlock(%v) len(m.blocks)=%v\n", dataBlockIdx, len(m.blocks))
 	if int(dataBlockIdx) >= len(m.blocks) || m.blocks[dataBlockIdx] == nil {
 		return nil, errors.New("block not in cache")
 	}
@@ -143,6 +144,9 @@ func (m *ObjectMetadata) blockRange(rangeBegin, rangeEnd uint64) (uint64, uint64
 // Requires that the caller hold a read lock on `m.mu`.
 func (m *ObjectMetadata) rangeInCache(rangeBegin, rangeEnd uint64) bool {
 	blockRangeBegin, blockRangeEnd := m.blockRange(rangeBegin, rangeEnd)
+
+	m.c.l.Debugf("rangeInCache() bytes [%v, %v) -> blocks [%v, %v)",
+		rangeBegin, rangeEnd, blockRangeBegin, blockRangeEnd)
 
 	if blockRangeEnd == 0 {
 		if m.metadata == nil || m.metadata.ObjectSize == 0 {

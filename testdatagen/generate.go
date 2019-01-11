@@ -18,12 +18,20 @@ import (
 type TestScenarioParams struct {
 	BlockSize  uint64
 	ObjectSize uint64
+
+	MockUpstream bool
+
+	// These are optional.  If provided, they override the default that would have been generated.
+	Upstream catalog.Upstream
 }
 
 type TestScenario struct {
 	L *logrus.Logger
 
+	Upstream catalog.Upstream
+
 	Provider *provider.ContentProvider
+	Catalog  catalog.ContentCatalog
 	Escrow   *provider.Escrow
 
 	Params *TestScenarioParams
@@ -35,24 +43,65 @@ func (ts *TestScenario) BlockCount() uint64 {
 	return uint64(math.Ceil(float64(ts.Params.ObjectSize) / float64(ts.Params.BlockSize)))
 }
 
+// XXX: This shouldn't be necessary; we should reduce/eliminate the use of ContentObject.
+func contentObjectToBytes(obj cachecash.ContentObject) ([]byte, error) {
+	var data []byte
+	for i := 0; i < obj.BlockCount(); i++ {
+		block, err := obj.GetBlock(uint32(i))
+		if err != nil {
+			return nil, errors.New("failed to get data block")
+		}
+		data = append(data, block...)
+	}
+	return data, nil
+}
+
 func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestScenario, error) {
+	var err error
+
 	ts := &TestScenario{
-		L:      l,
-		Params: params,
+		L:        l,
+		Params:   params,
+		Upstream: params.Upstream,
 	}
 
 	ts.L = logrus.New()
 	ts.L.SetLevel(logrus.DebugLevel)
 
-	// Create content catalog.
-	upstream, err := catalog.NewHTTPUpstream(ts.L, "http://localhost:8081")
+	// Create a content object.
+	obj, err := cachecash.RandomContentBuffer(uint32(ts.BlockCount()), uint32(ts.Params.BlockSize))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create HTTP upstream")
+		return nil, err
 	}
-	cat, err := catalog.NewCatalog(ts.L, upstream)
+	ts.Obj = obj
+
+	// Create upstream.
+	if ts.Upstream == nil {
+		if params.MockUpstream {
+			mockUpstream, err := catalog.NewMockUpstream(ts.L)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to create mock upstream")
+			}
+			objData, err := contentObjectToBytes(ts.Obj)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to convert ContentObject to bytes")
+			}
+			mockUpstream.Objects["/foo/bar"] = objData
+			ts.Upstream = mockUpstream
+		} else {
+			ts.Upstream, err = catalog.NewHTTPUpstream(ts.L, "http://localhost:8081")
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to create HTTP upstream")
+			}
+		}
+	}
+
+	// Create content catalog.
+	cat, err := catalog.NewCatalog(ts.L, ts.Upstream)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create catalog")
 	}
+	ts.Catalog = cat
 
 	// Create a provider.
 	_, providerPrivateKey, err := ed25519.GenerateKey(nil)
@@ -82,11 +131,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	}
 	ts.Escrow = escrow
 
-	// Create a content object.
-	obj, err := cachecash.RandomContentBuffer(uint32(ts.BlockCount()), uint32(ts.Params.BlockSize))
-	if err != nil {
-		return nil, err
-	}
+	// Add object to escrow.  XXX: Is this still necessary?
 	escrow.Objects["/foo/bar"] = provider.EscrowObjectInfo{
 		Object: obj,
 		// N.B.: This becomes BundleParams.ObjectID
@@ -94,7 +139,6 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		// using content addressing, aren't we?
 		ID: 999,
 	}
-	ts.Obj = obj
 
 	// Create caches that are participating in this escrow.
 	for i := 0; i < 4; i++ {

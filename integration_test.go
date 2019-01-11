@@ -47,8 +47,9 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 	ctx := context.Background()
 
 	scen, err := testdatagen.GenerateTestScenario(l, &testdatagen.TestScenarioParams{
-		BlockSize:  128 * 1024,
-		ObjectSize: 128 * 1024 * 16,
+		BlockSize:    128 * 1024,
+		ObjectSize:   128 * 1024 * 16,
+		MockUpstream: true,
 	})
 	if err != nil {
 		return err
@@ -56,6 +57,23 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 
 	prov := scen.Provider
 	caches := scen.Caches
+
+	// Pull information about the object into the provider's catalog so that no upstream fetches are necessary.
+	l.Infof("pulling metadata into provider catalog: start")
+	// scen.Catalog.
+	l.Infof("pulling metadata into provider catalog: done")
+	l.Infof("pulling data into provider catalog: start")
+	for i := 0; i < int(scen.BlockCount()); i++ {
+		_, err = scen.Catalog.GetData(ctx, &ccmsg.ContentRequest{
+			Path:       "/foo/bar",
+			RangeBegin: uint64(i) * scen.Params.BlockSize,
+			RangeEnd:   uint64(i+1) * scen.Params.BlockSize,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	l.Infof("pulling data into provider catalog: done")
 
 	// Create a client keypair.
 	clientPublicKey, clientPrivateKey, err := ed25519.GenerateKey(nil)

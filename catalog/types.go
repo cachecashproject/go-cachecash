@@ -53,6 +53,9 @@ type Upstream interface {
 }
 
 type ContentCatalog interface {
+	GetData(ctx context.Context, req *ccmsg.ContentRequest) (*ObjectMetadata, error)
+
+	// XXX: Temporary; remove once refactoring is complete.
 	GetObjectMetadata(ctx context.Context, path string) (*ObjectMetadata, error)
 
 	CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error)
