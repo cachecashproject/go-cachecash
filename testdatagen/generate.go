@@ -19,7 +19,11 @@ type TestScenarioParams struct {
 	BlockSize  uint64
 	ObjectSize uint64
 
-	MockUpstream   bool
+	// MockUpstream indicates whether a mock upstream should be generated in place of the default HTTP upstream.  If
+	// Upstream is non-nil, no upstream is generated, and this value has no effect.
+	MockUpstream bool
+	// GenerateObject indicates whether or not a random test object (with path "/foo/bar") should be generated.  If
+	// MockUpstream is also true, the object is inserted into the mock upstream.
 	GenerateObject bool
 
 	// These are optional.  If provided, they override the default that would have been generated.
