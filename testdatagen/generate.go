@@ -173,8 +173,9 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			return nil, err
 		}
 		ce := &cache.Escrow{
-			InnerMasterKey: innerMasterKey,
-			OuterMasterKey: testutil.RandBytes(16),
+			InnerMasterKey:           innerMasterKey,
+			OuterMasterKey:           testutil.RandBytes(16),
+			ProviderCacheServiceAddr: "localhost:8082",
 		}
 		if params.GenerateObject {
 			if err := c.Storage.PutMetadata(42, 999, &ccmsg.ObjectMetadata{
