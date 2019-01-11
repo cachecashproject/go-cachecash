@@ -38,18 +38,25 @@ func (up *MockUpstream) FetchData(ctx context.Context, path string, forceMetadat
 		"forceMetadata": forceMetadata,
 	}).Info("upstream fetch")
 
-	if rangeBegin != 0 || rangeEnd != 0 {
-		return nil, errors.New("mock upstream does not support range requests")
-	}
-
 	data, ok := up.Objects[path]
 	if !ok {
 		return &FetchResult{status: StatusNotFound}, nil
 	}
 
+	if rangeEnd != 0 && rangeEnd > uint(len(data)) {
+		return nil, errors.New("invalid range")
+	}
+
+	respData := data
+	if rangeEnd == 0 {
+		rangeEnd = uint(len(respData))
+	}
+	respData = respData[rangeBegin:rangeEnd]
+
 	return &FetchResult{
 		header: http.Header{
 			"Content-Length": []string{fmt.Sprintf("%v", len(data))},
+			"Content-Range":  []string{fmt.Sprintf("%v-%v/%v", rangeBegin, rangeEnd-1, len(data))},
 		},
 		data:   data,
 		status: StatusOK,

@@ -59,9 +59,9 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 	caches := scen.Caches
 
 	// Pull information about the object into the provider's catalog so that no upstream fetches are necessary.
-	l.Infof("pulling metadata into provider catalog: start")
-	// scen.Catalog.
-	l.Infof("pulling metadata into provider catalog: done")
+	// l.Infof("pulling metadata into provider catalog: start")
+	// // scen.Catalog.
+	// l.Infof("pulling metadata into provider catalog: done")
 	l.Infof("pulling data into provider catalog: start")
 	for i := 0; i < int(scen.BlockCount()); i++ {
 		_, err = scen.Catalog.GetData(ctx, &ccmsg.ContentRequest{
