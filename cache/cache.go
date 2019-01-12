@@ -88,24 +88,44 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 		}
 		c.l.Debugf("cache-miss response: %v", resp)
 
-		// Fetch it.
-		c.l.Info("fetching data from HTTP upstream")
-		source := resp.Source.(*ccmsg.CacheMissResponse_Http).Http
-		req, err := http.NewRequest("GET", source.Url, nil)
+		// Build request.
+		c.l.Info("building request")
+		source, ok := resp.Source.(*ccmsg.CacheMissResponse_Http)
+		if !ok {
+			return nil, errors.New(fmt.Sprintf("unexpected block source type: %T", resp.Source))
+		}
+		req, err := http.NewRequest("GET", source.Http.Url, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to build HTTP request")
 		}
-		req.Header.Set("Range", fmt.Sprintf("%v-%v", source.RangeBegin, source.RangeEnd))
+		req.Header.Set("Range", fmt.Sprintf("%v-%v", source.Http.RangeBegin, source.Http.RangeEnd))
+
+		// Make request to upstream.
+		c.l.Infof("fetching data from HTTP upstream; req=%v", req)
 		httpClient := &http.Client{}
 		httpResp, err := httpClient.Do(req)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch object from HTTP upstream")
 		}
-		defer httpResp.Body.Close()
+		defer func() {
+			_ = httpResp.Body.Close()
+		}()
+
+		// Interpret response.
+		switch {
+		case httpResp.StatusCode == http.StatusOK:
+		default:
+			return nil, fmt.Errorf("unexpected status from HTTP upstream: %v", httpResp.Status)
+		}
 		data, err = ioutil.ReadAll(httpResp.Body)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to read body of object from HTTP upstream")
 		}
+
+		c.l.WithFields(logrus.Fields{
+			"len":  len(data),
+			"data": data,
+		}).Info("got response from HTTP upstream")
 
 		// Insert it into the cache.
 		c.l.Info("inserting data into cache")
@@ -196,6 +216,7 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 	// If we don't have the block, ask the CP how to get it.
 	dataBlock, err := c.getDataBlock(ctx, req.BundleRemainder.EscrowId, req.BundleRemainder.ObjectId, ticketRequest.BlockIdx, ticketRequest.BlockId)
 	if err != nil {
+		c.l.WithError(err).Error("failed to get data block") // XXX: Should just be doing this at the top level so that we see all errors.
 		return nil, errors.Wrap(err, "failed to get data block")
 	}
 
