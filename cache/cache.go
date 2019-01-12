@@ -86,6 +86,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch upstream info from provider")
 		}
+		c.l.Debugf("cache-miss response: %v", resp)
 
 		// Fetch it.
 		c.l.Info("fetching data from HTTP upstream")

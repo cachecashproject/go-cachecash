@@ -44,11 +44,6 @@ func (up *httpUpstream) upstreamURL(path string) (string, error) {
 	return u.String(), nil
 }
 
-// N.B.: Only the `Source` field should be populated in the return value.
-func (up *httpUpstream) CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error) {
-	panic("no impl")
-}
-
 // XXX: What is the difference between an error returned from this function and an error stored in the FetchResult
 // struct?  When should we do one vs. the other?
 func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadata bool, rangeBegin, rangeEnd uint) (*FetchResult, error) {
@@ -122,5 +117,27 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 		header: resp.Header,
 		data:   body,
 		status: status,
+	}, nil
+}
+
+func (up *httpUpstream) BlockSource(req *ccmsg.CacheMissRequest, path string, policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error) {
+	u, err := up.upstreamURL(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get upstream URL")
+	}
+
+	var rangeEnd uint64
+	if req.RangeEnd != 0 {
+		rangeEnd = req.RangeEnd * uint64(policy.BlockSize)
+	}
+
+	return &ccmsg.CacheMissResponse{
+		Source: &ccmsg.CacheMissResponse_Http{
+			Http: &ccmsg.BlockSourceHTTP{
+				Url:        u,
+				RangeBegin: req.RangeBegin * uint64(policy.BlockSize),
+				RangeEnd:   rangeEnd,
+			},
+		},
 	}, nil
 }

@@ -122,6 +122,10 @@ func (m *ObjectMetadata) BlockCount() int {
 	return int(math.Ceil(float64(m.metadata.ObjectSize) / float64(m.policy.BlockSize)))
 }
 
+func (m *ObjectMetadata) ObjectSize() uint64 {
+	return m.metadata.ObjectSize
+}
+
 func (m *ObjectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
 	panic("no impl")
 	// return nil, nil

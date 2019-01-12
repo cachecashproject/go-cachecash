@@ -25,11 +25,6 @@ func NewMockUpstream(l *logrus.Logger) (*MockUpstream, error) {
 	}, nil
 }
 
-// N.B.: Only the `Source` field should be populated in the return value.
-func (up *MockUpstream) CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error) {
-	panic("no impl")
-}
-
 func (up *MockUpstream) FetchData(ctx context.Context, path string, forceMetadata bool, rangeBegin, rangeEnd uint) (*FetchResult, error) {
 	up.l.WithFields(logrus.Fields{
 		"path":          path,
@@ -78,13 +73,6 @@ func (up *MockUpstream) AddRandomObject(path string, size uint) {
 	up.Objects[path] = data
 }
 
-/*
-func (up *MockUpstream) GetBlock(path string, blockIdx uint) ([]byte, error) {
-	data, ok := up.Objects[path]
-	if !ok {
-		return nil, errors.
-	}
-	buf := data[
-	return nil, nil
+func (up *MockUpstream) BlockSource(req *ccmsg.CacheMissRequest, path string, policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error) {
+	return nil, errors.New("mock upstream does not support BlockSource()")
 }
-*/

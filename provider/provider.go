@@ -3,6 +3,8 @@ package provider
 import (
 	"context"
 	"crypto"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/kelleyk/go-cachecash/batchsignature"
@@ -24,6 +26,8 @@ type ContentProvider struct {
 
 	escrows []*Escrow
 
+	// XXX: It's obviously not great that this is necessary.
+	// Maps object IDs to metadata; necessary to allow the provider to generate cache-miss responses.
 	reverseMapping map[uint64]reverseMappingEntry
 
 	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
@@ -35,8 +39,7 @@ type CacheInfo struct {
 }
 
 type reverseMappingEntry struct {
-	path     string
-	blockIdx uint64
+	path string
 }
 
 func NewContentProvider(l *logrus.Logger, catalog catalog.ContentCatalog, signer crypto.Signer) (*ContentProvider, error) {
@@ -142,7 +145,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	//   future enhancement might require that the provider fetch only the cipher-blocks that will be used in puzzle
 	//   generation, instead of all of the cipher-blocks in the data blocks.)
 	p.l.Debug("pulling metadata and blocks into catalog")
-	objMeta, err := p.catalog.GetObjectMetadata(ctx, req.Path)
+	objMeta, err := p.catalog.GetData(ctx, &ccmsg.ContentRequest{Path: req.Path})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get metadata for requested object")
 	}
@@ -156,7 +159,6 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		// XXX: TEMP: Use block index as block ID.  This WILL NOT WORK as soon as we have multiple objects.
 		// XXX: TEMP: The need to maintain this mapping is a flaw.
 		blockID := blockIdx
-		p.reverseMapping[blockIdx] = reverseMappingEntry{path: req.Path, blockIdx: blockIdx}
 		blockIDs = append(blockIDs, blockID)
 	}
 
@@ -191,7 +193,11 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 			return nil, errors.Wrap(err, "no object for path")
 		}
 	*/
-	var objID uint64
+
+	// XXX: Should be based on the upstream path, which the current implementation conflates with the request path.
+	objID := generateObjectID(req.Path)
+	p.reverseMapping[objID] = reverseMappingEntry{path: req.Path}
+
 	obj := objMeta // XXX: ...
 
 	// Reserve a lottery ticket for each cache.  (Recall that lottery ticket numbers must be unique, and we are limited
@@ -237,42 +243,74 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	return bundle, nil
 }
 
-func (p *ContentProvider) assignSlot(path string, blockIdx uint64) uint64 {
+func (p *ContentProvider) assignSlot(path string, blockIdx uint64, blockID uint64) uint64 {
 	// XXX: should depend on number of slots available to cache, etc.
 	return blockIdx
+}
+
+// TODO: XXX: Since object policy is, by definition, something that the provider can set arbitrarily on a per-object
+// basis, this should be the only place that these values are hardcoded.
+func (p *ContentProvider) objectPolicy(path string) (*catalog.ObjectPolicy, error) {
+	return &catalog.ObjectPolicy{
+		BlockSize: 128 * 1024,
+	}, nil
 }
 
 func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
 	// TODO: How do we identify the cache submitting the request?
 
-	/*
-			// First, at least for the HTTP upstream, we need to map the block ID back to a (path, block index) tuple.
-			//
-			// TODO: This is clearly not a great thing to make the publisher maintain; should investigate ways to remove this
-			// requirement.
-			//
-			// TODO: Should also verify that this cache has a reason to be requesting this content.  Could have the cache
-			// provide the request ticket from the client.  Might also be a good way to avoid the reverse-mapping issue.
-			rme, ok := p.reverseMapping[req.BlockId]
-			if !ok {
-				return nil, errors.New("no reverse mapping found for block ID")
-			}
+	rme, ok := p.reverseMapping[req.ObjectId]
+	if !ok {
+		return nil, errors.New("no reverse mapping found for block ID")
+	}
+	path := rme.path
 
-			// XXX:
-			blockIdx := rme.blockIdx
-			path := rme.path
+	if req.RangeEnd != 0 && req.RangeEnd <= req.RangeBegin {
+		return nil, errors.New("invalid range")
+	}
+	// if req.RangeEnd <= number-of-blocks-in-object ... invalid range
 
-		// Get source information from the upstream module (in the case of HTTP, that's a URL and byte range)/
-		msg, err := p.catalog.CacheMiss(path, blockIdx, blockIdx+1)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate source information")
-		}
+	objMeta, err := p.catalog.GetMetadata(ctx, path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get metadata for object")
+	}
 
-		// Select logical cache slots for each block.
-		msg.SlotIdx = []uint64{p.assignSlot(path, blockIdx)}
+	// Convert object policy, which is required to convert block range into byte range.
+	pol, err := p.objectPolicy(path)
+	if err != nil {
+		return nil, errors.New("failed to get object policy")
+	}
 
-		return msg, nil
-	*/
+	// Get upstream URL for this object.
+	upstream, err := p.catalog.Upstream(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get upstream for path")
+	}
 
-	panic("no impl")
+	resp, err := upstream.BlockSource(req, path, pol)
+
+	// XXX: Shouldn't we be telling the cache what block IDs it should expect, and providing enough information for it
+	// to verify that it's getting the right data (e.g. a digest)?
+
+	// Select logical cache slot for each block.
+	var slotIdx []uint64
+	for i := req.RangeBegin; i < req.RangeEnd; i++ {
+		blockID := i // XXX: Not true!
+		slotIdx = append(slotIdx, p.assignSlot(path, i, blockID))
+	}
+	resp.SlotIdx = slotIdx
+
+	resp.Metadata = &ccmsg.ObjectMetadata{
+		ObjectSize: objMeta.ObjectSize(),
+		BlockSize:  uint64(pol.BlockSize),
+	}
+
+	return resp, nil
+}
+
+// XXX: This is, obviously, temporary.  We should be using object IDs that are larger than 64 bits, among other
+// problems.
+func generateObjectID(path string) uint64 {
+	digest := sha256.Sum256([]byte(path))
+	return binary.BigEndian.Uint64(digest[0:8])
 }

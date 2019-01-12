@@ -86,18 +86,19 @@ type Upstream interface {
 	//
 	FetchData(ctx context.Context, path string, forceMetadata bool, rangeBegin, rangeEnd uint) (*FetchResult, error)
 
-	CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error)
+	BlockSource(req *ccmsg.CacheMissRequest, path string, policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error)
 }
 
 type ContentCatalog interface {
+	// XXX: Returning a pointer to the underlying ObjectMetadata object seems like it will produce concurrency issues.
 	GetData(ctx context.Context, req *ccmsg.ContentRequest) (*ObjectMetadata, error)
 
-	// XXX: Temporary; remove once refactoring is complete.
-	GetObjectMetadata(ctx context.Context, path string) (*ObjectMetadata, error)
+	GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error)
 
-	CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error)
+	Upstream(path string) (Upstream, error)
 }
 
+// XXX: This is not currently used.  Either use it or remove it.
 type ContentLocator interface {
 	GetContentSource(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error)
 }

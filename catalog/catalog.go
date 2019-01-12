@@ -27,6 +27,15 @@ func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	}, nil
 }
 
+func (c *catalog) GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {
+	// XXX: This works, but is NOT a good long-term solution: it may cause a fetch of the first block of the object.
+	return c.GetData(ctx, &ccmsg.ContentRequest{
+		Path:       path,
+		RangeBegin: 0,
+		RangeEnd:   1,
+	})
+}
+
 // XXX: Should return type be different?
 func (c *catalog) GetData(ctx context.Context, req *ccmsg.ContentRequest) (*ObjectMetadata, error) {
 	// There are several cases to consider.
@@ -55,14 +64,8 @@ func (c *catalog) GetData(ctx context.Context, req *ccmsg.ContentRequest) (*Obje
 		return nil, err
 	}
 	return m, nil
-
 }
 
-// XXX: Temporary; remove once refactoring is complete.
-func (c *catalog) GetObjectMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {
-	return c.GetData(ctx, &ccmsg.ContentRequest{Path: path})
-}
-
-func (c *catalog) CacheMiss(path string, rangeBegin, rangeEnd uint64) (*ccmsg.CacheMissResponse, error) {
-	return c.upstream.CacheMiss(path, rangeBegin, rangeEnd)
+func (c *catalog) Upstream(path string) (Upstream, error) {
+	return c.upstream, nil
 }
