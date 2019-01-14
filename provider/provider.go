@@ -124,7 +124,11 @@ const (
 )
 
 func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
-	p.l.WithFields(logrus.Fields{"path": req.Path}).Info("content request")
+	p.l.WithFields(logrus.Fields{
+		"path":       req.Path,
+		"rangeBegin": req.RangeBegin,
+		"rangeEnd":   req.RangeEnd,
+	}).Info("content request")
 
 	// - The _byte range_ is translated to a _block range_ depending on how the provider would like to chunk the object.
 	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The provider may also choose how
@@ -139,6 +143,11 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	rangeEnd := uint64(req.RangeEnd / defaultBlockSize) // XXX: This probably needs a ceil()
 	// TODO: Return multiple block-groups if appropriate.
 	rangeEnd = rangeBegin + blocksPerGroup
+
+	p.l.WithFields(logrus.Fields{
+		"blockRangeBegin": rangeBegin,
+		"blockRangeEnd":   rangeEnd,
+	}).Info("content request")
 
 	// - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and
 	//   valid.  (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A

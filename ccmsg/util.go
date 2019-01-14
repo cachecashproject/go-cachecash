@@ -3,6 +3,7 @@ package ccmsg
 import (
 	"errors"
 	fmt "fmt"
+	"math"
 	"net"
 
 	proto "github.com/golang/protobuf/proto"
@@ -64,4 +65,8 @@ func (a *NetworkAddress) ConnectionString() string {
 		return fmt.Sprintf("%v:%v", net.IP(a.Inet6Addr), a.Port)
 	}
 	return ""
+}
+
+func (m *ObjectMetadata) BlockCount() uint64 {
+	return uint64(math.Ceil(float64(m.ObjectSize) / float64(m.BlockSize)))
 }

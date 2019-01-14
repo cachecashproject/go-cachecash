@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/ccmsg"
@@ -80,30 +81,38 @@ func New(l *logrus.Logger, addr string) (Client, error) {
 }
 
 func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
+	// TODO: User, RawQuery, Fragment are currently ignored.  Should either pass to server or throw an error if they are
+	// provided.
 
-	/*
-		uri, err := url.ParseRequestURI(rawURI)
-		if err != nil {
-			return errors.Wrap(err, "failed to parse URI")
-		}
-
-		if uri.Scheme != "cachecash" {
-			return errors.New("invalid URI: unexpected scheme")
-		}
-
-		// TODO: User, RawQuery, Fragment are currently ignored.  Should either pass to server or throw an error if they are
-		// provided.
-	*/
-
-	// TODO: No spec for this---somehow we need to get metadata describing how many blocks there are to fetch.
-	// TODO: Let's assume the object is four blocks, which is true for our hardwired test object.
-
-	// bgr := cl.requestBlockGroup(ctx,
-
-	// XXX: This is hardwired for test purposes.
+	var blockSize uint64
 	var rangeBegin uint64
-	_, err := cl.requestBlockGroup(ctx, path, rangeBegin)
-	return nil, err
+	var data []byte
+	for true {
+		// XXX: `rangeBegin` here must be in bytes.
+		bg, err := cl.requestBlockGroup(ctx, path, rangeBegin*blockSize)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to fetch block-group at offset %v", rangeBegin)
+		}
+
+		// XXX: There's lots of copying going on here that is probably unnecessary.
+		for i, d := range bg.data {
+			if bg.blockIdx[i] != rangeBegin+uint64(i) {
+				return nil, fmt.Errorf("block at position %v has index %v, but expected %v",
+					i, bg.blockIdx[i], rangeBegin+uint64(i))
+			}
+			data = append(data, d...)
+		}
+
+		rangeBegin = rangeBegin + uint64(len(bg.data))
+		if rangeBegin >= bg.metadata.BlockCount() {
+			break
+		}
+		blockSize = bg.metadata.BlockSize
+	}
+
+	return &object{
+		data: data,
+	}, nil
 }
 
 func (cl *client) Close(ctx context.Context) error {
@@ -132,12 +141,13 @@ func (cl *client) Close(ctx context.Context) error {
 }
 
 type object struct {
+	data []byte
 }
 
 var _ Object = (*object)(nil)
 
 func (o *object) Data() []byte {
-	return []byte{}
+	return o.data
 }
 
 /*
@@ -163,6 +173,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 		RangeBegin:      rangeBegin,
 		RangeEnd:        0, // "continue to the end of the object"
 	}
+	cl.l.Infof("sending content request to provider: %v", req)
 
 	// Send request to provider; get TicketBundle in response.
 	resp, err := cl.providerConn.grpcClient.GetContent(ctx, req)
@@ -173,7 +184,6 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 	cl.l.Infof("got ticket bundle from provider: %v", bundle)
 
 	cacheQty := len(bundle.CacheInfo)
-	// cacheQty = 1 // XXX: Make troubleshooting easier in development!
 
 	// For each block in TicketBundle, dispatch a request to the appropriate cache.
 	var cacheConns []*cacheConnection
@@ -303,7 +313,9 @@ func (cl *client) requestBlockC(ctx context.Context, cc *cacheConnection, b *blo
 	if err != nil {
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
-	cl.l.Infof("got data response from cache")
+	cl.l.WithFields(logrus.Fields{
+		"blockIdx": b.bundle.TicketRequest[b.idx].BlockIdx,
+	}).Infof("got data response from cache")
 
 	// Send L1 ticket to cache; await outer decryption key.
 	reqL1, err := b.bundle.BuildClientCacheRequest(b.bundle.TicketL1[b.idx])
