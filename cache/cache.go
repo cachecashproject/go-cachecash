@@ -98,7 +98,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to build HTTP request")
 		}
-		req.Header.Set("Range", fmt.Sprintf("%v-%v", source.Http.RangeBegin, source.Http.RangeEnd))
+		req.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", source.Http.RangeBegin, source.Http.RangeEnd))
 
 		// Make request to upstream.
 		c.l.Infof("fetching data from HTTP upstream; req=%v", req)
@@ -114,6 +114,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 		// Interpret response.
 		switch {
 		case httpResp.StatusCode == http.StatusOK:
+		case httpResp.StatusCode == http.StatusPartialContent:
 		default:
 			return nil, fmt.Errorf("unexpected status from HTTP upstream: %v", httpResp.Status)
 		}
