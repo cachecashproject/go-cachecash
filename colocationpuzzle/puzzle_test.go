@@ -76,9 +76,18 @@ func (suite *ColocationPuzzleTestSuite) SetupTest() {
 }
 
 func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolve() {
+	suite.testGenerateAndSolve(0, 4)
+}
+
+func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolveWithOffset() {
+	suite.testGenerateAndSolve(4, 8)
+}
+
+func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEnd int) {
 	t := suite.T()
 
-	puzzle, err := Generate(suite.params, suite.obj, suite.blockIndices, suite.innerKeys, suite.innerIVs)
+	puzzle, err := Generate(suite.params, suite.obj, suite.blockIndices[rangeBegin:rangeEnd],
+		suite.innerKeys[rangeBegin:rangeEnd], suite.innerIVs[rangeBegin:rangeEnd])
 	if !assert.Nil(t, err, "failed to generate puzzle") {
 		return
 	}
@@ -86,7 +95,7 @@ func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolve() {
 	assert.Equal(t, sha512.Size384, len(puzzle.Secret), "unexpected secret length")
 	assert.Equal(t, sha512.Size384, len(puzzle.Goal), "unxpected goal length")
 
-	secret, offset, err := Solve(suite.params, suite.ciphertextBlocks, puzzle.Goal)
+	secret, offset, err := Solve(suite.params, suite.ciphertextBlocks[rangeBegin:rangeEnd], puzzle.Goal)
 	if !assert.Nil(t, err, "failed to solve puzzle") {
 		return
 	}
@@ -96,6 +105,8 @@ func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolve() {
 	assert.Equal(t, puzzle.Offset, offset, "generator and solver do not agree on starting offset")
 	assert.Equal(t, puzzle.Secret, secret, "generator and solver do not agree on secret")
 }
+
+// XXX: TODO: Need test that covers block indices that are not zero-aligned.
 
 func (suite *ColocationPuzzleTestSuite) TestKeyAndIVFromSecret() {
 	t := suite.T()
