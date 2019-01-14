@@ -124,8 +124,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 		}
 
 		c.l.WithFields(logrus.Fields{
-			"len":  len(data),
-			"data": data,
+			"len": len(data),
 		}).Info("got response from HTTP upstream")
 
 		// Insert it into the cache.
