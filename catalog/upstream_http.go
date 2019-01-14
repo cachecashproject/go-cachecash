@@ -102,7 +102,7 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 	case resp.StatusCode >= 500 && resp.StatusCode < 600:
 		status = StatusUpstreamError
 	default:
-		panic("unhandled HTTP status code from upstream")
+		return nil, errors.Wrap(err, "unhandled HTTP status code from upstream")
 	}
 
 	var body []byte
