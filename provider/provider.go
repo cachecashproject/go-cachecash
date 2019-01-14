@@ -239,6 +239,13 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		return nil, err
 	}
 
+	// Attach metadata.
+	// XXX: This needs to be covered by unit tests.
+	bundle.Metadata = &ccmsg.ObjectMetadata{
+		BlockSize:  obj.PolicyBlockSize(),
+		ObjectSize: obj.ObjectSize(),
+	}
+
 	p.l.Debug("done; returning bundle")
 	return bundle, nil
 }

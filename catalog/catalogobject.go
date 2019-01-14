@@ -72,6 +72,10 @@ func (m *ObjectMetadata) Fresh() bool {
 	return true
 }
 
+func (m *ObjectMetadata) PolicyBlockSize() uint64 {
+	return uint64(m.policy.BlockSize)
+}
+
 // BlockSize returns the size of a particular data block in bytes.
 // TODO: Do we really need this?
 func (m *ObjectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
