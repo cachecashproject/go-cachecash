@@ -19,6 +19,8 @@ import (
 type TicketBundleTestSuite struct {
 	suite.Suite
 
+	l *logrus.Logger
+
 	provider *ContentProvider
 	escrow   *Escrow
 
@@ -34,6 +36,7 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 	t := suite.T()
 
 	l := logrus.New()
+	suite.l = l
 
 	var err error
 
@@ -124,7 +127,7 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 		t.Fatalf("failed to construct batch signer: %v", err)
 	}
 
-	gen := NewBundleGenerator(batchSigner)
+	gen := NewBundleGenerator(suite.l, batchSigner)
 	bundle, err := gen.GenerateTicketBundle(bp)
 	assert.Nil(t, err, "failed to generate ticket bundle")
 

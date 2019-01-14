@@ -153,6 +153,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	rangeEnd := uint64(req.RangeEnd / objMeta.PolicyBlockSize()) // XXX: This probably needs a ceil()
 	// TODO: Return multiple block-groups if appropriate.
 	rangeEnd = rangeBegin + blocksPerGroup
+	// XXX: rangeEnd here can go over the end of the object!
 
 	p.l.WithFields(logrus.Fields{
 		"blockRangeBegin": rangeBegin,
@@ -242,7 +243,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	if err != nil {
 		return nil, err
 	}
-	gen := NewBundleGenerator(batchSigner)
+	gen := NewBundleGenerator(p.l, batchSigner)
 	bundle, err := gen.GenerateTicketBundle(bp)
 	if err != nil {
 		return nil, err

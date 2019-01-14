@@ -93,7 +93,8 @@ func Generate(params Parameters, obj cachecash.ContentObject, blocks []uint32, i
 	// that we want.
 	startOffset := uint32(rand.Intn(blockSize[0]))
 
-	getBlockFn := func(blockIdx, offset uint32) ([]byte, error) {
+	getBlockFn := func(i, offset uint32) ([]byte, error) {
+		blockIdx := blocks[i]
 		blockLen, err := obj.BlockSize(blockIdx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get block size")
@@ -103,7 +104,7 @@ func Generate(params Parameters, obj cachecash.ContentObject, blocks []uint32, i
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get sub-block")
 		}
-		return util.EncryptBlock(plaintext, innerKeys[blockIdx], innerIVs[blockIdx], offset)
+		return util.EncryptBlock(plaintext, innerKeys[i], innerIVs[i], offset)
 	}
 
 	goal, secret, err := runPuzzle(params.Rounds, uint32(len(blocks)), startOffset, getBlockFn)

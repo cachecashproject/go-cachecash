@@ -13,6 +13,7 @@ import (
 	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/util"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -113,8 +114,9 @@ func (e *Escrow) GetObjectByPath(ctx context.Context, path string) (cachecash.Co
 	return info.Object, info.ID, nil
 }
 
-func NewBundleGenerator(signer batchsignature.BatchSigner) *BundleGenerator {
+func NewBundleGenerator(l *logrus.Logger, signer batchsignature.BatchSigner) *BundleGenerator {
 	return &BundleGenerator{
+		l:      l,
 		Signer: signer,
 		PuzzleParams: &colocationpuzzle.Parameters{
 			Rounds:      2,
@@ -125,6 +127,7 @@ func NewBundleGenerator(signer batchsignature.BatchSigner) *BundleGenerator {
 }
 
 type BundleGenerator struct {
+	l            *logrus.Logger
 	PuzzleParams *colocationpuzzle.Parameters
 	Signer       batchsignature.BatchSigner
 }
@@ -195,6 +198,9 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 	}
 
 	// Generate a colocation puzzle for the client to solve.
+	gen.l.WithFields(logrus.Fields{
+		"blockIdx": blockIndices,
+	}).Info("generating puzzle")
 	puzzle, err := colocationpuzzle.Generate(*gen.PuzzleParams, bp.Object, blockIndices, innerKeys, innerIVs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate colocation puzzle")
