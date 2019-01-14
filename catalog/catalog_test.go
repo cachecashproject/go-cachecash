@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kelleyk/go-cachecash/ccmsg"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -78,7 +79,7 @@ func (suite *CatalogTestSuite) TestSimple() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	m, err := cat.GetData(ctx, "/foo/bar")
+	m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/foo/bar"})
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 
@@ -108,7 +109,7 @@ func (suite *CatalogTestSuite) TestCoalescing() {
 		go func(i int) {
 			defer wg.Done()
 
-			m, err := cat.GetData(ctx, "/foo/bar")
+			m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/foo/bar"})
 			assert.Nil(t, err)
 			assert.NotNil(t, m)
 			// assert.Nil(t, m.RespErr)
@@ -144,7 +145,7 @@ func (suite *CatalogTestSuite) TestCacheValid() {
 
 	mm := make([]*ObjectMetadata, 2)
 	for i := 0; i < len(mm); i++ {
-		m, err := cat.GetData(ctx, "/foo/bar")
+		m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/foo/bar"})
 		assert.Nil(t, err)
 		assert.NotNil(t, m)
 		// assert.Nil(t, m.RespErr)
@@ -170,7 +171,7 @@ func (suite *CatalogTestSuite) TestNotFound() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	m, err := cat.GetData(ctx, "/bogus")
+	m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/bogus"})
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 	// assert.Nil(t, m.RespErr)
@@ -197,7 +198,7 @@ func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	m, err := cat.GetData(ctx, "/foo/bar")
+	m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/foo/bar"})
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 
@@ -217,7 +218,7 @@ func (suite *CatalogTestSuite) TestUpstreamTimeout() {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	m, err := cat.GetData(ctx, "/foo/bar")
+	m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/foo/bar"})
 	assert.Equal(t, context.DeadlineExceeded, err)
 	assert.Nil(t, m)
 }
