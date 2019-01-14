@@ -35,6 +35,12 @@ type Object interface {
 // XXX:
 type cacheID string
 
+type blockGroup struct {
+	data     [][]byte
+	blockIdx []uint64
+	metadata *ccmsg.ObjectMetadata
+}
+
 // What if one block is a member of multiple block-groups?
 type client struct {
 	l *logrus.Logger
@@ -95,7 +101,8 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	// bgr := cl.requestBlockGroup(ctx,
 
 	// XXX: This is hardwired for test purposes.
-	_, err := cl.requestBlockGroup(ctx, path)
+	var rangeBegin uint64
+	_, err := cl.requestBlockGroup(ctx, path, rangeBegin)
 	return nil, err
 }
 
@@ -149,11 +156,11 @@ type blockRequest struct {
 	err     error
 }
 
-func (cl *client) requestBlockGroup(ctx context.Context, path string) ([][]byte, error) {
+func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin uint64) (*blockGroup, error) {
 	req := &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            path,
-		RangeBegin:      0,
+		RangeBegin:      rangeBegin,
 		RangeEnd:        0, // "continue to the end of the object"
 	}
 
@@ -250,6 +257,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string) ([][]byte,
 
 	// Decrypt singly-encrypted blocks to produce final plaintext.
 	var plaintextBlocks [][]byte
+	var blockIdx []uint64
 	for i, ciphertext := range singleEncryptedBlocks {
 		plaintext, err := util.EncryptDataBlock(
 			bundle.TicketRequest[i].BlockIdx,
@@ -260,11 +268,16 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string) ([][]byte,
 			return nil, errors.Wrap(err, "failed to decrypt singly-encrypted block")
 		}
 		plaintextBlocks = append(plaintextBlocks, plaintext)
+		blockIdx = append(blockIdx, bundle.TicketRequest[i].BlockIdx)
 	}
 
 	// Return data to parent.
 	cl.l.Info("block-group fetch completed without error")
-	return plaintextBlocks, nil
+	return &blockGroup{
+		data:     plaintextBlocks,
+		blockIdx: blockIdx,
+		metadata: bundle.Metadata,
+	}, nil
 }
 
 type l2Result struct {

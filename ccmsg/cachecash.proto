@@ -61,6 +61,8 @@ message TicketBundle {
     // This field contains connection information for the caches mentioned in the ticket requests.
     // (XXX: There's not any particularly great/specific reason why this couldn't be covered by the hash.)
     repeated CacheInfo cache_info = 9;
+
+    ObjectMetadata metadata = 12;
 }
 
 // XXX: This needs a better name.
