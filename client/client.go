@@ -95,7 +95,7 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	// bgr := cl.requestBlockGroup(ctx,
 
 	// XXX: This is hardwired for test purposes.
-	err := cl.requestBlockGroup(ctx, path)
+	_, err := cl.requestBlockGroup(ctx, path)
 	return nil, err
 }
 
@@ -149,7 +149,7 @@ type blockRequest struct {
 	err     error
 }
 
-func (cl *client) requestBlockGroup(ctx context.Context, path string) error {
+func (cl *client) requestBlockGroup(ctx context.Context, path string) ([][]byte, error) {
 	req := &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            path,
@@ -160,7 +160,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string) error {
 	// Send request to provider; get TicketBundle in response.
 	resp, err := cl.providerConn.grpcClient.GetContent(ctx, req)
 	if err != nil {
-		return errors.Wrap(err, "failed to request bundle from provider")
+		return nil, errors.Wrap(err, "failed to request bundle from provider")
 	}
 	bundle := resp.Bundle
 	cl.l.Infof("got ticket bundle from provider: %v", bundle)
@@ -182,7 +182,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string) error {
 			// (It should only cancel this particular block-group request.)
 			cc, err = newCacheConnection(context.Background(), cl.l, bundle.CacheInfo[i].Addr.ConnectionString())
 			if err != nil {
-				return errors.Wrap(err, "failed to connect to cache")
+				return nil, errors.Wrap(err, "failed to connect to cache")
 			}
 			cl.cacheConns[cid] = cc
 		}
@@ -200,10 +200,10 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string) error {
 	for i := 0; i < cacheQty; i++ {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil, ctx.Err()
 		case b := <-blockResultCh:
 			if b.err != nil {
-				return errors.Wrap(b.err, "got error in block request; aborting any that remain in group")
+				return nil, errors.Wrap(b.err, "got error in block request; aborting any that remain in group")
 			}
 		}
 		// ..
@@ -223,13 +223,13 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string) error {
 		StartRange:  uint32(pi.StartRange),
 	}, singleEncryptedBlocks, pi.Goal)
 	if err != nil {
-		return errors.Wrap(err, "failed to solve colocation puzzle")
+		return nil, errors.Wrap(err, "failed to solve colocation puzzle")
 	}
 
 	// Decrypt L2 ticket.
 	ticketL2, err := common.DecryptTicketL2(secret, bundle.EncryptedTicketL2)
 	if err != nil {
-		return errors.Wrap(err, "failed to decrypt L2 ticket")
+		return nil, errors.Wrap(err, "failed to decrypt L2 ticket")
 	}
 
 	// Send the L2 ticket to each cache.
@@ -244,7 +244,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string) error {
 		if err != nil {
 			// TODO: This should not cause us to abort sending the L2 ticket to other caches, and should not prevent us
 			// from returning the plaintext data.
-			return errors.Wrap(err, "failed to send L2 ticket to cache")
+			return nil, errors.Wrap(err, "failed to send L2 ticket to cache")
 		}
 	}
 
@@ -257,17 +257,14 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string) error {
 			ticketL2.InnerSessionKey[i].Key,
 			ciphertext)
 		if err != nil {
-			return errors.Wrap(err, "failed to decrypt singly-encrypted block")
+			return nil, errors.Wrap(err, "failed to decrypt singly-encrypted block")
 		}
 		plaintextBlocks = append(plaintextBlocks, plaintext)
 	}
 
 	// Return data to parent.
-	// XXX: ...
-
-	// Done!
 	cl.l.Info("block-group fetch completed without error")
-	return nil
+	return plaintextBlocks, nil
 }
 
 type l2Result struct {
