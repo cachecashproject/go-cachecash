@@ -130,25 +130,6 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		"rangeEnd":   req.RangeEnd,
 	}).Info("content request")
 
-	// - The _byte range_ is translated to a _block range_ depending on how the provider would like to chunk the object.
-	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The provider may also choose how
-	//   many blocks it would like to serve, and how many block-groups they will be divided into.  (The following steps
-	//   are repeated for each block-group; the results are returned together in a single response to the client.)
-	if req.RangeEnd != 0 && req.RangeEnd <= req.RangeBegin {
-		// TODO: Return 4xx, since this is a bad request from the client.
-		return nil, errors.New("invalid range")
-	}
-	// XXX: We also have `ContentObject.BlockSize()`; should pick one or the other.
-	rangeBegin := uint64(req.RangeBegin / defaultBlockSize)
-	rangeEnd := uint64(req.RangeEnd / defaultBlockSize) // XXX: This probably needs a ceil()
-	// TODO: Return multiple block-groups if appropriate.
-	rangeEnd = rangeBegin + blocksPerGroup
-
-	p.l.WithFields(logrus.Fields{
-		"blockRangeBegin": rangeBegin,
-		"blockRangeEnd":   rangeEnd,
-	}).Info("content request")
-
 	// - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and
 	//   valid.  (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A
 	//   future enhancement might require that the provider fetch only the cipher-blocks that will be used in puzzle
@@ -158,6 +139,25 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get metadata for requested object")
 	}
+
+	// - The _byte range_ is translated to a _block range_ depending on how the provider would like to chunk the object.
+	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The provider may also choose how
+	//   many blocks it would like to serve, and how many block-groups they will be divided into.  (The following steps
+	//   are repeated for each block-group; the results are returned together in a single response to the client.)
+	if req.RangeEnd != 0 && req.RangeEnd <= req.RangeBegin {
+		// TODO: Return 4xx, since this is a bad request from the client.
+		return nil, errors.New("invalid range")
+	}
+	// XXX: We also have `ContentObject.BlockSize()`; should pick one or the other.
+	rangeBegin := uint64(req.RangeBegin / objMeta.PolicyBlockSize())
+	rangeEnd := uint64(req.RangeEnd / objMeta.PolicyBlockSize()) // XXX: This probably needs a ceil()
+	// TODO: Return multiple block-groups if appropriate.
+	rangeEnd = rangeBegin + blocksPerGroup
+
+	p.l.WithFields(logrus.Fields{
+		"blockRangeBegin": rangeBegin,
+		"blockRangeEnd":   rangeEnd,
+	}).Info("content request")
 
 	// - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by
 	// the provider.  (Our implementation uses the block's digest.)
