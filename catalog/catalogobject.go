@@ -77,9 +77,17 @@ func (m *ObjectMetadata) PolicyBlockSize() uint64 {
 }
 
 // BlockSize returns the size of a particular data block in bytes.
-// TODO: Do we really need this?
+// N.B.: It's important that this return the actual size of the indicated block; otherwise, if we are generating a
+//   puzzle that includes the last block in an object (which may be shorter than PolicyBlockSize() would suggest)
+//   the colocation puzzle code may generate unsolvable puzzles (e.g. when the initial offset is chosen to be past
+//   the end of the actual block).
 func (m *ObjectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
-	return m.policy.BlockSize, nil
+	// XXX: More integer-typecasting nonsense.  Straighten this out!
+	s := int(m.metadata.ObjectSize) - (int(m.policy.BlockSize) * int(dataBlockIdx))
+	if s > m.policy.BlockSize {
+		s = m.policy.BlockSize
+	}
+	return s, nil
 }
 
 func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
