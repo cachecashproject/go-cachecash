@@ -153,7 +153,9 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	rangeEnd := uint64(req.RangeEnd / objMeta.PolicyBlockSize()) // XXX: This probably needs a ceil()
 	// TODO: Return multiple block-groups if appropriate.
 	rangeEnd = rangeBegin + blocksPerGroup
-	// XXX: rangeEnd here can go over the end of the object!
+	if rangeEnd > uint64(objMeta.BlockCount()) {
+		rangeEnd = uint64(objMeta.BlockCount())
+	}
 
 	p.l.WithFields(logrus.Fields{
 		"blockRangeBegin": rangeBegin,
