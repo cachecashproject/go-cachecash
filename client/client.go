@@ -100,6 +100,10 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 				return nil, fmt.Errorf("block at position %v has index %v, but expected %v",
 					i, bg.blockIdx[i], rangeBegin+uint64(i))
 			}
+			cl.l.WithFields(logrus.Fields{
+				"len(outputBuffer)": len(data),
+				"len(newBlock)":     len(d),
+			}).Debug("appending data block to output buffer")
 			data = append(data, d...)
 		}
 
