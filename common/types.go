@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"encoding/hex"
 	"log"
 	"os"
 	"os/signal"
@@ -10,6 +11,16 @@ import (
 
 	"github.com/pkg/errors"
 )
+
+const (
+	BlockIDSize = 16
+)
+
+type BlockID [BlockIDSize]byte
+
+func (id BlockID) String() string {
+	return hex.EncodeToString(id[:])
+}
 
 type StarterShutdowner interface {
 	// Start kicks off any internal goroutines that are necessary and returns synchronously.  It may temporarily block

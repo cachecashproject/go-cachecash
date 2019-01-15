@@ -50,7 +50,9 @@ func NewCache(l *logrus.Logger) (*Cache, error) {
 	}, nil
 }
 
-func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, objectID uint64, blockIdx, blockID uint64) ([]byte, error) {
+func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, objectID uint64, blockIdx uint64,
+	blockID common.BlockID) ([]byte, error) {
+
 	// XXX: Need to decide on a type and replace this with a real escrow ID.
 	intEscrowID := uint64(42)
 
@@ -130,7 +132,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 
 		// Insert it into the cache.
 		c.l.Info("inserting data into cache")
-		if err := c.Storage.PutMetadata(intEscrowID, blockID, resp.Metadata); err != nil {
+		if err := c.Storage.PutMetadata(intEscrowID, objectID, resp.Metadata); err != nil {
 			return nil, errors.Wrap(err, "failed to store metadata in cache")
 		}
 		if err := c.Storage.PutData(intEscrowID, blockID, data); err != nil {
@@ -141,22 +143,6 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 	c.l.Info("cache returns data")
 	return data, nil
 }
-
-/*
-func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, objectID uint64, blockIdx uint64) ([]byte, error) {
-	escrow, err := c.getEscrow(escrowID)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get escrow")
-	}
-
-	obj, ok := escrow.Objects[objectID]
-	if !ok {
-		return nil, errors.New("no such object")
-	}
-
-	return obj.GetBlock(uint32(blockIdx)) // XXX: Fix typing.
-}
-*/
 
 func (c *Cache) getEscrow(escrowID *ccmsg.EscrowID) (*Escrow, error) {
 	// XXX: Don't just ignore the escrow ID!
@@ -214,8 +200,14 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 	// XXX: Refactoring dust!
 	ticketRequest := req.Ticket.(*ccmsg.ClientCacheRequest_TicketRequest).TicketRequest
 
+	var blockID common.BlockID
+	if len(ticketRequest.BlockId) != common.BlockIDSize {
+		return nil, errors.New("unexpected size for block ID")
+	}
+	copy(blockID[:], ticketRequest.BlockId)
+
 	// If we don't have the block, ask the CP how to get it.
-	dataBlock, err := c.getDataBlock(ctx, req.BundleRemainder.EscrowId, req.BundleRemainder.ObjectId, ticketRequest.BlockIdx, ticketRequest.BlockId)
+	dataBlock, err := c.getDataBlock(ctx, req.BundleRemainder.EscrowId, req.BundleRemainder.ObjectId, ticketRequest.BlockIdx, blockID)
 	if err != nil {
 		c.l.WithError(err).Error("failed to get data block") // XXX: Should just be doing this at the top level so that we see all errors.
 		return nil, errors.Wrap(err, "failed to get data block")

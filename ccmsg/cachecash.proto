@@ -119,7 +119,7 @@ message TicketRequest {
     uint64 block_idx = 2;  // XXX: This'll need to change if we remove the 1:1 cache-to-block correspondence.
     BlockKey inner_key = 3; // XXX: Why is this here?
 
-    uint64 block_id = 5; // @KK: Added temporarily; need to figure out which of ID, index, etc. are necessary.
+    bytes block_id = 5; // @KK: Added temporarily; need to figure out which of ID, index, etc. are necessary.
 
     PublicKey cache_public_key = 4;
 }
@@ -332,6 +332,7 @@ message CacheMissRequest {
 
 message CacheMissResponse {
     repeated uint64 slot_idx = 1;
+    repeated bytes block_id = 3;
 
     ObjectMetadata metadata = 2;
     

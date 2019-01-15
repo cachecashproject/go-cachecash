@@ -2,6 +2,7 @@ package cache
 
 import (
 	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/kelleyk/go-cachecash/common"
 	"github.com/sirupsen/logrus"
 )
 
@@ -11,7 +12,7 @@ type CacheStorage struct {
 }
 
 type escrowState struct {
-	data     map[uint64][]byte
+	data     map[common.BlockID][]byte
 	metadata map[uint64]*ccmsg.ObjectMetadata
 }
 
@@ -24,7 +25,7 @@ func NewCacheStorage(l *logrus.Logger) (*CacheStorage, error) {
 
 func newEscrowState() *escrowState {
 	return &escrowState{
-		data:     make(map[uint64][]byte),
+		data:     make(map[common.BlockID][]byte),
 		metadata: make(map[uint64]*ccmsg.ObjectMetadata),
 	}
 }
@@ -51,7 +52,7 @@ func (s *CacheStorage) GetMetadata(escrowID, objectID uint64) (*ccmsg.ObjectMeta
 	return m, nil
 }
 
-func (s *CacheStorage) GetData(escrowID, blockID uint64) ([]byte, error) {
+func (s *CacheStorage) GetData(escrowID uint64, blockID common.BlockID) ([]byte, error) {
 	s.l.WithFields(logrus.Fields{
 		"escrowID": escrowID,
 		"blockID":  blockID,
@@ -73,7 +74,7 @@ func (s *CacheStorage) PutMetadata(escrowID, objectID uint64, m *ccmsg.ObjectMet
 	return nil
 }
 
-func (s *CacheStorage) PutData(escrowID, blockID uint64, data []byte) error {
+func (s *CacheStorage) PutData(escrowID uint64, blockID common.BlockID, data []byte) error {
 	s.l.WithFields(logrus.Fields{
 		"escrowID": escrowID,
 		"blockID":  blockID,

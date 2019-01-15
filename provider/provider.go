@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/binary"
 	"fmt"
 
 	"github.com/kelleyk/go-cachecash/batchsignature"
 	"github.com/kelleyk/go-cachecash/catalog"
 	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/kelleyk/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
@@ -165,13 +167,16 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	// - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by
 	// the provider.  (Our implementation uses the block's digest.)
 	p.l.Debug("mapping block indices into block identifiers")
-	blockIDs := make([]uint64, 0, rangeEnd-rangeBegin)
+	blockIndices := make([]uint64, 0, rangeEnd-rangeBegin)
+	blockIDs := make([]common.BlockID, 0, rangeEnd-rangeBegin)
 	for blockIdx := rangeBegin; blockIdx < rangeEnd; blockIdx++ {
-		//blockIDs = append(blockIDs, objMeta.GetBlockID(blockIdx))
-		// XXX: TEMP: Use block index as block ID.  This WILL NOT WORK as soon as we have multiple objects.
-		// XXX: TEMP: The need to maintain this mapping is a flaw.
-		blockID := blockIdx
+		blockID, err := p.getBlockID(objMeta, blockIdx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get block ID")
+		}
+
 		blockIDs = append(blockIDs, blockID)
+		blockIndices = append(blockIndices, blockIdx)
 	}
 
 	// - The provider selects a single escrow that will be used to service the request.
@@ -186,10 +191,10 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	//   to reuse the same caches for consecutive block-groups served to a single client (so that connection reuse and
 	//   pipelining can improve performance, once implemented).
 	p.l.Debug("selecting caches")
-	if len(escrow.Caches) < len(blockIDs) {
-		return nil, errors.New(fmt.Sprintf("not enough caches: have %v; need %v", len(escrow.Caches), len(blockIDs)))
+	if len(escrow.Caches) < len(blockIndices) {
+		return nil, errors.New(fmt.Sprintf("not enough caches: have %v; need %v", len(escrow.Caches), len(blockIndices)))
 	}
-	caches := escrow.Caches[0:len(blockIDs)]
+	caches := escrow.Caches[0:len(blockIndices)]
 
 	// - For each cache, the provider chooses a logical slot index.  (For details, see documentation on the logical
 	//   cache model.)  This slot index should be consistent between requests for the cache to serve the same block.
@@ -230,12 +235,12 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		Object:            obj,
 		ObjectID:          objID,
 	}
-	for i, bid := range blockIDs {
+	for i, blockIdx := range blockIndices {
+		// XXX: Need this to be non-zero; otherwise all of our blocks collide!
 		bp.Entries = append(bp.Entries, BundleEntryParams{
 			TicketNo: ticketNos[i],
-			// XXX: fix typing; also, we're stuffing a block ID into a block index!  Should we change the message to use
-			// block ID, or the code to provide block index?
-			BlockIdx: uint32(bid),
+			BlockIdx: uint32(blockIdx),
+			BlockID:  blockIDs[i],
 			Cache:    caches[i],
 		})
 	}
@@ -273,6 +278,18 @@ func (p *ContentProvider) objectPolicy(path string) (*catalog.ObjectPolicy, erro
 	return &catalog.ObjectPolicy{
 		BlockSize: 128 * 1024,
 	}, nil
+}
+
+func (p *ContentProvider) getBlockID(obj *catalog.ObjectMetadata, blockIdx uint64) (common.BlockID, error) {
+	data, err := obj.GetBlock(uint32(blockIdx))
+	if err != nil {
+		return common.BlockID{}, errors.Wrap(err, "failed to get block data to generate ID")
+	}
+
+	var id common.BlockID
+	digest := sha512.Sum384(data)
+	copy(id[:], digest[0:common.BlockIDSize])
+	return id, nil
 }
 
 func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
@@ -328,7 +345,8 @@ func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissReq
 }
 
 // XXX: This is, obviously, temporary.  We should be using object IDs that are larger than 64 bits, among other
-// problems.
+// problems.  We also must account for the fact that the object stored at a path may change (e.g. when the mtime/etag
+// are updated).
 func generateObjectID(path string) uint64 {
 	digest := sha256.Sum256([]byte(path))
 	return binary.BigEndian.Uint64(digest[0:8])

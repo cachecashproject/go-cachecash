@@ -1,6 +1,7 @@
 package testdatagen
 
 import (
+	"crypto/sha512"
 	"math"
 	"net"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/kelleyk/go-cachecash/cache"
 	"github.com/kelleyk/go-cachecash/catalog"
 	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/provider"
 	"github.com/kelleyk/go-cachecash/testutil"
 	"github.com/pkg/errors"
@@ -59,6 +61,13 @@ func contentObjectToBytes(obj cachecash.ContentObject) ([]byte, error) {
 		data = append(data, block...)
 	}
 	return data, nil
+}
+
+func generateBlockID(data []byte) common.BlockID {
+	var id common.BlockID
+	digest := sha512.Sum384(data)
+	copy(id[:], digest[0:common.BlockIDSize])
+	return id
 }
 
 func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestScenario, error) {
@@ -189,8 +198,8 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 				if err != nil {
 					return nil, err
 				}
-				blockID := 10000 + uint64(j) // XXX: This is hardwired here and in the provider; need to replace with e.g. something content-based.
-				intEscrowID := uint64(42)    // XXX: This is hardwired here and in the provider.
+				blockID := generateBlockID(data)
+				intEscrowID := uint64(42) // XXX: This is hardwired here and in the provider.
 				if err := c.Storage.PutData(intEscrowID, blockID, data); err != nil {
 					return nil, err
 				}
