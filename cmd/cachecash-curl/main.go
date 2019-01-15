@@ -16,6 +16,10 @@ import (
 
 // `cachecash-curl` is a simple command-line utility that retrieves a file being served via CacheCash.
 
+var (
+	outputPath = flag.String("o", "", "Path where retrieved file will be written")
+)
+
 func main() {
 	if err := mainC(); err != nil {
 		os.Stderr.WriteString(err.Error() + "\n")
@@ -82,8 +86,20 @@ func mainC() error {
 		return errors.Wrap(err, "failed to shut down client")
 	}
 
-	_ = o
-	log.Printf("completed without error\n")
+	if *outputPath != "" {
+		log.Printf("writing data to file")
+		f, err := os.OpenFile(*outputPath, os.O_CREATE|os.O_WRONLY, 0755)
+		if err != nil {
+			return errors.Wrap(err, "failed to open file for writing")
+		}
+		if _, err := f.Write(o.Data()); err != nil {
+			return errors.Wrap(err, "failed to write data to file")
+		}
+		if err := f.Close(); err != nil {
+			return errors.Wrap(err, "failed to close file")
+		}
+	}
 
+	log.Printf("completed without error\n")
 	return nil
 }
