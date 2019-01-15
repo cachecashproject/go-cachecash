@@ -88,6 +88,10 @@ func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolveWithOffset() {
 	suite.testGenerateAndSolve(4, 8)
 }
 
+func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolveSingleBlock() {
+	suite.testGenerateAndSolve(0, 1)
+}
+
 func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEnd int) {
 	t := suite.T()
 

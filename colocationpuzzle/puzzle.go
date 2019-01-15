@@ -67,8 +67,10 @@ func Generate(params Parameters, obj cachecash.ContentObject, blocks []uint32, i
 	if len(blocks) == 0 {
 		return nil, errors.New("must have at least one data block")
 	}
+
 	if params.Rounds*uint32(len(blocks)) <= 1 {
 		// XXX: Using a single ruond and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
+		// With e.g. two rounds over a single cache, it won't fail, but will return an all-zero secret.
 		return nil, errors.New("must use at least two puzzle iterations; increase number of rounds or caches")
 	}
 
@@ -194,6 +196,10 @@ func runPuzzle(rounds, blockQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 	//   are large enough that we'll never return it as prevLoc.
 	// XXX: Is 'location' the best name for curLoc/prevLoc?
 	var curLoc, prevLoc []byte // = hash(startblock, startoffset)
+
+	// Initializing this to all zeroes allows this code to function with two rounds and a single cache.  Obviously, in
+	// that situation the puzzle does not do anything anyhow, so having a predictable secret does not hurt us.
+	curLoc = make([]byte, sha512.Size384)
 
 	for i := uint32(0); i < uint32((rounds*blockQty)-1); i++ {
 		blockIdx := i % blockQty
