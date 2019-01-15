@@ -67,7 +67,8 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 	req, _ := http.NewRequest("GET", u, nil)
 	if rangeBegin != 0 {
 		if rangeEnd != 0 {
-			req.Header.Add("Range", fmt.Sprintf("bytes=%v-%v", rangeBegin, rangeEnd))
+			// N.B.: HTTP ranges are inclusive; our ranges are [inclusive, exclusive).
+			req.Header.Add("Range", fmt.Sprintf("bytes=%v-%v", rangeBegin, rangeEnd-1))
 		} else {
 			req.Header.Add("Range", fmt.Sprintf("bytes=%v-", rangeBegin))
 		}

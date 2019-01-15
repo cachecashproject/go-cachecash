@@ -319,6 +319,7 @@ func (cl *client) requestBlockC(ctx context.Context, cc *cacheConnection, b *blo
 	}
 	cl.l.WithFields(logrus.Fields{
 		"blockIdx": b.bundle.TicketRequest[b.idx].BlockIdx,
+		"len":      len(msgData.Data),
 	}).Infof("got data response from cache")
 
 	// Send L1 ticket to cache; await outer decryption key.

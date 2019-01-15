@@ -98,7 +98,8 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to build HTTP request")
 		}
-		req.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", source.Http.RangeBegin, source.Http.RangeEnd))
+		// N.B.: HTTP ranges are inclusive; our ranges are [inclusive, exclusive).
+		req.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", source.Http.RangeBegin, source.Http.RangeEnd-1))
 
 		// Make request to upstream.
 		c.l.Infof("fetching data from HTTP upstream; req=%v", req)
