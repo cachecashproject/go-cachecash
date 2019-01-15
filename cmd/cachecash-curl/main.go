@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -94,15 +95,8 @@ func mainC() error {
 
 	if *outputPath != "" {
 		log.Printf("writing data to file")
-		f, err := os.OpenFile(*outputPath, os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return errors.Wrap(err, "failed to open file for writing")
-		}
-		if _, err := f.Write(o.Data()); err != nil {
+		if err := ioutil.WriteFile(*outputPath, o.Data(), 0644); err != nil {
 			return errors.Wrap(err, "failed to write data to file")
-		}
-		if err := f.Close(); err != nil {
-			return errors.Wrap(err, "failed to close file")
 		}
 	}
 
