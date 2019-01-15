@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha512"
+	"fmt"
 	"testing"
 
 	cachecash "github.com/kelleyk/go-cachecash"
@@ -26,7 +27,7 @@ type ColocationPuzzleTestSuite struct {
 }
 
 const (
-	BlockQty  = 4
+	BlockQty  = 8
 	BlockSize = aes.BlockSize * 1024
 )
 
@@ -36,7 +37,7 @@ func TestColocationPuzzleTestSuite(t *testing.T) {
 
 // XXX: TODO: Add a test case that covers the single-block case; the implementation fails!
 
-func (suite *ColocationPuzzleTestSuite) SetupTest() {
+func (suite *ColocationPuzzleTestSuite) SetupSuite() {
 	t := suite.T()
 
 	suite.params = Parameters{
@@ -73,6 +74,8 @@ func (suite *ColocationPuzzleTestSuite) SetupTest() {
 
 	// Wrap the plaintext blocks in a ContentObject.
 	suite.obj = cachecash.NewContentBuffer(suite.plaintextBlocks)
+
+	fmt.Printf("ciphertextblocks len=%v", len(suite.ciphertextBlocks))
 }
 
 func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolve() {
@@ -80,6 +83,8 @@ func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolve() {
 }
 
 func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolveWithOffset() {
+	// This case differs from the above because block indices do not match the indices into the key/IV slices (they are
+	// offset by 4).
 	suite.testGenerateAndSolve(4, 8)
 }
 
@@ -105,8 +110,6 @@ func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEn
 	assert.Equal(t, puzzle.Offset, offset, "generator and solver do not agree on starting offset")
 	assert.Equal(t, puzzle.Secret, secret, "generator and solver do not agree on secret")
 }
-
-// XXX: TODO: Need test that covers block indices that are not zero-aligned.
 
 func (suite *ColocationPuzzleTestSuite) TestKeyAndIVFromSecret() {
 	t := suite.T()

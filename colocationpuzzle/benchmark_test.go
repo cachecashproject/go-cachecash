@@ -31,7 +31,7 @@ func makeBenchSuites() []*ColocationPuzzleTestSuite {
 				StartRange:  0,
 			},
 		}
-		s.SetupTest()
+		s.SetupSuite()
 		suites = append(suites, s)
 	}
 
