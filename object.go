@@ -4,8 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/rand"
 	"crypto/sha512"
-	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -125,6 +123,6 @@ func (o *contentBuffer) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
 		return nil, errors.New("data block index out of range")
 	}
 	d := sha512.Sum384(o.blocks[dataBlockIdx])
-	fmt.Printf(`"%v",`+"\n", hex.EncodeToString(d[:]))
+	// fmt.Printf(`"%v",`+"\n", hex.EncodeToString(d[:]))
 	return d[:], nil
 }

@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"crypto"
-	"log"
 	"net"
 
 	cachecash "github.com/kelleyk/go-cachecash"
@@ -211,7 +210,9 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 		StartOffset: uint64(gen.PuzzleParams.StartOffset), // XXX: Make typing consistent!
 		StartRange:  uint64(gen.PuzzleParams.StartRange),
 	}
-	log.Printf("generated colocation puzzle with initial offset=%v", puzzle.Offset)
+	gen.l.WithFields(logrus.Fields{
+		"initialOffset": puzzle.Offset,
+	}).Info("generated colocation puzzle")
 
 	// Generate a lottery ticket 2 and then marshal and encrypt it using a key and IV taken from the colocation puzzle's secret.
 	ticketL2 := &ccmsg.TicketL2{}

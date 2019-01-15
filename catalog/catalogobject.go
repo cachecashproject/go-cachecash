@@ -90,7 +90,6 @@ func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
 }
 
 func (m *ObjectMetadata) getBlock(dataBlockIdx uint32) ([]byte, error) {
-	fmt.Printf(">>> getBlock(%v) len(m.blocks)=%v\n", dataBlockIdx, len(m.blocks))
 	if int(dataBlockIdx) >= len(m.blocks) || m.blocks[dataBlockIdx] == nil {
 		return nil, errors.New("block not in cache")
 	}
