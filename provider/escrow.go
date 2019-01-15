@@ -212,6 +212,8 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 	}
 	gen.l.WithFields(logrus.Fields{
 		"initialOffset": puzzle.Offset,
+		// "goal":          hex.EncodeToString(puzzle.Goal),
+		// "secret":        hex.EncodeToString(puzzle.Secret),
 	}).Info("generated colocation puzzle")
 
 	// Generate a lottery ticket 2 and then marshal and encrypt it using a key and IV taken from the colocation puzzle's secret.
