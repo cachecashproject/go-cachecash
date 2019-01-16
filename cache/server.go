@@ -93,7 +93,9 @@ func (s *clientProtocolServer) Start() error {
 
 	go func() {
 		// This will block until we call `Stop`.
-		s.grpcServer.Serve(lis)
+		if err := s.grpcServer.Serve(lis); err != nil {
+			s.l.WithError(err).Error("failed to serve clientProtocolServer")
+		}
 	}()
 
 	s.l.Info("clientProtocolServer - Start - exit")
