@@ -36,7 +36,6 @@ type application struct {
 
 var _ Application = (*application)(nil)
 
-// XXX: Should this take p as an argument, or be responsible for setting it up?
 func NewApplication(l *logrus.Logger, c *Cache, conf *Config) (Application, error) {
 	conf.FillDefaults()
 
