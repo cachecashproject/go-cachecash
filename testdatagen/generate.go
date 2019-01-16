@@ -29,6 +29,7 @@ type TestScenarioParams struct {
 	GenerateObject bool
 
 	// These are optional.  If provided, they override the default that would have been generated.
+	L        *logrus.Logger
 	Upstream catalog.Upstream
 }
 
@@ -74,13 +75,15 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	var err error
 
 	ts := &TestScenario{
-		L:        l,
+		L:        params.L,
 		Params:   params,
 		Upstream: params.Upstream,
 	}
 
-	ts.L = logrus.New()
-	ts.L.SetLevel(logrus.DebugLevel)
+	if ts.L == nil {
+		ts.L = logrus.New()
+		ts.L.SetLevel(logrus.DebugLevel)
+	}
 
 	// Create a content object.
 	if params.GenerateObject {

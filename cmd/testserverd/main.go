@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"log"
 	"net/http"
 
 	cachecash "github.com/kelleyk/go-cachecash"
@@ -31,6 +33,10 @@ TODO:
 - Eventually, this and the `testserverd_randomdata` binary should share most of their code.
 */
 
+var (
+	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
+)
+
 type TestServer struct {
 	l *logrus.Logger
 
@@ -54,9 +60,15 @@ type Config struct {
 // XXX: Cribbed from `integration_test.go`.
 func (ts *TestServer) setup() error {
 	ts.l = logrus.New()
-	ts.l.SetLevel(logrus.DebugLevel)
+
+	logLevel, err := logrus.ParseLevel(*logLevelStr)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse log level")
+	}
+	ts.l.SetLevel(logLevel)
 
 	scen, err := testdatagen.GenerateTestScenario(ts.l, &testdatagen.TestScenarioParams{
+		L:          ts.l,
 		BlockSize:  128 * 1024,
 		ObjectSize: 128 * 1024 * 16,
 	})
@@ -129,6 +141,9 @@ func (ts *TestServer) Shutdown(ctx context.Context) error {
 }
 
 func main() {
+	flag.Parse()
+	log.SetFlags(0)
+
 	ts := &TestServer{
 		conf: &Config{
 			DataPath: "./testdata/content",
