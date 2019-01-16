@@ -134,3 +134,6 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 	// TODO: more!
 	_ = bundle
 }
+
+// TODO: Need to add regression test specifically testing that block IDs are assigned correctly.  Had bug where all
+//   blocks were given identical block IDs (that of the last block).  This was only caught by the integration tests.

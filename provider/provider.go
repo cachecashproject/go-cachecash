@@ -289,6 +289,12 @@ func (p *ContentProvider) getBlockID(obj *catalog.ObjectMetadata, blockIdx uint6
 	var id common.BlockID
 	digest := sha512.Sum384(data)
 	copy(id[:], digest[0:common.BlockIDSize])
+
+	p.l.WithFields(logrus.Fields{
+		"blockIdx": blockIdx,
+		"blockID":  id,
+	}).Debug("generating block ID")
+
 	return id, nil
 }
 

@@ -185,7 +185,8 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 		return nil, errors.Wrap(err, "failed to request bundle from provider")
 	}
 	bundle := resp.Bundle
-	cl.l.Infof("got ticket bundle from provider: %v", bundle)
+	cl.l.Info("got ticket bundle from provider")
+	// cl.l.Debugf("got ticket bundle from provider: %v", proto.MarshalTextString(bundle))
 
 	cacheQty := len(bundle.CacheInfo)
 

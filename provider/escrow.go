@@ -93,6 +93,7 @@ type BundleParams struct {
 	ClientPublicKey   crypto.PublicKey
 	Object            cachecash.ContentObject
 }
+
 type BundleEntryParams struct {
 	TicketNo uint64
 	BlockIdx uint32
@@ -169,7 +170,8 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 	}
 
 	blockIndices := make([]uint32, len(bp.Entries))
-	for i, bep := range bp.Entries {
+	for i := 0; i < len(bp.Entries); i++ {
+		bep := bp.Entries[i]
 		blockIndices[i] = bep.BlockIdx
 
 		// Generate a ticket-request for each cache.
