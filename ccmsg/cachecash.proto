@@ -158,7 +158,7 @@ message TicketL2 {
     // uint64 ticket_no = 1;
 
     // XXX: It seems like it might not be too hard for a cache to guess the plaintext L2 ticket that corresponds to the
-    // hash that it knows.  This would be harder if we didn't tell each cache the toher caches' public keys *and*
+    // hash that it knows.  This would be harder if we didn't tell each cache the other caches' public keys *and*
     // included all of those keys in the hashed ticket L2.  However, it still seems as though the group of hashes trying
     // to claim the ticket could find each other when they all show up to try to claim their win.
     bytes nonce = 2;
