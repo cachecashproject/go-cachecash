@@ -303,7 +303,7 @@ func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissReq
 
 	rme, ok := p.reverseMapping[req.ObjectId]
 	if !ok {
-		return nil, errors.New("no reverse mapping found for block ID")
+		return nil, errors.New("no reverse mapping found for object ID")
 	}
 	path := rme.path
 
