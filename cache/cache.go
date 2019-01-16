@@ -18,6 +18,13 @@ import (
 	"google.golang.org/grpc"
 )
 
+/*
+Notes & TODOs:
+- As-is, the cache does not actually use the metadata that it stores.  Why did we want the metadata to be provided?
+- No support yet for multiple-block fetches.  (When implementing this, need to make sure that we're using the block
+  ID(s) returned by the provider.
+*/
+
 type Escrow struct {
 	InnerMasterKey []byte // XXX: Shared with provider?
 	OuterMasterKey []byte
