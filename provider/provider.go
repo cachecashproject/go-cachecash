@@ -137,7 +137,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	//   future enhancement might require that the provider fetch only the cipher-blocks that will be used in puzzle
 	//   generation, instead of all of the cipher-blocks in the data blocks.)
 	p.l.Debug("pulling metadata and blocks into catalog")
-	objMeta, err := p.catalog.GetData(ctx, &ccmsg.ContentRequest{Path: req.Path})
+	obj, err := p.catalog.GetData(ctx, &ccmsg.ContentRequest{Path: req.Path})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get metadata for requested object")
 	}
@@ -151,12 +151,12 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		return nil, errors.New("invalid range")
 	}
 	// XXX: We also have `ContentObject.BlockSize()`; should pick one or the other.
-	rangeBegin := uint64(req.RangeBegin / objMeta.PolicyBlockSize())
-	rangeEnd := uint64(req.RangeEnd / objMeta.PolicyBlockSize()) // XXX: This probably needs a ceil()
+	rangeBegin := uint64(req.RangeBegin / obj.PolicyBlockSize())
+	rangeEnd := uint64(req.RangeEnd / obj.PolicyBlockSize()) // XXX: This probably needs a ceil()
 	// TODO: Return multiple block-groups if appropriate.
 	rangeEnd = rangeBegin + blocksPerGroup
-	if rangeEnd > uint64(objMeta.BlockCount()) {
-		rangeEnd = uint64(objMeta.BlockCount())
+	if rangeEnd > uint64(obj.BlockCount()) {
+		rangeEnd = uint64(obj.BlockCount())
 	}
 
 	p.l.WithFields(logrus.Fields{
@@ -170,7 +170,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	blockIndices := make([]uint64, 0, rangeEnd-rangeBegin)
 	blockIDs := make([]common.BlockID, 0, rangeEnd-rangeBegin)
 	for blockIdx := rangeBegin; blockIdx < rangeEnd; blockIdx++ {
-		blockID, err := p.getBlockID(objMeta, blockIdx)
+		blockID, err := p.getBlockID(obj, blockIdx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get block ID")
 		}
@@ -214,8 +214,6 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	// XXX: Should be based on the upstream path, which the current implementation conflates with the request path.
 	objID := generateObjectID(req.Path)
 	p.reverseMapping[objID] = reverseMappingEntry{path: req.Path}
-
-	obj := objMeta // XXX: ...
 
 	// Reserve a lottery ticket for each cache.  (Recall that lottery ticket numbers must be unique, and we are limited
 	// in the number that we can issue during each blockchain block to the number that we declared in our begin-escrow
