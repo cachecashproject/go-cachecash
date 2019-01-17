@@ -27,9 +27,7 @@ should return the same output as
 (The CacheCash provider runs on port 8080; the HTTP upstream that it pulls content from runs on port 8081.)
 
 TODO:
-- We need a way to signal how large the object is, so that the client knows how many requests to make.
 - Using the `cachecash-curl` binary to fetch an object that doesn't exist should return a 404 error.
-- Should actually serve the requested object instead of random data.
 - Eventually, this and the `testserverd_randomdata` binary should share most of their code.
 */
 
