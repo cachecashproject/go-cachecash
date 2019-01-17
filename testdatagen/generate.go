@@ -152,17 +152,6 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	}
 	ts.Escrow = escrow
 
-	// Add object to escrow.  XXX: Is this still necessary?
-	if params.GenerateObject {
-		escrow.Objects["/foo/bar"] = provider.EscrowObjectInfo{
-			Object: ts.Obj,
-			// N.B.: This becomes BundleParams.ObjectID
-			// XXX: What's that used for?  Are it and BlockIdx used to uniquely identify blocks on the cache?  I think we're
-			// using content addressing, aren't we?
-			ID: 999,
-		}
-	}
-
 	// Create caches that are participating in this escrow.
 	for i := 0; i < 4; i++ {
 		public, _, err := ed25519.GenerateKey(nil)

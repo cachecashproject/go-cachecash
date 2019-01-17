@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"crypto"
 	"net"
 
@@ -33,14 +32,7 @@ type Escrow struct {
 
 	Info *ccmsg.EscrowInfo
 
-	Objects map[string]EscrowObjectInfo
-
 	Caches []*ParticipatingCache
-}
-
-type EscrowObjectInfo struct {
-	Object cachecash.ContentObject // XXX: This has to be removed in favor of the content catalog.
-	ID     uint64
 }
 
 // The info object does not need to have its keys populated.
@@ -71,8 +63,6 @@ func (p *ContentProvider) NewEscrow(info *ccmsg.EscrowInfo) (*Escrow, error) {
 		PublicKey:  pub,
 		PrivateKey: priv,
 		Info:       info,
-
-		Objects: make(map[string]EscrowObjectInfo),
 	}, nil
 }
 
@@ -105,14 +95,6 @@ func (e *Escrow) ID() common.EscrowID {
 	// XXX: Temporary; replace me!
 	var id common.EscrowID
 	return id
-}
-
-func (e *Escrow) GetObjectByPath(ctx context.Context, path string) (cachecash.ContentObject, uint64, error) {
-	info, ok := e.Objects[path]
-	if !ok {
-		return nil, 0, errors.New("no such object")
-	}
-	return info.Object, info.ID, nil
 }
 
 func NewBundleGenerator(l *logrus.Logger, signer batchsignature.BatchSigner) *BundleGenerator {
