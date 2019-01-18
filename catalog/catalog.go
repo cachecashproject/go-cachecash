@@ -48,15 +48,13 @@ func (c *catalog) GetData(ctx context.Context, req *ccmsg.ContentRequest) (*Obje
 	// TODO: What if our requests to the upstream origin fail with retryable errors?  We should back off and retry
 	// without discarding data.
 
-	path := req.Path
-
 	// XXX: We don't need to hold a global lock this entire time, and we absolutely shouldn't hold it while we are
 	// watiing for requests in flight to resolve.
 	c.mu.Lock()
 	m, ok := c.objects[req.Path]
 	if !ok {
 		m = newObjectMetadata(c)
-		c.objects[path] = m
+		c.objects[req.Path] = m
 	}
 	c.mu.Unlock()
 
