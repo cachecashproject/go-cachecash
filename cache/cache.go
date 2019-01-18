@@ -57,15 +57,11 @@ func NewCache(l *logrus.Logger) (*Cache, error) {
 	}, nil
 }
 
-func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, objectID uint64, blockIdx uint64,
+func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, objectID common.ObjectID, blockIdx uint64,
 	blockID common.BlockID) ([]byte, error) {
 
-	// XXX: Need to decide on a type and replace this with a real escrow ID.
-	intEscrowID := uint64(42)
-
 	// Can we satisfy the request out of cache?
-
-	data, err := c.Storage.GetData(intEscrowID, blockID)
+	data, err := c.Storage.GetData(escrowID, blockID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get data block")
 	}
@@ -88,7 +84,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 		// First, contact the provider's cache-facing service and ask where to fetch this block from.
 		c.l.Info("asking provider for cache-miss info")
 		resp, err := grpcClient.CacheMiss(ctx, &ccmsg.CacheMissRequest{
-			ObjectId:   objectID,
+			ObjectId:   objectID[:],
 			RangeBegin: blockIdx,
 			RangeEnd:   blockIdx + 1,
 		})
@@ -139,10 +135,10 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 
 		// Insert it into the cache.
 		c.l.Info("inserting data into cache")
-		if err := c.Storage.PutMetadata(intEscrowID, objectID, resp.Metadata); err != nil {
+		if err := c.Storage.PutMetadata(escrowID, objectID, resp.Metadata); err != nil {
 			return nil, errors.Wrap(err, "failed to store metadata in cache")
 		}
-		if err := c.Storage.PutData(intEscrowID, blockID, data); err != nil {
+		if err := c.Storage.PutData(escrowID, blockID, data); err != nil {
 			return nil, errors.Wrap(err, "failed to store data in cache")
 		}
 	}
@@ -151,11 +147,8 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID *ccmsg.EscrowID, obje
 	return data, nil
 }
 
-func (c *Cache) getEscrow(escrowID *ccmsg.EscrowID) (*Escrow, error) {
-	// XXX: Don't just ignore the escrow ID!
-	var escrowIDbuf common.EscrowID
-
-	escrow, ok := c.Escrows[escrowIDbuf]
+func (c *Cache) getEscrow(escrowID common.EscrowID) (*Escrow, error) {
+	escrow, ok := c.Escrows[escrowID]
 	if !ok {
 		return nil, errors.New("no such escrow")
 	}
@@ -172,7 +165,12 @@ func (c *Cache) storeTicketL2(req *ccmsg.ClientCacheRequest) error {
 
 func (c *Cache) HandleRequest(ctx context.Context, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponse, error) {
 	// Make sure that we're participating in this escrow.
-	escrow, err := c.getEscrow(req.BundleRemainder.EscrowId)
+	escrowID, err := common.BytesToEscrowID(req.BundleRemainder.EscrowId)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to interpret escrow ID")
+	}
+
+	escrow, err := c.getEscrow(escrowID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch escrow information")
 	}
@@ -214,7 +212,15 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 	copy(blockID[:], ticketRequest.BlockId)
 
 	// If we don't have the block, ask the CP how to get it.
-	dataBlock, err := c.getDataBlock(ctx, req.BundleRemainder.EscrowId, req.BundleRemainder.ObjectId, ticketRequest.BlockIdx, blockID)
+	escrowID, err := common.BytesToEscrowID(req.BundleRemainder.EscrowId)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to interpret escrow ID")
+	}
+	objectID, err := common.BytesToObjectID(req.BundleRemainder.ObjectId)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to interpret object ID")
+	}
+	dataBlock, err := c.getDataBlock(ctx, escrowID, objectID, ticketRequest.BlockIdx, blockID)
 	if err != nil {
 		c.l.WithError(err).Error("failed to get data block") // XXX: Should just be doing this at the top level so that we see all errors.
 		return nil, errors.Wrap(err, "failed to get data block")

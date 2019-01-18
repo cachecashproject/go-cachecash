@@ -25,6 +25,8 @@ type ParticipatingCache struct {
 }
 
 type Escrow struct {
+	ID common.EscrowID
+
 	Provider *ContentProvider
 
 	PublicKey  crypto.PublicKey
@@ -50,7 +52,10 @@ func (p *ContentProvider) NewEscrow(info *ccmsg.EscrowInfo) (*Escrow, error) {
 	if len(info.TicketsPerBlock) == 0 {
 		return nil, errors.New("tickets-per-block may not be empty")
 	}
-	// XXX: Validate info.EscrowID
+	id, err := common.BytesToEscrowID(info.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to interpret escrow ID")
+	}
 
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -59,6 +64,8 @@ func (p *ContentProvider) NewEscrow(info *ccmsg.EscrowInfo) (*Escrow, error) {
 
 	// TODO: Should we set info.PublicKey and info.ProviderPublicKey?
 	return &Escrow{
+		ID: id,
+
 		Provider:   p,
 		PublicKey:  pub,
 		PrivateKey: priv,
@@ -76,8 +83,8 @@ func (e *Escrow) reserveTicketNumbers(qty int) ([]uint64, error) {
 
 // BundleParams is everything necessary to generate a complete TicketBundle message.
 type BundleParams struct {
-	Escrow            *Escrow // XXX: Do we need this?
-	ObjectID          uint64  // This is a per-escrow value.
+	Escrow            *Escrow         // XXX: Do we need this?
+	ObjectID          common.ObjectID // This is a per-escrow value.
 	Entries           []BundleEntryParams
 	RequestSequenceNo uint64
 	ClientPublicKey   crypto.PublicKey
@@ -89,12 +96,6 @@ type BundleEntryParams struct {
 	BlockIdx uint32
 	BlockID  common.BlockID
 	Cache    *ParticipatingCache
-}
-
-func (e *Escrow) ID() common.EscrowID {
-	// XXX: Temporary; replace me!
-	var id common.EscrowID
-	return id
 }
 
 func NewBundleGenerator(l *logrus.Logger, signer batchsignature.BatchSigner) *BundleGenerator {
@@ -123,8 +124,8 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 		// EscrowPublicKey:   cachecash.PublicKeyMessage(e.PublicKey),
 		Remainder: &ccmsg.TicketBundleRemainder{
 			RequestSequenceNo: bp.RequestSequenceNo,
-			EscrowId:          nil, // XXX: Should be `bp.Escrow.ID()`
-			ObjectId:          bp.ObjectID,
+			EscrowId:          bp.Escrow.ID[:],
+			ObjectId:          bp.ObjectID[:],
 			// PuzzleInfo is filled in later
 			ClientPublicKey: cachecash.PublicKeyMessage(bp.ClientPublicKey),
 		},

@@ -28,7 +28,7 @@ type ContentObject interface {
 	// of whole cipher blocks that exist in the data block.
 	GetCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]byte, error)
 
-	// BlockCount returns the number of blocks in this object.
+	// BlockCount returns the number of bloks in this object.
 	BlockCount() int
 
 	BlockDigest(dataBlockIdx uint32) ([]byte, error)

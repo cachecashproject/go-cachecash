@@ -5,7 +5,6 @@ import (
 	"crypto"
 	"crypto/sha256"
 	"crypto/sha512"
-	"encoding/binary"
 	"fmt"
 
 	"github.com/kelleyk/go-cachecash/batchsignature"
@@ -30,7 +29,7 @@ type ContentProvider struct {
 
 	// XXX: It's obviously not great that this is necessary.
 	// Maps object IDs to metadata; necessary to allow the provider to generate cache-miss responses.
-	reverseMapping map[uint64]reverseMappingEntry
+	reverseMapping map[common.ObjectID]reverseMappingEntry
 
 	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
 	// caches map[cachecash.PublicKey]*ParticipatingCache
@@ -49,7 +48,7 @@ func NewContentProvider(l *logrus.Logger, catalog catalog.ContentCatalog, signer
 		l:              l,
 		signer:         signer,
 		catalog:        catalog,
-		reverseMapping: make(map[uint64]reverseMappingEntry),
+		reverseMapping: make(map[common.ObjectID]reverseMappingEntry),
 	}
 
 	return p, nil
@@ -212,7 +211,10 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	*/
 
 	// XXX: Should be based on the upstream path, which the current implementation conflates with the request path.
-	objID := generateObjectID(req.Path)
+	objID, err := generateObjectID(req.Path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate object ID")
+	}
 	p.reverseMapping[objID] = reverseMappingEntry{path: req.Path}
 
 	// Reserve a lottery ticket for each cache.  (Recall that lottery ticket numbers must be unique, and we are limited
@@ -299,7 +301,12 @@ func (p *ContentProvider) getBlockID(obj *catalog.ObjectMetadata, blockIdx uint6
 func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
 	// TODO: How do we identify the cache submitting the request?
 
-	rme, ok := p.reverseMapping[req.ObjectId]
+	objectID, err := common.BytesToObjectID(req.ObjectId)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to interpret object ID")
+	}
+
+	rme, ok := p.reverseMapping[objectID]
 	if !ok {
 		return nil, errors.New("no reverse mapping found for object ID")
 	}
@@ -351,7 +358,7 @@ func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissReq
 // XXX: This is, obviously, temporary.  We should be using object IDs that are larger than 64 bits, among other
 // problems.  We also must account for the fact that the object stored at a path may change (e.g. when the mtime/etag
 // are updated).
-func generateObjectID(path string) uint64 {
+func generateObjectID(path string) (common.ObjectID, error) {
 	digest := sha256.Sum256([]byte(path))
-	return binary.BigEndian.Uint64(digest[0:8])
+	return common.BytesToObjectID(digest[0:common.ObjectIDSize])
 }

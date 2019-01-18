@@ -29,7 +29,8 @@ message EscrowInfo {
 
     // If we are using block/transaction-index based IDs, then this field must not be part of what is actually committed
     // to the blockchain.
-    EscrowID id = 7;
+    // N.B.: Must be of length `common.EscrowIDSize`.
+    bytes id = 7;
 }
 
 message Segment {
@@ -63,8 +64,8 @@ message TicketBundleRemainder {
     // TODO: Remove this in favor of the field in the ContentResponse envelope.
     uint64 request_sequence_no = 2;
 
-    EscrowID escrow_id = 1;
-    uint64 object_id = 3;
+    bytes escrow_id = 1;
+    bytes object_id = 3;
     
     ColocationPuzzleInfo puzzle_info = 7;
 
@@ -183,13 +184,6 @@ message TicketL2 {
     
 }
 
-// Globally-unique identifier for an escrow, based on the position of the transaction that started the escrow.
-message EscrowID {
-    uint64 block_idx = 1;
-    uint32 transaction_idx = 2;
-}
-
-
 message TicketL2Info {
     bytes encrypted_ticket_l2 = 1;
     bytes puzzle_secret = 2;
@@ -198,7 +192,7 @@ message TicketL2Info {
 // Signed by escrow key; ensures that the key that produced the batch signature is authorized.
 message Certificate {
     PublicKey subject_public_key = 1;
-    EscrowID escrow_id = 2;
+    bytes escrow_id = 2;
     string usage = 3;
     bytes signature = 4;
 }
@@ -319,7 +313,7 @@ message CacheMissRequest {
     uint64 range_begin = 2;
     uint64 range_end = 3;
 
-    uint64 object_id = 4;
+    bytes object_id = 4;
 }
 
 message CacheMissResponse {
@@ -327,7 +321,7 @@ message CacheMissResponse {
     repeated bytes block_id = 3;
 
     ObjectMetadata metadata = 2;
-    
+
     oneof source {
         BlockSourceHTTP http = 10;
     }

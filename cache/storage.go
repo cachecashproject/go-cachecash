@@ -8,29 +8,29 @@ import (
 
 type CacheStorage struct {
 	l       *logrus.Logger
-	escrows map[uint64]*escrowState
+	escrows map[common.EscrowID]*escrowState
 }
 
 type escrowState struct {
 	data     map[common.BlockID][]byte
-	metadata map[uint64]*ccmsg.ObjectMetadata
+	metadata map[common.ObjectID]*ccmsg.ObjectMetadata
 }
 
 func NewCacheStorage(l *logrus.Logger) (*CacheStorage, error) {
 	return &CacheStorage{
 		l:       l,
-		escrows: make(map[uint64]*escrowState),
+		escrows: make(map[common.EscrowID]*escrowState),
 	}, nil
 }
 
 func newEscrowState() *escrowState {
 	return &escrowState{
 		data:     make(map[common.BlockID][]byte),
-		metadata: make(map[uint64]*ccmsg.ObjectMetadata),
+		metadata: make(map[common.ObjectID]*ccmsg.ObjectMetadata),
 	}
 }
 
-func (s *CacheStorage) getEscrowState(escrowID uint64) *escrowState {
+func (s *CacheStorage) getEscrowState(escrowID common.EscrowID) *escrowState {
 	es, ok := s.escrows[escrowID]
 	if !ok {
 		es = newEscrowState()
@@ -41,7 +41,7 @@ func (s *CacheStorage) getEscrowState(escrowID uint64) *escrowState {
 
 // Returns (nil, nil) if the object does not exist; the error part of the rval is reserved for e.g. storage engine
 // errors.
-func (s *CacheStorage) GetMetadata(escrowID, objectID uint64) (*ccmsg.ObjectMetadata, error) {
+func (s *CacheStorage) GetMetadata(escrowID common.EscrowID, objectID common.ObjectID) (*ccmsg.ObjectMetadata, error) {
 	s.l.WithFields(logrus.Fields{
 		"escrowID": escrowID,
 		"objectID": objectID,
@@ -52,7 +52,7 @@ func (s *CacheStorage) GetMetadata(escrowID, objectID uint64) (*ccmsg.ObjectMeta
 	return m, nil
 }
 
-func (s *CacheStorage) GetData(escrowID uint64, blockID common.BlockID) ([]byte, error) {
+func (s *CacheStorage) GetData(escrowID common.EscrowID, blockID common.BlockID) ([]byte, error) {
 	s.l.WithFields(logrus.Fields{
 		"escrowID": escrowID,
 		"blockID":  blockID,
@@ -63,7 +63,7 @@ func (s *CacheStorage) GetData(escrowID uint64, blockID common.BlockID) ([]byte,
 	return b, nil
 }
 
-func (s *CacheStorage) PutMetadata(escrowID, objectID uint64, m *ccmsg.ObjectMetadata) error {
+func (s *CacheStorage) PutMetadata(escrowID common.EscrowID, objectID common.ObjectID, m *ccmsg.ObjectMetadata) error {
 	s.l.WithFields(logrus.Fields{
 		"escrowID": escrowID,
 		"objectID": objectID,
@@ -74,7 +74,7 @@ func (s *CacheStorage) PutMetadata(escrowID, objectID uint64, m *ccmsg.ObjectMet
 	return nil
 }
 
-func (s *CacheStorage) PutData(escrowID uint64, blockID common.BlockID, data []byte) error {
+func (s *CacheStorage) PutData(escrowID common.EscrowID, blockID common.BlockID, data []byte) error {
 	s.l.WithFields(logrus.Fields{
 		"escrowID": escrowID,
 		"blockID":  blockID,

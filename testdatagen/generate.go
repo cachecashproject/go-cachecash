@@ -41,10 +41,12 @@ type TestScenario struct {
 	Provider *provider.ContentProvider
 	Catalog  catalog.ContentCatalog
 	Escrow   *provider.Escrow
+	EscrowID common.EscrowID
 
-	Params *TestScenarioParams
-	Obj    cachecash.ContentObject
-	Caches []*cache.Cache
+	Params   *TestScenarioParams
+	Obj      cachecash.ContentObject
+	ObjectID common.ObjectID
+	Caches   []*cache.Cache
 }
 
 func (ts *TestScenario) BlockCount() uint64 {
@@ -74,10 +76,23 @@ func generateBlockID(data []byte) common.BlockID {
 func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestScenario, error) {
 	var err error
 
+	escrowID, err := common.BytesToEscrowID(testutil.RandBytes(common.EscrowIDSize))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate escrow ID")
+	}
+
+	objectID, err := common.BytesToObjectID(testutil.RandBytes(common.ObjectIDSize))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate object ID")
+	}
+
 	ts := &TestScenario{
 		L:        params.L,
 		Params:   params,
 		Upstream: params.Upstream,
+
+		EscrowID: escrowID,
+		ObjectID: objectID,
 	}
 
 	if ts.L == nil {
@@ -137,6 +152,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 
 	// Create escrow and add it to the provider.
 	escrow, err := prov.NewEscrow(&ccmsg.EscrowInfo{
+		Id:              ts.EscrowID[:],
 		DrawDelay:       5,
 		ExpirationDelay: 5,
 		StartBlock:      42,
@@ -179,7 +195,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			ProviderCacheServiceAddr: "localhost:8082",
 		}
 		if params.GenerateObject {
-			if err := c.Storage.PutMetadata(42, 999, &ccmsg.ObjectMetadata{
+			if err := c.Storage.PutMetadata(ts.EscrowID, ts.ObjectID, &ccmsg.ObjectMetadata{
 				BlockSize:  ts.Params.BlockSize,
 				ObjectSize: ts.Params.ObjectSize,
 			}); err != nil {
@@ -191,13 +207,12 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 					return nil, err
 				}
 				blockID := generateBlockID(data)
-				intEscrowID := uint64(42) // XXX: This is hardwired here and in the provider.
-				if err := c.Storage.PutData(intEscrowID, blockID, data); err != nil {
+				if err := c.Storage.PutData(ts.EscrowID, blockID, data); err != nil {
 					return nil, err
 				}
 			}
 		}
-		c.Escrows[escrow.ID()] = ce
+		c.Escrows[escrow.ID] = ce
 		ts.Caches = append(ts.Caches, c)
 	}
 

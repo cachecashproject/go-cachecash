@@ -8,6 +8,7 @@ import (
 	cachecash "github.com/kelleyk/go-cachecash"
 	"github.com/kelleyk/go-cachecash/batchsignature"
 	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/kelleyk/go-cachecash/common"
 	"github.com/kelleyk/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -51,6 +52,7 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 	}
 
 	ei := &ccmsg.EscrowInfo{
+		Id:              testutil.RandBytes(common.EscrowIDSize),
 		StartBlock:      42,
 		DrawDelay:       5,
 		ExpirationDelay: 5,
@@ -108,12 +110,17 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 		t.Fatalf("failed to construct random test data: %v", err)
 	}
 
+	objectID, err := common.BytesToObjectID(testutil.RandBytes(common.ObjectIDSize))
+	if err != nil {
+		t.Fatalf("failed to generate object ID: %v", err)
+	}
+
 	bp := &BundleParams{
 		ClientPublicKey:   suite.clientPublic,
 		RequestSequenceNo: 123,
 		Escrow:            suite.escrow,
 		Object:            obj,
-		ObjectID:          456, // XXX: Should this move into the ContentObject interface?
+		ObjectID:          objectID,
 		Entries: []BundleEntryParams{
 			BundleEntryParams{TicketNo: 0, BlockIdx: 0, Cache: caches[0]},
 			BundleEntryParams{TicketNo: 1, BlockIdx: 1, Cache: caches[1]},
