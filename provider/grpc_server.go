@@ -15,6 +15,7 @@ var _ ccmsg.ClientProviderServer = (*grpcClientProviderServer)(nil)
 func (s *grpcClientProviderServer) GetContent(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error) {
 	bundle, err := s.provider.HandleContentRequest(ctx, req)
 	if err != nil {
+		s.provider.l.WithError(err).Error("content request failed")
 		return nil, err
 	}
 
