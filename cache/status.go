@@ -53,12 +53,15 @@ func (s *statusServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 
 	d, err := json.Marshal(resp)
 	if err != nil {
+		s.l.WithError(err).Error("failed to marshal response JSON")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(d)
+	if _, err := w.Write(d); d != nil {
+		s.l.WithError(err).Error("failed to write response")
+	}
 }
 
 func (s *statusServer) Start() error {
