@@ -19,7 +19,7 @@ func main() {
 	}
 
 	conf := &cache.Config{
-		ClientProtocolAddr: ":8081",
+		// Any non-defaults should be specified here!
 	}
 
 	// Serve traffic!

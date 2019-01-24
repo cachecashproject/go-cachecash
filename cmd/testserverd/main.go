@@ -112,6 +112,7 @@ func (ts *TestServer) Start() error {
 			// XXX: This must match what is set up in the Escrow struct on the provider side so that the provider sends
 			// clients to the right place.
 			ClientProtocolAddr: fmt.Sprintf(":%v", 9000+i),
+			StatusAddr:         fmt.Sprintf(":%v", 9100+i),
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to create cache application")

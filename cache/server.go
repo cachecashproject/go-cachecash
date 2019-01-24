@@ -19,11 +19,15 @@ type Application interface {
 
 type Config struct {
 	ClientProtocolAddr string
+	StatusAddr         string
 }
 
 func (c *Config) FillDefaults() {
 	if c.ClientProtocolAddr == "" {
 		c.ClientProtocolAddr = ":9000"
+	}
+	if c.StatusAddr == "" {
+		c.StatusAddr = ":9100"
 	}
 }
 
@@ -31,6 +35,7 @@ type application struct {
 	l *logrus.Logger
 
 	clientProtocolServer *clientProtocolServer
+	statusServer         *statusServer
 	// TODO: ...
 }
 
@@ -44,9 +49,15 @@ func NewApplication(l *logrus.Logger, c *Cache, conf *Config) (Application, erro
 		return nil, errors.Wrap(err, "failed to create client protocol server")
 	}
 
+	statusServer, err := newStatusServer(l, c, conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create status server")
+	}
+
 	return &application{
 		l:                    l,
 		clientProtocolServer: clientProtocolServer,
+		statusServer:         statusServer,
 	}, nil
 }
 
@@ -54,11 +65,20 @@ func (a *application) Start() error {
 	if err := a.clientProtocolServer.Start(); err != nil {
 		return errors.Wrap(err, "failed to start client protocol server")
 	}
+	if err := a.statusServer.Start(); err != nil {
+		return errors.Wrap(err, "failed to start status server")
+	}
 	return nil
 }
 
 func (a *application) Shutdown(ctx context.Context) error {
-	return a.clientProtocolServer.Shutdown(ctx)
+	if err := a.clientProtocolServer.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to shut down client protocol server")
+	}
+	if err := a.statusServer.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to shut down status server")
+	}
+	return nil
 }
 
 type clientProtocolServer struct {
