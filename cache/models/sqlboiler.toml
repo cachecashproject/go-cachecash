@@ -1,0 +1,10 @@
+[sqlite3]
+  dbname = "./cache.db"
+
+[[types]]
+  [types.match]
+    name = "escrow_id"
+  [types.replace]
+    type = "common.EscrowID"
+  [types.imports]
+    third_party = ['"github.com/kelleyk/go-cachecash/common"']

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kelleyk/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"
@@ -22,9 +23,9 @@ import (
 
 // LogicalCacheMapping is an object representing the database table.
 type LogicalCacheMapping struct {
-	EscrowID string `boil:"escrow_id" json:"escrow_id" toml:"escrow_id" yaml:"escrow_id"`
-	SlotIdx  string `boil:"slot_idx" json:"slot_idx" toml:"slot_idx" yaml:"slot_idx"`
-	DatumID  string `boil:"datum_id" json:"datum_id" toml:"datum_id" yaml:"datum_id"`
+	EscrowID common.EscrowID `boil:"escrow_id" json:"escrow_id" toml:"escrow_id" yaml:"escrow_id"`
+	SlotIdx  string          `boil:"slot_idx" json:"slot_idx" toml:"slot_idx" yaml:"slot_idx"`
+	DatumID  string          `boil:"datum_id" json:"datum_id" toml:"datum_id" yaml:"datum_id"`
 
 	R *logicalCacheMappingR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L logicalCacheMappingL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -42,12 +43,33 @@ var LogicalCacheMappingColumns = struct {
 
 // Generated where
 
+type whereHelpercommon_EscrowID struct{ field string }
+
+func (w whereHelpercommon_EscrowID) EQ(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.EQ, x)
+}
+func (w whereHelpercommon_EscrowID) NEQ(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.NEQ, x)
+}
+func (w whereHelpercommon_EscrowID) LT(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpercommon_EscrowID) LTE(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpercommon_EscrowID) GT(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpercommon_EscrowID) GTE(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
 var LogicalCacheMappingWhere = struct {
-	EscrowID whereHelperstring
+	EscrowID whereHelpercommon_EscrowID
 	SlotIdx  whereHelperstring
 	DatumID  whereHelperstring
 }{
-	EscrowID: whereHelperstring{field: `escrow_id`},
+	EscrowID: whereHelpercommon_EscrowID{field: `escrow_id`},
 	SlotIdx:  whereHelperstring{field: `slot_idx`},
 	DatumID:  whereHelperstring{field: `datum_id`},
 }
@@ -358,7 +380,7 @@ func LogicalCacheMappings(mods ...qm.QueryMod) logicalCacheMappingQuery {
 
 // FindLogicalCacheMapping retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindLogicalCacheMapping(ctx context.Context, exec boil.ContextExecutor, escrowID string, slotIdx string, selectCols ...string) (*LogicalCacheMapping, error) {
+func FindLogicalCacheMapping(ctx context.Context, exec boil.ContextExecutor, escrowID common.EscrowID, slotIdx string, selectCols ...string) (*LogicalCacheMapping, error) {
 	logicalCacheMappingObj := &LogicalCacheMapping{}
 
 	sel := "*"
@@ -758,7 +780,7 @@ func (o *LogicalCacheMappingSlice) ReloadAll(ctx context.Context, exec boil.Cont
 }
 
 // LogicalCacheMappingExists checks if the LogicalCacheMapping row exists.
-func LogicalCacheMappingExists(ctx context.Context, exec boil.ContextExecutor, escrowID string, slotIdx string) (bool, error) {
+func LogicalCacheMappingExists(ctx context.Context, exec boil.ContextExecutor, escrowID common.EscrowID, slotIdx string) (bool, error) {
 	var exists bool
 	sql := "select exists(select 1 from \"logical_cache_mapping\" where \"escrow_id\"=? AND \"slot_idx\"=? limit 1)"
 
