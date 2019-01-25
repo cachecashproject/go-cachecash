@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,15 +39,6 @@ var MigrationColumns = struct {
 }
 
 // Generated where
-
-type whereHelperstring struct{ field string }
-
-func (w whereHelperstring) EQ(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperstring) NEQ(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperstring) LT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperstring) LTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperstring) GT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
 type whereHelpernull_Time struct{ field string }
 
@@ -395,7 +385,7 @@ func FindMigration(ctx context.Context, exec boil.ContextExecutor, iD string, se
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"migrations\" where \"id\"=$1", sel,
+		"select %s from \"migrations\" where \"id\"=?", sel,
 	)
 
 	q := queries.Raw(query, iD)
@@ -450,13 +440,13 @@ func (o *Migration) Insert(ctx context.Context, exec boil.ContextExecutor, colum
 		if len(wl) != 0 {
 			cache.query = fmt.Sprintf("INSERT INTO \"migrations\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
 		} else {
-			cache.query = "INSERT INTO \"migrations\" %sDEFAULT VALUES%s"
+			cache.query = "INSERT INTO \"migrations\" () VALUES ()%s%s"
 		}
 
 		var queryOutput, queryReturning string
 
 		if len(cache.retMapping) != 0 {
-			queryReturning = fmt.Sprintf(" RETURNING \"%s\"", strings.Join(returnColumns, "\",\""))
+			cache.retQuery = fmt.Sprintf("SELECT \"%s\" FROM \"migrations\" WHERE %s", strings.Join(returnColumns, "\",\""), strmangle.WhereClause("\"", "\"", 0, migrationPrimaryKeyColumns))
 		}
 
 		cache.query = fmt.Sprintf(cache.query, queryOutput, queryReturning)
@@ -470,16 +460,33 @@ func (o *Migration) Insert(ctx context.Context, exec boil.ContextExecutor, colum
 		fmt.Fprintln(boil.DebugWriter, vals)
 	}
 
-	if len(cache.retMapping) != 0 {
-		err = exec.QueryRowContext(ctx, cache.query, vals...).Scan(queries.PtrsFromMapping(value, cache.retMapping)...)
-	} else {
-		_, err = exec.ExecContext(ctx, cache.query, vals...)
-	}
+	_, err = exec.ExecContext(ctx, cache.query, vals...)
 
 	if err != nil {
 		return errors.Wrap(err, "models: unable to insert into migrations")
 	}
 
+	var identifierCols []interface{}
+
+	if len(cache.retMapping) == 0 {
+		goto CacheNoHooks
+	}
+
+	identifierCols = []interface{}{
+		o.ID,
+	}
+
+	if boil.DebugMode {
+		fmt.Fprintln(boil.DebugWriter, cache.retQuery)
+		fmt.Fprintln(boil.DebugWriter, identifierCols...)
+	}
+
+	err = exec.QueryRowContext(ctx, cache.retQuery, identifierCols...).Scan(queries.PtrsFromMapping(value, cache.retMapping)...)
+	if err != nil {
+		return errors.Wrap(err, "models: unable to populate default values for migrations")
+	}
+
+CacheNoHooks:
 	if !cached {
 		migrationInsertCacheMut.Lock()
 		migrationInsertCache[key] = cache
@@ -516,8 +523,8 @@ func (o *Migration) Update(ctx context.Context, exec boil.ContextExecutor, colum
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"migrations\" SET %s WHERE %s",
-			strmangle.SetParamNames("\"", "\"", 1, wl),
-			strmangle.WhereClause("\"", "\"", len(wl)+1, migrationPrimaryKeyColumns),
+			strmangle.SetParamNames("\"", "\"", 0, wl),
+			strmangle.WhereClause("\"", "\"", 0, migrationPrimaryKeyColumns),
 		)
 		cache.valueMapping, err = queries.BindMapping(migrationType, migrationMapping, append(wl, migrationPrimaryKeyColumns...))
 		if err != nil {
@@ -597,8 +604,8 @@ func (o MigrationSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor
 	}
 
 	sql := fmt.Sprintf("UPDATE \"migrations\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, colNames),
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), len(colNames)+1, migrationPrimaryKeyColumns, len(o)))
+		strmangle.SetParamNames("\"", "\"", 0, colNames),
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 0, migrationPrimaryKeyColumns, len(o)))
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -617,121 +624,6 @@ func (o MigrationSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor
 	return rowsAff, nil
 }
 
-// Upsert attempts an insert using an executor, and does an update or ignore on conflict.
-// See boil.Columns documentation for how to properly use updateColumns and insertColumns.
-func (o *Migration) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
-	if o == nil {
-		return errors.New("models: no migrations provided for upsert")
-	}
-
-	if err := o.doBeforeUpsertHooks(ctx, exec); err != nil {
-		return err
-	}
-
-	nzDefaults := queries.NonZeroDefaultSet(migrationColumnsWithDefault, o)
-
-	// Build cache key in-line uglily - mysql vs psql problems
-	buf := strmangle.GetBuffer()
-	if updateOnConflict {
-		buf.WriteByte('t')
-	} else {
-		buf.WriteByte('f')
-	}
-	buf.WriteByte('.')
-	for _, c := range conflictColumns {
-		buf.WriteString(c)
-	}
-	buf.WriteByte('.')
-	buf.WriteString(strconv.Itoa(updateColumns.Kind))
-	for _, c := range updateColumns.Cols {
-		buf.WriteString(c)
-	}
-	buf.WriteByte('.')
-	buf.WriteString(strconv.Itoa(insertColumns.Kind))
-	for _, c := range insertColumns.Cols {
-		buf.WriteString(c)
-	}
-	buf.WriteByte('.')
-	for _, c := range nzDefaults {
-		buf.WriteString(c)
-	}
-	key := buf.String()
-	strmangle.PutBuffer(buf)
-
-	migrationUpsertCacheMut.RLock()
-	cache, cached := migrationUpsertCache[key]
-	migrationUpsertCacheMut.RUnlock()
-
-	var err error
-
-	if !cached {
-		insert, ret := insertColumns.InsertColumnSet(
-			migrationColumns,
-			migrationColumnsWithDefault,
-			migrationColumnsWithoutDefault,
-			nzDefaults,
-		)
-		update := updateColumns.UpdateColumnSet(
-			migrationColumns,
-			migrationPrimaryKeyColumns,
-		)
-
-		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert migrations, could not build update column list")
-		}
-
-		conflict := conflictColumns
-		if len(conflict) == 0 {
-			conflict = make([]string, len(migrationPrimaryKeyColumns))
-			copy(conflict, migrationPrimaryKeyColumns)
-		}
-		cache.query = buildUpsertQueryPostgres(dialect, "\"migrations\"", updateOnConflict, ret, update, conflict, insert)
-
-		cache.valueMapping, err = queries.BindMapping(migrationType, migrationMapping, insert)
-		if err != nil {
-			return err
-		}
-		if len(ret) != 0 {
-			cache.retMapping, err = queries.BindMapping(migrationType, migrationMapping, ret)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	value := reflect.Indirect(reflect.ValueOf(o))
-	vals := queries.ValuesFromMapping(value, cache.valueMapping)
-	var returns []interface{}
-	if len(cache.retMapping) != 0 {
-		returns = queries.PtrsFromMapping(value, cache.retMapping)
-	}
-
-	if boil.DebugMode {
-		fmt.Fprintln(boil.DebugWriter, cache.query)
-		fmt.Fprintln(boil.DebugWriter, vals)
-	}
-
-	if len(cache.retMapping) != 0 {
-		err = exec.QueryRowContext(ctx, cache.query, vals...).Scan(returns...)
-		if err == sql.ErrNoRows {
-			err = nil // Postgres doesn't return anything when there's no update
-		}
-	} else {
-		_, err = exec.ExecContext(ctx, cache.query, vals...)
-	}
-	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert migrations")
-	}
-
-	if !cached {
-		migrationUpsertCacheMut.Lock()
-		migrationUpsertCache[key] = cache
-		migrationUpsertCacheMut.Unlock()
-	}
-
-	return o.doAfterUpsertHooks(ctx, exec)
-}
-
 // Delete deletes a single Migration record with an executor.
 // Delete will match against the primary key column to find the record to delete.
 func (o *Migration) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
@@ -744,7 +636,7 @@ func (o *Migration) Delete(ctx context.Context, exec boil.ContextExecutor) (int6
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), migrationPrimaryKeyMapping)
-	sql := "DELETE FROM \"migrations\" WHERE \"id\"=$1"
+	sql := "DELETE FROM \"migrations\" WHERE \"id\"=?"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -814,7 +706,7 @@ func (o MigrationSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor
 	}
 
 	sql := "DELETE FROM \"migrations\" WHERE " +
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, migrationPrimaryKeyColumns, len(o))
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 0, migrationPrimaryKeyColumns, len(o))
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -869,7 +761,7 @@ func (o *MigrationSlice) ReloadAll(ctx context.Context, exec boil.ContextExecuto
 	}
 
 	sql := "SELECT \"migrations\".* FROM \"migrations\" WHERE " +
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, migrationPrimaryKeyColumns, len(*o))
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 0, migrationPrimaryKeyColumns, len(*o))
 
 	q := queries.Raw(sql, args...)
 
@@ -886,7 +778,7 @@ func (o *MigrationSlice) ReloadAll(ctx context.Context, exec boil.ContextExecuto
 // MigrationExists checks if the Migration row exists.
 func MigrationExists(ctx context.Context, exec boil.ContextExecutor, iD string) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"migrations\" where \"id\"=$1 limit 1)"
+	sql := "select exists(select 1 from \"migrations\" where \"id\"=? limit 1)"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
