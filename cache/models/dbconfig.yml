@@ -3,3 +3,11 @@ cache-development:
   dialect: sqlite3
   datasource: "./cache.db"
   dir: "../migrations/"
+  table: migrations
+
+# host is from `docker-machine ip default`
+cache-development-pg:
+  dialect: postgres
+  datasource: "host=192.168.64.2 port=32768 user=postgres password=c4chec4sh dbname=postgres sslmode=disable"
+  dir: "../migrations/"
+  table: migrations

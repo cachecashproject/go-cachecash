@@ -1,10 +1,43 @@
 [sqlite3]
   dbname = "./cache.db"
+[psql]
+  host = "192.168.64.2"
+  port = 32768
+  user = "postgres"
+  pass = "c4chec4sh"
+  dbname = "postgres"
+  sslmode = "disable"
 
+
+# @kelleyk: I wonder if doing this against sqlite3 is making things difficult for sqlboiler.  We need a match for
+# everything, otherwise every field winds up as a string.
 [[types]]
   [types.match]
     name = "escrow_id"
   [types.replace]
     type = "common.EscrowID"
+  [types.imports]
+    third_party = ['"github.com/kelleyk/go-cachecash/common"']
+
+[[types]]
+  [types.match]
+    # db_type = "varbinary(16)" # @kelleyk: This doesn't match; why not?  Is the db_type 'string' (as a consequence of
+    # our using sqlite3)?
+    name = "block_escrow_id"
+    nullable = true
+  [types.replace]
+    type = "null.Bytes"
+
+[[types]]
+  [types.match]
+    name = "slot_idx"
+  [types.replace]
+    type = "uint64"
+
+[[types]]
+  [types.match]
+    name = "block_id"
+  [types.replace]
+    type = "common.BlockID"
   [types.imports]
     third_party = ['"github.com/kelleyk/go-cachecash/common"']

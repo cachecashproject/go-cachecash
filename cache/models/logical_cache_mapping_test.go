@@ -568,7 +568,7 @@ func testLogicalCacheMappingsSelect(t *testing.T) {
 }
 
 var (
-	logicalCacheMappingDBTypes = map[string]string{`EscrowID`: `VARBINARY(16)`, `SlotIdx`: `UNSIGNED INT(4)`, `DatumID`: `VARBINARY(16)`}
+	logicalCacheMappingDBTypes = map[string]string{`EscrowID`: `bytea`, `SlotIdx`: `bigint`, `BlockEscrowID`: `bytea`, `BlockID`: `bytea`}
 	_                          = bytes.MinRead
 )
 
@@ -680,5 +680,53 @@ func testLogicalCacheMappingsSliceUpdateAll(t *testing.T) {
 		t.Error(err)
 	} else if rowsAff != 1 {
 		t.Error("wanted one record updated but got", rowsAff)
+	}
+}
+
+func testLogicalCacheMappingsUpsert(t *testing.T) {
+	t.Parallel()
+
+	if len(logicalCacheMappingColumns) == len(logicalCacheMappingPrimaryKeyColumns) {
+		t.Skip("Skipping table with only primary key columns")
+	}
+
+	seed := randomize.NewSeed()
+	var err error
+	// Attempt the INSERT side of an UPSERT
+	o := LogicalCacheMapping{}
+	if err = randomize.Struct(seed, &o, logicalCacheMappingDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize LogicalCacheMapping struct: %s", err)
+	}
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+	if err = o.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer()); err != nil {
+		t.Errorf("Unable to upsert LogicalCacheMapping: %s", err)
+	}
+
+	count, err := LogicalCacheMappings().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 1 {
+		t.Error("want one record, got:", count)
+	}
+
+	// Attempt the UPDATE side of an UPSERT
+	if err = randomize.Struct(seed, &o, logicalCacheMappingDBTypes, false, logicalCacheMappingPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize LogicalCacheMapping struct: %s", err)
+	}
+
+	if err = o.Upsert(ctx, tx, true, nil, boil.Infer(), boil.Infer()); err != nil {
+		t.Errorf("Unable to upsert LogicalCacheMapping: %s", err)
+	}
+
+	count, err = LogicalCacheMappings().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 1 {
+		t.Error("want one record, got:", count)
 	}
 }

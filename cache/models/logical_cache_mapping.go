@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,22 +24,25 @@ import (
 
 // LogicalCacheMapping is an object representing the database table.
 type LogicalCacheMapping struct {
-	EscrowID common.EscrowID `boil:"escrow_id" json:"escrow_id" toml:"escrow_id" yaml:"escrow_id"`
-	SlotIdx  string          `boil:"slot_idx" json:"slot_idx" toml:"slot_idx" yaml:"slot_idx"`
-	DatumID  string          `boil:"datum_id" json:"datum_id" toml:"datum_id" yaml:"datum_id"`
+	EscrowID      common.EscrowID `boil:"escrow_id" json:"escrow_id" toml:"escrow_id" yaml:"escrow_id"`
+	SlotIdx       uint64          `boil:"slot_idx" json:"slot_idx" toml:"slot_idx" yaml:"slot_idx"`
+	BlockEscrowID []byte          `boil:"block_escrow_id" json:"block_escrow_id" toml:"block_escrow_id" yaml:"block_escrow_id"`
+	BlockID       common.BlockID  `boil:"block_id" json:"block_id" toml:"block_id" yaml:"block_id"`
 
 	R *logicalCacheMappingR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L logicalCacheMappingL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var LogicalCacheMappingColumns = struct {
-	EscrowID string
-	SlotIdx  string
-	DatumID  string
+	EscrowID      string
+	SlotIdx       string
+	BlockEscrowID string
+	BlockID       string
 }{
-	EscrowID: "escrow_id",
-	SlotIdx:  "slot_idx",
-	DatumID:  "datum_id",
+	EscrowID:      "escrow_id",
+	SlotIdx:       "slot_idx",
+	BlockEscrowID: "block_escrow_id",
+	BlockID:       "block_id",
 }
 
 // Generated where
@@ -64,14 +68,55 @@ func (w whereHelpercommon_EscrowID) GTE(x common.EscrowID) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
+type whereHelperuint64 struct{ field string }
+
+func (w whereHelperuint64) EQ(x uint64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperuint64) NEQ(x uint64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperuint64) LT(x uint64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperuint64) LTE(x uint64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperuint64) GT(x uint64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperuint64) GTE(x uint64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+
+type whereHelper__byte struct{ field string }
+
+func (w whereHelper__byte) EQ(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelper__byte) NEQ(x []byte) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelper__byte) LT(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelper__byte) LTE(x []byte) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelper__byte) GT(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelper__byte) GTE(x []byte) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+
+type whereHelpercommon_BlockID struct{ field string }
+
+func (w whereHelpercommon_BlockID) EQ(x common.BlockID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.EQ, x)
+}
+func (w whereHelpercommon_BlockID) NEQ(x common.BlockID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.NEQ, x)
+}
+func (w whereHelpercommon_BlockID) LT(x common.BlockID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpercommon_BlockID) LTE(x common.BlockID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpercommon_BlockID) GT(x common.BlockID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpercommon_BlockID) GTE(x common.BlockID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
 var LogicalCacheMappingWhere = struct {
-	EscrowID whereHelpercommon_EscrowID
-	SlotIdx  whereHelperstring
-	DatumID  whereHelperstring
+	EscrowID      whereHelpercommon_EscrowID
+	SlotIdx       whereHelperuint64
+	BlockEscrowID whereHelper__byte
+	BlockID       whereHelpercommon_BlockID
 }{
-	EscrowID: whereHelpercommon_EscrowID{field: `escrow_id`},
-	SlotIdx:  whereHelperstring{field: `slot_idx`},
-	DatumID:  whereHelperstring{field: `datum_id`},
+	EscrowID:      whereHelpercommon_EscrowID{field: `escrow_id`},
+	SlotIdx:       whereHelperuint64{field: `slot_idx`},
+	BlockEscrowID: whereHelper__byte{field: `block_escrow_id`},
+	BlockID:       whereHelpercommon_BlockID{field: `block_id`},
 }
 
 // LogicalCacheMappingRels is where relationship names are stored.
@@ -91,8 +136,8 @@ func (*logicalCacheMappingR) NewStruct() *logicalCacheMappingR {
 type logicalCacheMappingL struct{}
 
 var (
-	logicalCacheMappingColumns               = []string{"escrow_id", "slot_idx", "datum_id"}
-	logicalCacheMappingColumnsWithoutDefault = []string{"escrow_id", "slot_idx", "datum_id"}
+	logicalCacheMappingColumns               = []string{"escrow_id", "slot_idx", "block_escrow_id", "block_id"}
+	logicalCacheMappingColumnsWithoutDefault = []string{"escrow_id", "slot_idx", "block_escrow_id", "block_id"}
 	logicalCacheMappingColumnsWithDefault    = []string{}
 	logicalCacheMappingPrimaryKeyColumns     = []string{"escrow_id", "slot_idx"}
 )
@@ -380,7 +425,7 @@ func LogicalCacheMappings(mods ...qm.QueryMod) logicalCacheMappingQuery {
 
 // FindLogicalCacheMapping retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindLogicalCacheMapping(ctx context.Context, exec boil.ContextExecutor, escrowID common.EscrowID, slotIdx string, selectCols ...string) (*LogicalCacheMapping, error) {
+func FindLogicalCacheMapping(ctx context.Context, exec boil.ContextExecutor, escrowID common.EscrowID, slotIdx uint64, selectCols ...string) (*LogicalCacheMapping, error) {
 	logicalCacheMappingObj := &LogicalCacheMapping{}
 
 	sel := "*"
@@ -388,7 +433,7 @@ func FindLogicalCacheMapping(ctx context.Context, exec boil.ContextExecutor, esc
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"logical_cache_mapping\" where \"escrow_id\"=? AND \"slot_idx\"=?", sel,
+		"select %s from \"logical_cache_mapping\" where \"escrow_id\"=$1 AND \"slot_idx\"=$2", sel,
 	)
 
 	q := queries.Raw(query, escrowID, slotIdx)
@@ -443,13 +488,13 @@ func (o *LogicalCacheMapping) Insert(ctx context.Context, exec boil.ContextExecu
 		if len(wl) != 0 {
 			cache.query = fmt.Sprintf("INSERT INTO \"logical_cache_mapping\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
 		} else {
-			cache.query = "INSERT INTO \"logical_cache_mapping\" () VALUES ()%s%s"
+			cache.query = "INSERT INTO \"logical_cache_mapping\" %sDEFAULT VALUES%s"
 		}
 
 		var queryOutput, queryReturning string
 
 		if len(cache.retMapping) != 0 {
-			cache.retQuery = fmt.Sprintf("SELECT \"%s\" FROM \"logical_cache_mapping\" WHERE %s", strings.Join(returnColumns, "\",\""), strmangle.WhereClause("\"", "\"", 0, logicalCacheMappingPrimaryKeyColumns))
+			queryReturning = fmt.Sprintf(" RETURNING \"%s\"", strings.Join(returnColumns, "\",\""))
 		}
 
 		cache.query = fmt.Sprintf(cache.query, queryOutput, queryReturning)
@@ -463,34 +508,16 @@ func (o *LogicalCacheMapping) Insert(ctx context.Context, exec boil.ContextExecu
 		fmt.Fprintln(boil.DebugWriter, vals)
 	}
 
-	_, err = exec.ExecContext(ctx, cache.query, vals...)
+	if len(cache.retMapping) != 0 {
+		err = exec.QueryRowContext(ctx, cache.query, vals...).Scan(queries.PtrsFromMapping(value, cache.retMapping)...)
+	} else {
+		_, err = exec.ExecContext(ctx, cache.query, vals...)
+	}
 
 	if err != nil {
 		return errors.Wrap(err, "models: unable to insert into logical_cache_mapping")
 	}
 
-	var identifierCols []interface{}
-
-	if len(cache.retMapping) == 0 {
-		goto CacheNoHooks
-	}
-
-	identifierCols = []interface{}{
-		o.EscrowID,
-		o.SlotIdx,
-	}
-
-	if boil.DebugMode {
-		fmt.Fprintln(boil.DebugWriter, cache.retQuery)
-		fmt.Fprintln(boil.DebugWriter, identifierCols...)
-	}
-
-	err = exec.QueryRowContext(ctx, cache.retQuery, identifierCols...).Scan(queries.PtrsFromMapping(value, cache.retMapping)...)
-	if err != nil {
-		return errors.Wrap(err, "models: unable to populate default values for logical_cache_mapping")
-	}
-
-CacheNoHooks:
 	if !cached {
 		logicalCacheMappingInsertCacheMut.Lock()
 		logicalCacheMappingInsertCache[key] = cache
@@ -527,8 +554,8 @@ func (o *LogicalCacheMapping) Update(ctx context.Context, exec boil.ContextExecu
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"logical_cache_mapping\" SET %s WHERE %s",
-			strmangle.SetParamNames("\"", "\"", 0, wl),
-			strmangle.WhereClause("\"", "\"", 0, logicalCacheMappingPrimaryKeyColumns),
+			strmangle.SetParamNames("\"", "\"", 1, wl),
+			strmangle.WhereClause("\"", "\"", len(wl)+1, logicalCacheMappingPrimaryKeyColumns),
 		)
 		cache.valueMapping, err = queries.BindMapping(logicalCacheMappingType, logicalCacheMappingMapping, append(wl, logicalCacheMappingPrimaryKeyColumns...))
 		if err != nil {
@@ -608,8 +635,8 @@ func (o LogicalCacheMappingSlice) UpdateAll(ctx context.Context, exec boil.Conte
 	}
 
 	sql := fmt.Sprintf("UPDATE \"logical_cache_mapping\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 0, colNames),
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 0, logicalCacheMappingPrimaryKeyColumns, len(o)))
+		strmangle.SetParamNames("\"", "\"", 1, colNames),
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), len(colNames)+1, logicalCacheMappingPrimaryKeyColumns, len(o)))
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -628,6 +655,121 @@ func (o LogicalCacheMappingSlice) UpdateAll(ctx context.Context, exec boil.Conte
 	return rowsAff, nil
 }
 
+// Upsert attempts an insert using an executor, and does an update or ignore on conflict.
+// See boil.Columns documentation for how to properly use updateColumns and insertColumns.
+func (o *LogicalCacheMapping) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
+	if o == nil {
+		return errors.New("models: no logical_cache_mapping provided for upsert")
+	}
+
+	if err := o.doBeforeUpsertHooks(ctx, exec); err != nil {
+		return err
+	}
+
+	nzDefaults := queries.NonZeroDefaultSet(logicalCacheMappingColumnsWithDefault, o)
+
+	// Build cache key in-line uglily - mysql vs psql problems
+	buf := strmangle.GetBuffer()
+	if updateOnConflict {
+		buf.WriteByte('t')
+	} else {
+		buf.WriteByte('f')
+	}
+	buf.WriteByte('.')
+	for _, c := range conflictColumns {
+		buf.WriteString(c)
+	}
+	buf.WriteByte('.')
+	buf.WriteString(strconv.Itoa(updateColumns.Kind))
+	for _, c := range updateColumns.Cols {
+		buf.WriteString(c)
+	}
+	buf.WriteByte('.')
+	buf.WriteString(strconv.Itoa(insertColumns.Kind))
+	for _, c := range insertColumns.Cols {
+		buf.WriteString(c)
+	}
+	buf.WriteByte('.')
+	for _, c := range nzDefaults {
+		buf.WriteString(c)
+	}
+	key := buf.String()
+	strmangle.PutBuffer(buf)
+
+	logicalCacheMappingUpsertCacheMut.RLock()
+	cache, cached := logicalCacheMappingUpsertCache[key]
+	logicalCacheMappingUpsertCacheMut.RUnlock()
+
+	var err error
+
+	if !cached {
+		insert, ret := insertColumns.InsertColumnSet(
+			logicalCacheMappingColumns,
+			logicalCacheMappingColumnsWithDefault,
+			logicalCacheMappingColumnsWithoutDefault,
+			nzDefaults,
+		)
+		update := updateColumns.UpdateColumnSet(
+			logicalCacheMappingColumns,
+			logicalCacheMappingPrimaryKeyColumns,
+		)
+
+		if updateOnConflict && len(update) == 0 {
+			return errors.New("models: unable to upsert logical_cache_mapping, could not build update column list")
+		}
+
+		conflict := conflictColumns
+		if len(conflict) == 0 {
+			conflict = make([]string, len(logicalCacheMappingPrimaryKeyColumns))
+			copy(conflict, logicalCacheMappingPrimaryKeyColumns)
+		}
+		cache.query = buildUpsertQueryPostgres(dialect, "\"logical_cache_mapping\"", updateOnConflict, ret, update, conflict, insert)
+
+		cache.valueMapping, err = queries.BindMapping(logicalCacheMappingType, logicalCacheMappingMapping, insert)
+		if err != nil {
+			return err
+		}
+		if len(ret) != 0 {
+			cache.retMapping, err = queries.BindMapping(logicalCacheMappingType, logicalCacheMappingMapping, ret)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	value := reflect.Indirect(reflect.ValueOf(o))
+	vals := queries.ValuesFromMapping(value, cache.valueMapping)
+	var returns []interface{}
+	if len(cache.retMapping) != 0 {
+		returns = queries.PtrsFromMapping(value, cache.retMapping)
+	}
+
+	if boil.DebugMode {
+		fmt.Fprintln(boil.DebugWriter, cache.query)
+		fmt.Fprintln(boil.DebugWriter, vals)
+	}
+
+	if len(cache.retMapping) != 0 {
+		err = exec.QueryRowContext(ctx, cache.query, vals...).Scan(returns...)
+		if err == sql.ErrNoRows {
+			err = nil // Postgres doesn't return anything when there's no update
+		}
+	} else {
+		_, err = exec.ExecContext(ctx, cache.query, vals...)
+	}
+	if err != nil {
+		return errors.Wrap(err, "models: unable to upsert logical_cache_mapping")
+	}
+
+	if !cached {
+		logicalCacheMappingUpsertCacheMut.Lock()
+		logicalCacheMappingUpsertCache[key] = cache
+		logicalCacheMappingUpsertCacheMut.Unlock()
+	}
+
+	return o.doAfterUpsertHooks(ctx, exec)
+}
+
 // Delete deletes a single LogicalCacheMapping record with an executor.
 // Delete will match against the primary key column to find the record to delete.
 func (o *LogicalCacheMapping) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
@@ -640,7 +782,7 @@ func (o *LogicalCacheMapping) Delete(ctx context.Context, exec boil.ContextExecu
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), logicalCacheMappingPrimaryKeyMapping)
-	sql := "DELETE FROM \"logical_cache_mapping\" WHERE \"escrow_id\"=? AND \"slot_idx\"=?"
+	sql := "DELETE FROM \"logical_cache_mapping\" WHERE \"escrow_id\"=$1 AND \"slot_idx\"=$2"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -710,7 +852,7 @@ func (o LogicalCacheMappingSlice) DeleteAll(ctx context.Context, exec boil.Conte
 	}
 
 	sql := "DELETE FROM \"logical_cache_mapping\" WHERE " +
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 0, logicalCacheMappingPrimaryKeyColumns, len(o))
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, logicalCacheMappingPrimaryKeyColumns, len(o))
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -765,7 +907,7 @@ func (o *LogicalCacheMappingSlice) ReloadAll(ctx context.Context, exec boil.Cont
 	}
 
 	sql := "SELECT \"logical_cache_mapping\".* FROM \"logical_cache_mapping\" WHERE " +
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 0, logicalCacheMappingPrimaryKeyColumns, len(*o))
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, logicalCacheMappingPrimaryKeyColumns, len(*o))
 
 	q := queries.Raw(sql, args...)
 
@@ -780,9 +922,9 @@ func (o *LogicalCacheMappingSlice) ReloadAll(ctx context.Context, exec boil.Cont
 }
 
 // LogicalCacheMappingExists checks if the LogicalCacheMapping row exists.
-func LogicalCacheMappingExists(ctx context.Context, exec boil.ContextExecutor, escrowID common.EscrowID, slotIdx string) (bool, error) {
+func LogicalCacheMappingExists(ctx context.Context, exec boil.ContextExecutor, escrowID common.EscrowID, slotIdx uint64) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"logical_cache_mapping\" where \"escrow_id\"=? AND \"slot_idx\"=? limit 1)"
+	sql := "select exists(select 1 from \"logical_cache_mapping\" where \"escrow_id\"=$1 AND \"slot_idx\"=$2 limit 1)"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)

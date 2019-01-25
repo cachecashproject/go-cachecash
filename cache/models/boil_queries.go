@@ -13,10 +13,10 @@ var dialect = drivers.Dialect{
 	LQ: 0x22,
 	RQ: 0x22,
 
-	UseIndexPlaceholders:    false,
-	UseLastInsertID:         true,
+	UseIndexPlaceholders:    true,
+	UseLastInsertID:         false,
 	UseSchema:               false,
-	UseDefaultKeyword:       false,
+	UseDefaultKeyword:       true,
 	UseAutoColumns:          false,
 	UseTopClause:            false,
 	UseOutputClause:         false,

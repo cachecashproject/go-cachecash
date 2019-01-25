@@ -3,10 +3,10 @@
 
 package models
 
-var TableNames = struct {
-	LogicalCacheMapping string
-	Migrations          string
-}{
-	LogicalCacheMapping: "logical_cache_mapping",
-	Migrations:          "migrations",
+import "testing"
+
+func TestUpsert(t *testing.T) {
+	t.Run("LogicalCacheMappings", testLogicalCacheMappingsUpsert)
+
+	t.Run("Migrations", testMigrationsUpsert)
 }
