@@ -1,0 +1,5 @@
+# This configuration file is for sql-migrate.
+cache-development:
+  dialect: sqlite3
+  datasource: "./cache.db"
+  dir: "../migrations/"
