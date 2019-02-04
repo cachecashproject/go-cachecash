@@ -10,9 +10,18 @@ CREATE TABLE logical_cache_mapping (
     CONSTRAINT pk_escrow_slot PRIMARY KEY (escrow_id, slot_idx)
 );
 
--- CREATE TABLE request (id int);
+-- -- QQ: Do we want ticket numbers to be per-escrow or per-escrow-per-block?
+-- CREATE TABLE ticket_l1 (id int) (
+--     escrow_id          bytea NOT NULL,
+--     block_no           bytea NOT NULL,
+--     ticket_no          bigint NOT NULL,
+--     raw                blob NOT NULL,
+--     CONSTRAINT pk_escrow_ticket PRIMARY KEY (escrow_id, ticket_no)
+--     -- Probably also want an index by block number, because we'll be selecting tickets that way.
+--     -- Probably also need some state fields: has this ticket won/lost yet?  If it won, have we redeemed it? etc.
+-- );
 
--- CREATE TABLE ticket (id int);
+-- CREATE TABLE request (id int);
 
 -- CREATE TABLE object_metadata (id int);
 
