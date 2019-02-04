@@ -1,6 +1,7 @@
 package common
 
 import (
+	"database/sql/driver"
 	"encoding/hex"
 	"errors"
 )
@@ -27,6 +28,24 @@ func (id EscrowID) String() string {
 	return hex.EncodeToString(id[:])
 }
 
+func (id EscrowID) Value() (driver.Value, error) {
+	return id[:], nil
+}
+
+func (id *EscrowID) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		val, err := BytesToEscrowID(src)
+		if err != nil {
+			return err
+		}
+		*id = val
+		return nil
+	default:
+		return errors.New("incompatible type for EscrowID")
+	}
+}
+
 type ObjectID [ObjectIDSize]byte
 
 func BytesToObjectID(x []byte) (ObjectID, error) {
@@ -43,6 +62,24 @@ func (id ObjectID) String() string {
 	return hex.EncodeToString(id[:])
 }
 
+func (id ObjectID) Value() (driver.Value, error) {
+	return id[:], nil
+}
+
+func (id *ObjectID) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		val, err := BytesToObjectID(src)
+		if err != nil {
+			return err
+		}
+		*id = val
+		return nil
+	default:
+		return errors.New("incompatible type for ObjectID")
+	}
+}
+
 type BlockID [BlockIDSize]byte
 
 func BytesToBlockID(x []byte) (BlockID, error) {
@@ -57,4 +94,22 @@ func BytesToBlockID(x []byte) (BlockID, error) {
 
 func (id BlockID) String() string {
 	return hex.EncodeToString(id[:])
+}
+
+func (id BlockID) Value() (driver.Value, error) {
+	return id[:], nil
+}
+
+func (id *BlockID) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		val, err := BytesToBlockID(src)
+		if err != nil {
+			return err
+		}
+		*id = val
+		return nil
+	default:
+		return errors.New("incompatible type for BlockID")
+	}
 }
