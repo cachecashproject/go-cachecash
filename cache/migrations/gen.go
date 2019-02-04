@@ -1,4 +1,4 @@
-package models
+package migrations
 
 //go:generate rm -f cache.db
 //go:generate sql-migrate up -env=cache-development
