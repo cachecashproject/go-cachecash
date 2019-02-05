@@ -5,8 +5,6 @@ package models
 
 var TableNames = struct {
 	LogicalCacheMapping string
-	Migrations          string
 }{
 	LogicalCacheMapping: "logical_cache_mapping",
-	Migrations:          "migrations",
 }

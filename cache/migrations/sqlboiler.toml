@@ -1,5 +1,6 @@
 [sqlite3]
   dbname = "./cache.db"
+  blacklist = ["migrations"]
 [psql]
   host = "192.168.64.2"
   port = 32768
@@ -7,6 +8,7 @@
   pass = "c4chec4sh"
   dbname = "postgres"
   sslmode = "disable"
+  blacklist = ["migrations"]
 
 
 # @kelleyk: I wonder if doing this against sqlite3 is making things difficult for sqlboiler.  We need a match for

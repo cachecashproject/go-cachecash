@@ -13,64 +13,51 @@ import "testing"
 // Separating the tests thusly grants avoidance of Postgres deadlocks.
 func TestParent(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappings)
-	t.Run("Migrations", testMigrations)
 }
 
 func TestDelete(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsDelete)
-	t.Run("Migrations", testMigrationsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsQueryDeleteAll)
-	t.Run("Migrations", testMigrationsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsSliceDeleteAll)
-	t.Run("Migrations", testMigrationsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsExists)
-	t.Run("Migrations", testMigrationsExists)
 }
 
 func TestFind(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsFind)
-	t.Run("Migrations", testMigrationsFind)
 }
 
 func TestBind(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsBind)
-	t.Run("Migrations", testMigrationsBind)
 }
 
 func TestOne(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsOne)
-	t.Run("Migrations", testMigrationsOne)
 }
 
 func TestAll(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsAll)
-	t.Run("Migrations", testMigrationsAll)
 }
 
 func TestCount(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsCount)
-	t.Run("Migrations", testMigrationsCount)
 }
 
 func TestHooks(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsHooks)
-	t.Run("Migrations", testMigrationsHooks)
 }
 
 func TestInsert(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsInsert)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsInsertWhitelist)
-	t.Run("Migrations", testMigrationsInsert)
-	t.Run("Migrations", testMigrationsInsertWhitelist)
 }
 
 // TestToOne tests cannot be run in parallel
@@ -115,25 +102,20 @@ func TestToManyRemove(t *testing.T) {}
 
 func TestReload(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsReload)
-	t.Run("Migrations", testMigrationsReload)
 }
 
 func TestReloadAll(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsReloadAll)
-	t.Run("Migrations", testMigrationsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsSelect)
-	t.Run("Migrations", testMigrationsSelect)
 }
 
 func TestUpdate(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsUpdate)
-	t.Run("Migrations", testMigrationsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsSliceUpdateAll)
-	t.Run("Migrations", testMigrationsSliceUpdateAll)
 }
