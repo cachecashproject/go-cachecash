@@ -1,1 +1,3 @@
-*.db
+# We need to include an empty copy of the database so that the `sqlboiler` test code can create test databases.  It does
+# this by dumping the schema from this database and using it to create a new, temporary one.
+!cache.db
