@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/kelleyk/go-cachecash/provider"
-	"github.com/kelleyk/go-cachecash/testdatagen"
+	"github.com/cachecashproject/go-cachecash/provider"
+	"github.com/cachecashproject/go-cachecash/testdatagen"
 	"github.com/sirupsen/logrus"
 )
 

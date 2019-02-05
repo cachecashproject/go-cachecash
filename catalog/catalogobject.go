@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	cachecash "github.com/kelleyk/go-cachecash"
-	"github.com/kelleyk/go-cachecash/ccmsg"
+	cachecash "github.com/cachecashproject/go-cachecash"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 )
 

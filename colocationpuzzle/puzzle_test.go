@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
-	cachecash "github.com/kelleyk/go-cachecash"
-	"github.com/kelleyk/go-cachecash/testutil"
+	cachecash "github.com/cachecashproject/go-cachecash"
+	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

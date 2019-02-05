@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/kelleyk/go-cachecash/client"
+	"github.com/cachecashproject/go-cachecash/client"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )

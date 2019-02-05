@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kelleyk/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/sirupsen/logrus"
 )
 

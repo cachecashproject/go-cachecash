@@ -7,11 +7,11 @@ import (
 	"log"
 	"net/http"
 
-	cachecash "github.com/kelleyk/go-cachecash"
-	"github.com/kelleyk/go-cachecash/cache"
-	"github.com/kelleyk/go-cachecash/common"
-	"github.com/kelleyk/go-cachecash/provider"
-	"github.com/kelleyk/go-cachecash/testdatagen"
+	cachecash "github.com/cachecashproject/go-cachecash"
+	"github.com/cachecashproject/go-cachecash/cache"
+	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/provider"
+	"github.com/cachecashproject/go-cachecash/testdatagen"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )

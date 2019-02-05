@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )

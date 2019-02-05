@@ -3,7 +3,7 @@ package cachecash
 import (
 	"crypto"
 
-	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"golang.org/x/crypto/ed25519"
 )
 

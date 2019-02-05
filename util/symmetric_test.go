@@ -3,7 +3,7 @@ package util
 import (
 	"testing"
 
-	"github.com/kelleyk/go-cachecash/testutil"
+	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/stretchr/testify/assert"
 )
 

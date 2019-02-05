@@ -3,7 +3,7 @@ package cache
 import (
 	"context"
 
-	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 )
 

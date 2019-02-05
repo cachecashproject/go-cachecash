@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 
-	"github.com/kelleyk/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
 )
 
 type grpcClientProviderServer struct {

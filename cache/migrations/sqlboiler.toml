@@ -17,7 +17,7 @@
   [types.replace]
     type = "common.EscrowID"
   [types.imports]
-    third_party = ['"github.com/kelleyk/go-cachecash/common"']
+    third_party = ['"github.com/cachecashproject/go-cachecash/common"']
 
 [[types]]
   [types.match]
@@ -40,4 +40,4 @@
   [types.replace]
     type = "common.BlockID"
   [types.imports]
-    third_party = ['"github.com/kelleyk/go-cachecash/common"']
+    third_party = ['"github.com/cachecashproject/go-cachecash/common"']

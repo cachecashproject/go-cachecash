@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/kelleyk/go-cachecash/cache"
+	"github.com/cachecashproject/go-cachecash/cache"
 )
 
 // TEMP: Cribbed from `integration_test.go`.

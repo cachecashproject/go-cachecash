@@ -14,8 +14,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	cachecash "github.com/kelleyk/go-cachecash"
-	"github.com/kelleyk/go-cachecash/util"
+	cachecash "github.com/cachecashproject/go-cachecash"
+	"github.com/cachecashproject/go-cachecash/util"
 )
 
 const (

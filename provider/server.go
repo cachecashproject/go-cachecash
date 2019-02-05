@@ -4,8 +4,8 @@ import (
 	"context"
 	"net"
 
-	"github.com/kelleyk/go-cachecash/ccmsg"
-	"github.com/kelleyk/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"

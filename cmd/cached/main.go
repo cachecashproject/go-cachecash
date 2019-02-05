@@ -3,8 +3,8 @@ package main
 import (
 	_ "net/http/pprof"
 
-	"github.com/kelleyk/go-cachecash/cache"
-	"github.com/kelleyk/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/cache"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/sirupsen/logrus"
 )
 

@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"github.com/kelleyk/go-cachecash/ccmsg"
-	"github.com/kelleyk/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/sirupsen/logrus"
 )
 

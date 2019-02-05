@@ -4,8 +4,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 
-	"github.com/kelleyk/go-cachecash/ccmsg"
-	"github.com/kelleyk/go-cachecash/colocationpuzzle"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/colocationpuzzle"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 )

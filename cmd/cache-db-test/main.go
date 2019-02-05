@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/kelleyk/go-cachecash/cache/models"
-	"github.com/kelleyk/go-cachecash/common"
-	"github.com/kelleyk/go-cachecash/testutil"
+	"github.com/cachecashproject/go-cachecash/cache/models"
+	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/testutil"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/volatiletech/sqlboiler/boil"
 )
