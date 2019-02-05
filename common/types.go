@@ -1,5 +1,10 @@
 package common
 
+//
+// Types that will be stored in the database via `sqlboiler` must implement several interfaces:
+//   - sqlboiler.randomize.Randomizer
+//
+
 import (
 	"database/sql/driver"
 	"encoding/hex"
@@ -46,6 +51,18 @@ func (id *EscrowID) Scan(src interface{}) error {
 	}
 }
 
+// TODO: I don't think that we need to support `fieldType` here, but do we need to support `shouldBeNull`?  Their
+// purpose is explained in the Randomizer docs.
+func (id *EscrowID) Randomize(nextInt func() int64, fieldType string, shouldBeNull bool) {
+	// TODO: The point of nextInt(), which returns sequential "random" integers, is to ensure that generated values are
+	// unique in situations that require it.  This construction may not actually do that.
+	var val EscrowID
+	for i := 0; i < len(val); i++ {
+		val[i] = byte(nextInt() % 256)
+	}
+	*id = val
+}
+
 type ObjectID [ObjectIDSize]byte
 
 func BytesToObjectID(x []byte) (ObjectID, error) {
@@ -80,6 +97,18 @@ func (id *ObjectID) Scan(src interface{}) error {
 	}
 }
 
+// TODO: I don't think that we need to support `fieldType` here, but do we need to support `shouldBeNull`?  Their
+// purpose is explained in the Randomizer docs.
+func (id *ObjectID) Randomize(nextInt func() int64, fieldType string, shouldBeNull bool) {
+	// TODO: The point of nextInt(), which returns sequential "random" integers, is to ensure that generated values are
+	// unique in situations that require it.  This construction may not actually do that.
+	var val ObjectID
+	for i := 0; i < len(val); i++ {
+		val[i] = byte(nextInt() % 256)
+	}
+	*id = val
+}
+
 type BlockID [BlockIDSize]byte
 
 func BytesToBlockID(x []byte) (BlockID, error) {
@@ -112,4 +141,16 @@ func (id *BlockID) Scan(src interface{}) error {
 	default:
 		return errors.New("incompatible type for BlockID")
 	}
+}
+
+// TODO: I don't think that we need to support `fieldType` here, but do we need to support `shouldBeNull`?  Their
+// purpose is explained in the Randomizer docs.
+func (id *BlockID) Randomize(nextInt func() int64, fieldType string, shouldBeNull bool) {
+	// TODO: The point of nextInt(), which returns sequential "random" integers, is to ensure that generated values are
+	// unique in situations that require it.  This construction may not actually do that.
+	var val BlockID
+	for i := 0; i < len(val); i++ {
+		val[i] = byte(nextInt() % 256)
+	}
+	*id = val
 }
