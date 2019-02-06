@@ -120,8 +120,7 @@ cache, per escrow.  They should also be designed to support escrow rollover.
 */
 
 const (
-	defaultBlockSize = 512 * 1024
-	blocksPerGroup   = 4
+	blocksPerGroup = 4
 )
 
 func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
