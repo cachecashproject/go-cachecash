@@ -1,0 +1,7 @@
+linters:
+  enable:
+    - gofmt
+    # What do we get from having both this and `gofmt` enabled?  Will this produce duplicate warnings?
+    - goimports
+    - scopelint
+    - misspell
