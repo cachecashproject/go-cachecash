@@ -1,5 +1,7 @@
 # go-cachecash
 
+[![Build Status](https://travis-ci.com/cachecashproject/go-cachecash.svg?token=utLK2DGqpJaDNkKeJ4fh&branch=master)](https://travis-ci.com/cachecashproject/go-cachecash)
+
 ## Running the test server
 
 There is a binary named `testserverd` that can be useful in situations where you do not need a full network.  It runs an
