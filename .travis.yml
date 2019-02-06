@@ -1,18 +1,34 @@
+# Use the fast container-based test runner instead of the slow VM-based runner.
+sudo: false
+
 language: go
+
+# Test only on the most recent stable release.
+go:
+  - 1.11.x
+
+# Skip the install step. Don't `go get` dependencies. Only build with the code in vendor/.
+install: true
+
+# Don't email the results of the test runs.
+notifications:
+  email: false
 
 before_script:
 - git lfs pull
-- go get -u github.com/rubenv/sql-migrate/...
-- go get -u github.com/volatiletech/sqlboiler/...
-- go get -u github.com/volatiletech/sqlboiler-sqlite3/...
-- go get -u github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/...
-- go get -u github.com/alecthomas/gometalinter/...
-- go get -u github.com/kisielk/errcheck
+- go get github.com/golangci/golangci-lint/cmd/golangci-lint
+#
+# # For once we switch to modules; ensure that golangci-lint is vendored first.
+# - go install -mod vendor github.com/golangci/golangci-lint/cmd/golangci-lint
+#
+# # These are not necessary unless we start doing code generation during CI (which is not a terrible idea; the build
+# # should fail if any generated code has not been regenerated to reflect changes).
+# - go get -u github.com/rubenv/sql-migrate/...
+# - go get -u github.com/volatiletech/sqlboiler/...
+# - go get -u github.com/volatiletech/sqlboiler-sqlite3/...
+# - go get -u github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/...
 
 script:
 - go test -v -race -tags=sqlboiler_test ./...
-# linting is non-fatal right now
-- gometalinter --vendor --disable-all --deadline=10m
-  --enable=errcheck --enable=vet --enable=vetshadow
-  -e "cache/models/boil_types.go" -e "cache/models/logical_cache_mapping.go"
-  ./... || true
+# Linting is non-fatal right now.  See `.golangci.yml` for configuration.
+- golangci-lint run || true
