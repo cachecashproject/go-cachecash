@@ -87,7 +87,7 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	var blockSize uint64
 	var rangeBegin uint64
 	var data []byte
-	for true {
+	for {
 		// XXX: `rangeBegin` here must be in bytes.
 		bg, err := cl.requestBlockGroup(ctx, path, rangeBegin*blockSize)
 		if err != nil {
@@ -262,6 +262,9 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 			EncryptedTicketL2: bundle.EncryptedTicketL2,
 			PuzzleSecret:      secret,
 		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to build L2 ticket request")
+		}
 		_, err = cacheConns[i].grpcClient.ExchangeTicketL2(ctx, req)
 		if err != nil {
 			// TODO: This should not cause us to abort sending the L2 ticket to other caches, and should not prevent us
@@ -293,11 +296,6 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 		blockIdx: blockIdx,
 		metadata: bundle.Metadata,
 	}, nil
-}
-
-type l2Result struct {
-	idx int
-	err error
 }
 
 func (cl *client) requestBlock(ctx context.Context, cc *cacheConnection, b *blockRequest, blockResultCh chan<- *blockRequest) {
