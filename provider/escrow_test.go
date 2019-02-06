@@ -10,7 +10,6 @@ import (
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/testutil"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -43,12 +42,12 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 
 	_, priv, err := ed25519.GenerateKey(nil) // TOOS: use faster, lower-quality entropy?
 	if err != nil {
-		panic(errors.Wrap(err, "failed to generate keypair"))
+		t.Fatalf("failed to generate keypair: %v", err)
 	}
 	// XXX: Once we start using the catalog, passing nil is going to cause runtime panics.
 	suite.provider, err = NewContentProvider(l, nil, priv)
 	if err != nil {
-		panic(errors.Wrap(err, "failed to construct provider"))
+		t.Fatalf("failed to construct provider: %v", err)
 	}
 
 	ei := &ccmsg.EscrowInfo{
@@ -66,13 +65,19 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 	}
 
 	suite.clientPublic, suite.clientPrivate, err = ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("failed to generate client keypair: %v", err)
+	}
 }
 
 func (suite *TicketBundleTestSuite) generateCacheInfo() *ParticipatingCache {
+	t := suite.T()
+
 	pub, _, err := ed25519.GenerateKey(nil) // TOOS: use faster, lower-quality entropy?
 	if err != nil {
-		panic(errors.Wrap(err, "failed to generate keypair"))
+		t.Fatalf("failed to generate cache keypair: %v", err)
 	}
+
 	return &ParticipatingCache{
 		InnerMasterKey: testutil.RandBytes(16), // XXX: ??
 		PublicKey:      pub,

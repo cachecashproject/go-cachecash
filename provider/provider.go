@@ -335,6 +335,9 @@ func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissReq
 	}
 
 	resp, err := upstream.BlockSource(req, path, pol)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get block source")
+	}
 
 	// XXX: Shouldn't we be telling the cache what block IDs it should expect, and providing enough information for it
 	// to verify that it's getting the right data (e.g. a digest)?
