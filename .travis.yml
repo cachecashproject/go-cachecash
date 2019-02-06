@@ -10,9 +10,12 @@ go:
 # Skip the install step. Don't `go get` dependencies. Only build with the code in vendor/.
 install: true
 
-# Don't email the results of the test runs.
 notifications:
+  # Don't email the results of the test runs.
   email: false
+  # Notify us in Slack.  Generated with `travis encrypt` per the docs.
+  slack:
+    secure: OxmwasI3jV/ZzZ+FyAHjUHQlOdfJGqyKRaCST5H77Gt9kOD03UXYOpvO/NoDMazyDPnDJad3p0nG1vwxBDOfo9kH/wh8puu1qCUL/me6Oq1fxPS2DL3jDv8+GAuQadjxTHa1iOovgACnzdPupwLqfiuGp0jxA9Tya9QvFG9ExoaNLlBFlkbN3OKo3RWapG0ZyJ1C6Gai5SDIIfYCTj5AYROhh9Hn+ZI6bbouPjOmrIPu4kAFjBP5q7E5SDYXh0FvdNt5TdiCnz/Y9EMHUXRH0Gsm9KpmlqC9STxwg+m4+vhPQJrLnLd9tiqRVJRLE9cY7eAxiPhAHMPeETgVw6nNk2fuHPQq4B5KoNQyNY742aJKj02k33k3+zBBAiaVEg9MA7qyFZ/qwOv+zTq8z3z8hNeSKW2wvootZeqHCwSGNW3M+GVHIPl2HbKnx/6RKzmi+yLNt88eHBEbCY/uWQyvSJ8IY9gFI2Ow9KmFXlbg9Um3ZkpALTPCW1JkQNbNTflQVnjUDd8Z9e6CJIpFwiwgMcnjBmQ9/Bcof8s/9Ocm7Bwva1ErIw1UGgirVMMucG1Xoie51g1YQ2KxmMqHeuHSCTuMq3vLVVGxWHJjpL91ZLH1B8MsbK7HRTJCqVuG7VHq76vskCKQVqCAW1TU+KekqIF7YxuO+i09/U6kE1RXw+M=
 
 before_script:
 - git lfs pull
