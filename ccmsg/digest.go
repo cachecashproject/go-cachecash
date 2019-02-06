@@ -91,7 +91,7 @@ func (m *TicketBundleSubdigests) ContainsTicketL1Digest(d []byte) bool {
 	return false
 }
 
-// XXX: Update this once the message contents are mroe stable!
+// XXX: Update this once the message contents are more stable!
 func (m *TicketBundleRemainder) CanonicalDigest() []byte {
 	h := sha512.New384()
 	// _, _ = h.Write(m.ProviderPublicKey.PublicKey)
