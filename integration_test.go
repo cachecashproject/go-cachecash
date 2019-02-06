@@ -1,6 +1,7 @@
 package cachecash_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -210,19 +211,16 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 		plaintextBlocks = append(plaintextBlocks, plaintext)
 	}
 
-	// TODO: XXX: Re-enable this verification step.
-	/*
-		// Verify that the plaintext data the client has received matches what the provider and caches have.
-		for i, b := range plaintextBlocks {
-			expected, err := upstream.GetBlock("/foo/bar", uint(bundle.TicketRequest[i].BlockIdx))
-			if err != nil {
-				return errors.Wrap(err, "failed to get expected block contents")
-			}
-			if !bytes.Equal(expected, b) {
-				return errors.New("plaintext data received by client does not match expected value")
-			}
+	// Verify that the plaintext data the client has received matches what the provider and caches have.
+	for i, b := range plaintextBlocks {
+		expected, err := scen.Obj.GetBlock(uint32(bundle.TicketRequest[i].BlockIdx))
+		if err != nil {
+			return errors.Wrap(err, "failed to get expected block contents")
 		}
-	*/
+		if !bytes.Equal(expected, b) {
+			return errors.New("plaintext data received by client does not match expected value")
+		}
+	}
 
 	_ = t
 	_ = clientPrivateKey
