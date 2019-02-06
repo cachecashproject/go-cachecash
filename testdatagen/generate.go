@@ -157,7 +157,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		ExpirationDelay: 5,
 		StartBlock:      42,
 		TicketsPerBlock: []*ccmsg.Segment{
-			&ccmsg.Segment{Length: 10, Value: 100},
+			{Length: 10, Value: 100},
 		},
 	})
 	if err != nil {
