@@ -202,17 +202,6 @@
   revision = "e7201282ae8da26cd97aed2e516f75c0bd91bb93"
 
 [[projects]]
-  digest = "1:3610e24260db9be91620fb8f3958c2048cc8856b10037112b2d279cb0b550c1b"
-  name = "github.com/volatiletech/null"
-  packages = [
-    ".",
-    "convert",
-  ]
-  pruneopts = ""
-  revision = "0681ee3b5e046ac8bfbbd3999e79d3905e96972f"
-  version = "v8.0.0"
-
-[[projects]]
   digest = "1:7bdc244c12fbdee05c975f0e352e343d562e5b7f62b2719c0d589b8870faffe0"
   name = "github.com/volatiletech/sqlboiler"
   packages = [
@@ -360,7 +349,6 @@
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/suite",
-    "github.com/volatiletech/null",
     "github.com/volatiletech/sqlboiler/boil",
     "github.com/volatiletech/sqlboiler/drivers",
     "github.com/volatiletech/sqlboiler/queries",
