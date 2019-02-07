@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"crypto"
+	"fmt"
 	"net"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
@@ -66,7 +67,7 @@ func (p *ContentPublisher) NewEscrow(info *ccmsg.EscrowInfo) (*Escrow, error) {
 	return &Escrow{
 		ID: id,
 
-		Publisher:   p,
+		Publisher:  p,
 		PublicKey:  pub,
 		PrivateKey: priv,
 		Info:       info,
@@ -158,6 +159,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 		blockIndices[i] = bep.BlockIdx
 
 		// Generate a ticket-request for each cache.
+		fmt.Printf("bep.Cache.PublicKey has type %T\n", bep.Cache.PublicKey)
 		resp.TicketRequest = append(resp.TicketRequest, &ccmsg.TicketRequest{
 			BlockIdx:       uint64(bep.BlockIdx),
 			BlockId:        bep.BlockID[:],

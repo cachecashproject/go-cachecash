@@ -38,10 +38,11 @@ type TestScenario struct {
 
 	Upstream catalog.Upstream
 
-	Publisher *publisher.ContentPublisher
-	Catalog   catalog.ContentCatalog
-	Escrow    *publisher.Escrow
-	EscrowID  common.EscrowID
+	Publisher           *publisher.ContentPublisher
+	PublisherPrivateKey ed25519.PrivateKey
+	Catalog             catalog.ContentCatalog
+	Escrow              *publisher.Escrow
+	EscrowID            common.EscrowID
 
 	Params   *TestScenarioParams
 	Obj      cachecash.ContentObject
@@ -139,11 +140,14 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	}
 	ts.Catalog = cat
 
-	// Create a publisher.
+	// Create a keypair for the publisher.
 	_, publisherPrivateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate publisher keypair")
 	}
+	ts.PublisherPrivateKey = publisherPrivateKey
+
+	// Create the publisher.
 	prov, err := publisher.NewContentPublisher(ts.L, cat, publisherPrivateKey)
 	if err != nil {
 		return nil, err

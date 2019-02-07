@@ -8,6 +8,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
 
@@ -18,8 +19,10 @@ type Application interface {
 }
 
 type ConfigFile struct {
-	Config  *Config   `json:"config"`
-	Escrows []*Escrow `json:"escrows"`
+	Config      *Config            `json:"config"`
+	Escrows     []*Escrow          `json:"escrows"`
+	UpstreamURL string             `json:"upstreamURL"`
+	PrivateKey  ed25519.PrivateKey `json:"privateKey"`
 }
 
 // XXX: Right now, this is shared between the client- and cache-facing servers.

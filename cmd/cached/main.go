@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/cachecashproject/go-cachecash/cache"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -57,26 +58,20 @@ func mainC() error {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
 
-	/*
-		// TODO: temporary
-		c, err := makeCache()
-		if err != nil {
-			panic(err)
-		}
+	c, err := cache.NewCache(l)
+	if err != nil {
+		return nil
+	}
 
-		conf := &cache.Config{
-			// Any non-defaults should be specified here!
-		}
+	c.Escrows = cf.Escrows
 
-		// Serve traffic!
-		a, err := cache.NewApplication(l, c, conf)
-		if err != nil {
-			panic(err)
-		}
-		if err := common.RunStarterShutdowner(a); err != nil {
-			panic(err)
-		}
-	*/
-	_ = cf
+	app, err := cache.NewApplication(l, c, cf.Config)
+	if err != nil {
+		return errors.Wrap(err, "failed to create cache application")
+	}
+
+	if err := common.RunStarterShutdowner(app); err != nil {
+		return err
+	}
 	return nil
 }

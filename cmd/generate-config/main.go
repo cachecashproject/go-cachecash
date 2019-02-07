@@ -82,6 +82,8 @@ func mainC() error {
 		Escrows: []*publisher.Escrow{
 			scen.Escrow,
 		},
+		UpstreamURL: "http://localhost:8081",
+		PrivateKey:  scen.PublisherPrivateKey,
 	}
 
 	buf, err := json.MarshalIndent(cf, "", "  ")
