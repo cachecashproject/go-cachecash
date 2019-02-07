@@ -6,6 +6,7 @@ import (
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/ed25519"
 )
 
 type BatchSigner interface {
@@ -13,13 +14,13 @@ type BatchSigner interface {
 }
 
 type trivialBatchSigner struct {
-	signer crypto.Signer
+	signer ed25519.PrivateKey
 }
 
 var _ BatchSigner = (*trivialBatchSigner)(nil)
 
 // NewTrivialBatchSigner returns a BatchSigner that individually signs each message as a single-element batch.
-func NewTrivialBatchSigner(signer crypto.Signer) (BatchSigner, error) {
+func NewTrivialBatchSigner(signer ed25519.PrivateKey) (BatchSigner, error) {
 	return &trivialBatchSigner{signer: signer}, nil
 }
 
@@ -40,6 +41,6 @@ func (bs *trivialBatchSigner) BatchSign(d []byte) (*ccmsg.BatchSignature, error)
 		PathDirection: trees[0].pathDirections,
 		PathDigest:    trees[0].pathDigests,
 		RootSignature: rootSig,
-		SigningKey:    cachecash.PublicKeyMessage(bs.signer.Public()),
+		SigningKey:    cachecash.PublicKeyMessage(bs.signer.Public().(ed25519.PublicKey)),
 	}, nil
 }

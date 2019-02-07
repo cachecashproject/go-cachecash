@@ -2,7 +2,6 @@ package publisher
 
 import (
 	"context"
-	"crypto"
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
@@ -22,7 +21,7 @@ type ContentPublisher struct {
 
 	l *logrus.Logger
 
-	signer  crypto.Signer
+	signer  ed25519.PrivateKey
 	catalog catalog.ContentCatalog
 
 	escrows []*Escrow
@@ -43,7 +42,7 @@ type reverseMappingEntry struct {
 	path string
 }
 
-func NewContentPublisher(l *logrus.Logger, catalog catalog.ContentCatalog, signer crypto.Signer) (*ContentPublisher, error) {
+func NewContentPublisher(l *logrus.Logger, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
 	p := &ContentPublisher{
 		l:              l,
 		signer:         signer,

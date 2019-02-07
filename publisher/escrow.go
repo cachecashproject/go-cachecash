@@ -1,7 +1,6 @@
 package publisher
 
 import (
-	"crypto"
 	"fmt"
 	"net"
 
@@ -19,7 +18,7 @@ import (
 type ParticipatingCache struct {
 	InnerMasterKey []byte // ...?
 
-	PublicKey crypto.PublicKey
+	PublicKey ed25519.PublicKey
 
 	Inetaddr net.IP
 	Port     uint32
@@ -30,8 +29,8 @@ type Escrow struct {
 
 	Publisher *ContentPublisher
 
-	PublicKey  crypto.PublicKey
-	PrivateKey crypto.PrivateKey
+	PublicKey  ed25519.PublicKey
+	PrivateKey ed25519.PrivateKey
 
 	Info *ccmsg.EscrowInfo
 
@@ -88,7 +87,7 @@ type BundleParams struct {
 	ObjectID          common.ObjectID // This is a per-escrow value.
 	Entries           []BundleEntryParams
 	RequestSequenceNo uint64
-	ClientPublicKey   crypto.PublicKey
+	ClientPublicKey   ed25519.PublicKey
 	Object            cachecash.ContentObject
 }
 
@@ -139,7 +138,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 	// Generate inner keys (one per cache) using our keyed PRF.
 	var innerKeys, innerIVs [][]byte
 	for _, bep := range bp.Entries {
-		prfInput := []byte(bp.ClientPublicKey.(ed25519.PublicKey)) // XXX:
+		prfInput := []byte(bp.ClientPublicKey) // XXX:
 		k, err := util.KeyedPRF(prfInput, uint32(bp.RequestSequenceNo), bep.Cache.InnerMasterKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate inner key")
