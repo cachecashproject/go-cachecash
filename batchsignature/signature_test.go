@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"fmt"
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,8 +51,6 @@ func (suite *DigestTreeTestSuite) TestDigestTree() {
 	t := suite.T()
 
 	for n := uint(1); n <= MaxTestSize; n++ {
-		log.Printf("**** n=%v\n", n)
-
 		leaves := suite.randomDigests(n)
 
 		rootDigest, trees, err := NewDigestTree(leaves)
@@ -63,7 +60,6 @@ func (suite *DigestTreeTestSuite) TestDigestTree() {
 			break
 		}
 
-		log.Printf("root digest: %0x\n", rootDigest)
 		ok := assert.Equal(t, int(n), len(trees))
 		ok = ok && assert.Equal(t, sha512.Size384, len(rootDigest))
 		if !ok {
