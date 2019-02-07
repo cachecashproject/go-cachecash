@@ -7,6 +7,7 @@ package common
 
 import (
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 )
@@ -61,6 +62,24 @@ func (id *EscrowID) Randomize(nextInt func() int64, fieldType string, shouldBeNu
 		val[i] = byte(nextInt() % 256)
 	}
 	*id = val
+}
+
+// These are here to support marshaling as JSON map keys.
+func (id EscrowID) MarshalText() ([]byte, error) {
+	return []byte(base64.StdEncoding.EncodeToString(id[:])), nil
+}
+
+func (id EscrowID) UnmarshalText(x []byte) error {
+	y, err := base64.StdEncoding.DecodeString(string(x))
+	if err != nil {
+		return err
+	}
+	val, err := BytesToEscrowID(y)
+	if err != nil {
+		return err
+	}
+	copy(id[:], val[:])
+	return nil
 }
 
 type ObjectID [ObjectIDSize]byte

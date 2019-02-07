@@ -24,7 +24,9 @@ var (
 
 func main() {
 	if err := mainC(); err != nil {
-		os.Stderr.WriteString(err.Error() + "\n")
+		if _, err := os.Stderr.WriteString(err.Error() + "\n"); err != nil {
+			panic(err)
+		}
 		os.Exit(1)
 	}
 }

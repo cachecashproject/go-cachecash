@@ -17,6 +17,11 @@ type Application interface {
 	common.StarterShutdowner
 }
 
+type ConfigFile struct {
+	Config  *Config   `json:"config"`
+	Escrows []*Escrow `json:"escrows"`
+}
+
 // XXX: Right now, this is shared between the client- and cache-facing servers.
 type Config struct {
 	ClientProtocolAddr string
@@ -80,7 +85,7 @@ func (a *application) Shutdown(ctx context.Context) error {
 type clientProtocolServer struct {
 	l          *logrus.Logger
 	conf       *Config
-	publisher   *ContentPublisher
+	publisher  *ContentPublisher
 	grpcServer *grpc.Server
 }
 
@@ -93,7 +98,7 @@ func newClientProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *Config
 	return &clientProtocolServer{
 		l:          l,
 		conf:       conf,
-		publisher:   p,
+		publisher:  p,
 		grpcServer: grpcServer,
 	}, nil
 }
@@ -127,7 +132,7 @@ func (s *clientProtocolServer) Shutdown(ctx context.Context) error {
 type cacheProtocolServer struct {
 	l          *logrus.Logger
 	conf       *Config
-	publisher   *ContentPublisher
+	publisher  *ContentPublisher
 	grpcServer *grpc.Server
 }
 
@@ -140,7 +145,7 @@ func newCacheProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *Config)
 	return &cacheProtocolServer{
 		l:          l,
 		conf:       conf,
-		publisher:   p,
+		publisher:  p,
 		grpcServer: grpcServer,
 	}, nil
 }

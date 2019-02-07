@@ -17,6 +17,11 @@ type Application interface {
 	common.StarterShutdowner
 }
 
+type ConfigFile struct {
+	Config  *Config                     `json:"config"`
+	Escrows map[common.EscrowID]*Escrow `json:"escrows"`
+}
+
 type Config struct {
 	ClientProtocolAddr string
 	StatusAddr         string

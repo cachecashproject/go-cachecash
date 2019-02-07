@@ -39,9 +39,9 @@ type TestScenario struct {
 	Upstream catalog.Upstream
 
 	Publisher *publisher.ContentPublisher
-	Catalog  catalog.ContentCatalog
-	Escrow   *publisher.Escrow
-	EscrowID common.EscrowID
+	Catalog   catalog.ContentCatalog
+	Escrow    *publisher.Escrow
+	EscrowID  common.EscrowID
 
 	Params   *TestScenarioParams
 	Obj      cachecash.ContentObject
@@ -190,8 +190,8 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			return nil, err
 		}
 		ce := &cache.Escrow{
-			InnerMasterKey:           innerMasterKey,
-			OuterMasterKey:           testutil.RandBytes(16),
+			InnerMasterKey:            innerMasterKey,
+			OuterMasterKey:            testutil.RandBytes(16),
 			PublisherCacheServiceAddr: "localhost:8082",
 		}
 		if params.GenerateObject {
