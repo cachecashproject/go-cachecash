@@ -20,12 +20,12 @@ type TestServer struct {
 	l *logrus.Logger
 
 	publisher *publisher.ContentPublisher
-	escrow   *publisher.Escrow
-	obj      cachecash.ContentObject
-	caches   []*cache.Cache
+	escrow    *publisher.Escrow
+	obj       cachecash.ContentObject
+	caches    []*cache.Cache
 
 	publisherApp publisher.Application
-	cacheApps   []cache.Application
+	cacheApps    []cache.Application
 }
 
 // XXX: Cribbed from `integration_test.go`.

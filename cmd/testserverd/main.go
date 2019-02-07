@@ -41,12 +41,12 @@ type TestServer struct {
 	conf *Config
 
 	publisher *publisher.ContentPublisher
-	escrow   *publisher.Escrow
-	obj      cachecash.ContentObject
-	caches   []*cache.Cache
+	escrow    *publisher.Escrow
+	obj       cachecash.ContentObject
+	caches    []*cache.Cache
 
 	publisherApp publisher.Application
-	cacheApps   []cache.Application
+	cacheApps    []cache.Application
 
 	originServer *http.Server
 }
