@@ -22,14 +22,14 @@ import (
 Notes & TODOs:
 - As-is, the cache does not actually use the metadata that it stores.  Why did we want the metadata to be provided?
 - No support yet for multiple-block fetches.  (When implementing this, need to make sure that we're using the block
-  ID(s) returned by the provider.
+  ID(s) returned by the publisher.
 */
 
 type Escrow struct {
-	InnerMasterKey []byte // XXX: Shared with provider?
+	InnerMasterKey []byte // XXX: Shared with publisher?
 	OuterMasterKey []byte
 
-	ProviderCacheServiceAddr string
+	PublisherCacheServiceAddr string
 }
 
 func (e *Escrow) Active() bool {
@@ -74,22 +74,22 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 
 		// XXX: No transport security!
 		// XXX: Should not create a new connection for each attempt.
-		c.l.Info("dialing provider's cache-facing service")
-		conn, err := grpc.Dial(escrow.ProviderCacheServiceAddr, grpc.WithInsecure())
+		c.l.Info("dialing publisher's cache-facing service")
+		conn, err := grpc.Dial(escrow.PublisherCacheServiceAddr, grpc.WithInsecure())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to dial")
 		}
-		grpcClient := ccmsg.NewCacheProviderClient(conn)
+		grpcClient := ccmsg.NewCachePublisherClient(conn)
 
-		// First, contact the provider's cache-facing service and ask where to fetch this block from.
-		c.l.Info("asking provider for cache-miss info")
+		// First, contact the publisher's cache-facing service and ask where to fetch this block from.
+		c.l.Info("asking publisher for cache-miss info")
 		resp, err := grpcClient.CacheMiss(ctx, &ccmsg.CacheMissRequest{
 			ObjectId:   objectID[:],
 			RangeBegin: blockIdx,
 			RangeEnd:   blockIdx + 1,
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to fetch upstream info from provider")
+			return nil, errors.Wrap(err, "failed to fetch upstream info from publisher")
 		}
 		c.l.Debugf("cache-miss response: %v", resp)
 

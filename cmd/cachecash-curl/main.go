@@ -44,7 +44,7 @@ func mainC() error {
 	rawURI := flag.Arg(0)
 
 	// TODO: This URI parsing should probably be moved into a library function somewhere.  The reason that it's being
-	// done here is that `client.Client` only supports a single provider right now, so the `GetObject` function can't
+	// done here is that `client.Client` only supports a single publisher right now, so the `GetObject` function can't
 	// take whole URIs directly.
 	// XXX: We silently ignore other parts of the URI (user, password, query string).  That's probably not a good idea;
 	// we should either support them or return an error if they are present.
@@ -55,9 +55,9 @@ func mainC() error {
 	if u.Scheme != "cachecash" {
 		return errors.New("unexpected scheme in URI")
 	}
-	providerAddr := u.Hostname()
+	publisherAddr := u.Hostname()
 	if u.Port() != "" {
-		providerAddr += ":" + u.Port()
+		publisherAddr += ":" + u.Port()
 	}
 	objPath := u.Path
 
@@ -75,7 +75,7 @@ func mainC() error {
 		}
 	}()
 
-	cl, err := client.New(l, providerAddr) // e.g. "localhost:8080"
+	cl, err := client.New(l, publisherAddr) // e.g. "localhost:8080"
 	if err != nil {
 		return errors.Wrap(err, "failed to create client")
 	}

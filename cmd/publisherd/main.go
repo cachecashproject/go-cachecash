@@ -4,7 +4,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/provider"
+	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/sirupsen/logrus"
 )
 
@@ -13,15 +13,15 @@ func main() {
 	l := logrus.New()
 
 	// TODO: temporary
-	prov, err := makeProvider()
+	prov, err := makePublisher()
 	if err != nil {
 		panic(err)
 	}
 
-	conf := &provider.Config{}
+	conf := &publisher.Config{}
 
 	// Serve traffic!
-	a, err := provider.NewApplication(l, prov, conf)
+	a, err := publisher.NewApplication(l, prov, conf)
 	if err != nil {
 		panic(err)
 	}

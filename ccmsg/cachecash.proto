@@ -19,7 +19,7 @@ message PublicKey {
 
 message EscrowInfo {
     PublicKey public_key = 1;
-    PublicKey provider_public_key = 2;  // XXX: Do we need this?
+    PublicKey publisher_public_key = 2;  // XXX: Do we need this?
         
     uint64 draw_delay = 3;  // number of blocks after issue that lottery draws occur
     uint64 expiration_delay = 4;  // number of blocks after draw that tickets expire
@@ -172,7 +172,7 @@ message TicketL2 {
 // - num_caches: Number of caches to which this ticket is destined.
 // - cache_pubkey: Public keys of all recipient caches.
 
-// - cp_pubkey: Content provider;s public key.
+// - cp_pubkey: Content publisher;s public key.
 // - escrow_pubkey: Escrow's public key.
 
 // - puzzle_result: The output of the hash-encryption puzzle that is used to mask this ticket.
@@ -207,14 +207,14 @@ message TicketBundleSubdigests {
 
 
 // ------------------------
-// Client<->Provider protocol
+// Client<->Publisher protocol
 // ------------------------
 
-service ClientProvider {
+service ClientPublisher {
     rpc GetContent(ContentRequest) returns (ContentResponse) {}
 }
 
-// Client-to-provider
+// Client-to-publisher
 message ContentRequest {
     // TODO: This does not actually need to be repeated with each request, if we are using a connection-oriented
     // transport.
@@ -222,7 +222,7 @@ message ContentRequest {
 
     string path = 2;
 
-    // In bytes; the provider can map that to blocks however it pleases.  range_begin is inclusive and range_end is
+    // In bytes; the publisher can map that to blocks however it pleases.  range_begin is inclusive and range_end is
     // exclusive.  A value of zero for range_end means "the end of the object".
     uint64 range_begin = 5;
     uint64 range_end = 6;
@@ -299,10 +299,10 @@ message ClientCacheResponseL2 {
 
 
 // ------------------------
-// Cache<->Provider protocol
+// Cache<->Publisher protocol
 // ------------------------
 
-service CacheProvider {
+service CachePublisher {
     rpc CacheMiss(CacheMissRequest) returns (CacheMissResponse) {}
 }
 

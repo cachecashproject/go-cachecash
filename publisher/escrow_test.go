@@ -1,4 +1,4 @@
-package provider
+package publisher
 
 import (
 	"crypto/aes"
@@ -21,7 +21,7 @@ type TicketBundleTestSuite struct {
 
 	l *logrus.Logger
 
-	provider *ContentProvider
+	publisher *ContentPublisher
 	escrow   *Escrow
 
 	clientPublic  ed25519.PublicKey
@@ -45,9 +45,9 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 		t.Fatalf("failed to generate keypair: %v", err)
 	}
 	// XXX: Once we start using the catalog, passing nil is going to cause runtime panics.
-	suite.provider, err = NewContentProvider(l, nil, priv)
+	suite.publisher, err = NewContentPublisher(l, nil, priv)
 	if err != nil {
-		t.Fatalf("failed to construct provider: %v", err)
+		t.Fatalf("failed to construct publisher: %v", err)
 	}
 
 	ei := &ccmsg.EscrowInfo{
@@ -59,7 +59,7 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 			{Length: 3, Value: 100},
 		},
 	}
-	suite.escrow, err = suite.provider.NewEscrow(ei)
+	suite.escrow, err = suite.publisher.NewEscrow(ei)
 	if err != nil {
 		t.Fatalf("failed to construct escrow: %v", err)
 	}

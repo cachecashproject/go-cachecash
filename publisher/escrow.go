@@ -1,4 +1,4 @@
-package provider
+package publisher
 
 import (
 	"crypto"
@@ -27,7 +27,7 @@ type ParticipatingCache struct {
 type Escrow struct {
 	ID common.EscrowID
 
-	Provider *ContentProvider
+	Publisher *ContentPublisher
 
 	PublicKey  crypto.PublicKey
 	PrivateKey crypto.PrivateKey
@@ -38,7 +38,7 @@ type Escrow struct {
 }
 
 // The info object does not need to have its keys populated.
-func (p *ContentProvider) NewEscrow(info *ccmsg.EscrowInfo) (*Escrow, error) {
+func (p *ContentPublisher) NewEscrow(info *ccmsg.EscrowInfo) (*Escrow, error) {
 	if info.DrawDelay == 0 {
 		return nil, errors.New("draw delay must be at least one block")
 	}
@@ -62,11 +62,11 @@ func (p *ContentProvider) NewEscrow(info *ccmsg.EscrowInfo) (*Escrow, error) {
 		return nil, errors.Wrap(err, "failed to generate keypair")
 	}
 
-	// TODO: Should we set info.PublicKey and info.ProviderPublicKey?
+	// TODO: Should we set info.PublicKey and info.PublisherPublicKey?
 	return &Escrow{
 		ID: id,
 
-		Provider:   p,
+		Publisher:   p,
 		PublicKey:  pub,
 		PrivateKey: priv,
 		Info:       info,
@@ -120,7 +120,7 @@ type BundleGenerator struct {
 // things as arguments.
 func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.TicketBundle, error) {
 	resp := &ccmsg.TicketBundle{
-		// ProviderPublicKey: cachecash.PublicKeyMessage(e.Provider.PublicKey),
+		// PublisherPublicKey: cachecash.PublicKeyMessage(e.Publisher.PublicKey),
 		// EscrowPublicKey:   cachecash.PublicKeyMessage(e.PublicKey),
 		Remainder: &ccmsg.TicketBundleRemainder{
 			RequestSequenceNo: bp.RequestSequenceNo,

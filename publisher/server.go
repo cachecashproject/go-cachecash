@@ -1,4 +1,4 @@
-package provider
+package publisher
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// An Application is the top-level content provider.  It takes a configuration struct.  Its children are the several
+// An Application is the top-level content publisher.  It takes a configuration struct.  Its children are the several
 // protocol servers (that deal with clients, caches, and so forth).
 type Application interface {
 	common.StarterShutdowner
@@ -43,7 +43,7 @@ type application struct {
 var _ Application = (*application)(nil)
 
 // XXX: Should this take p as an argument, or be responsible for setting it up?
-func NewApplication(l *logrus.Logger, p *ContentProvider, conf *Config) (Application, error) {
+func NewApplication(l *logrus.Logger, p *ContentPublisher, conf *Config) (Application, error) {
 	conf.FillDefaults()
 
 	clientProtocolServer, err := newClientProtocolServer(l, p, conf)
@@ -80,20 +80,20 @@ func (a *application) Shutdown(ctx context.Context) error {
 type clientProtocolServer struct {
 	l          *logrus.Logger
 	conf       *Config
-	provider   *ContentProvider
+	publisher   *ContentPublisher
 	grpcServer *grpc.Server
 }
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 
-func newClientProtocolServer(l *logrus.Logger, p *ContentProvider, conf *Config) (*clientProtocolServer, error) {
+func newClientProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *Config) (*clientProtocolServer, error) {
 	grpcServer := grpc.NewServer()
-	ccmsg.RegisterClientProviderServer(grpcServer, &grpcClientProviderServer{provider: p})
+	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcClientPublisherServer{publisher: p})
 
 	return &clientProtocolServer{
 		l:          l,
 		conf:       conf,
-		provider:   p,
+		publisher:   p,
 		grpcServer: grpcServer,
 	}, nil
 }
@@ -127,20 +127,20 @@ func (s *clientProtocolServer) Shutdown(ctx context.Context) error {
 type cacheProtocolServer struct {
 	l          *logrus.Logger
 	conf       *Config
-	provider   *ContentProvider
+	publisher   *ContentPublisher
 	grpcServer *grpc.Server
 }
 
 var _ common.StarterShutdowner = (*cacheProtocolServer)(nil)
 
-func newCacheProtocolServer(l *logrus.Logger, p *ContentProvider, conf *Config) (*cacheProtocolServer, error) {
+func newCacheProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *Config) (*cacheProtocolServer, error) {
 	grpcServer := grpc.NewServer()
-	ccmsg.RegisterCacheProviderServer(grpcServer, &grpcCacheProviderServer{provider: p})
+	ccmsg.RegisterCachePublisherServer(grpcServer, &grpcCachePublisherServer{publisher: p})
 
 	return &cacheProtocolServer{
 		l:          l,
 		conf:       conf,
-		provider:   p,
+		publisher:   p,
 		grpcServer: grpcServer,
 	}, nil
 }

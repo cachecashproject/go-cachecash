@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// An Application is the top-level content provider.  It takes a configuration struct.  Its children are the several
+// An Application is the top-level content publisher.  It takes a configuration struct.  Its children are the several
 // protocol servers (that deal with clients, caches, and so forth).
 type Application interface {
 	common.StarterShutdowner

@@ -10,7 +10,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/provider"
+	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -38,9 +38,9 @@ type TestScenario struct {
 
 	Upstream catalog.Upstream
 
-	Provider *provider.ContentProvider
+	Publisher *publisher.ContentPublisher
 	Catalog  catalog.ContentCatalog
-	Escrow   *provider.Escrow
+	Escrow   *publisher.Escrow
 	EscrowID common.EscrowID
 
 	Params   *TestScenarioParams
@@ -139,18 +139,18 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	}
 	ts.Catalog = cat
 
-	// Create a provider.
-	_, providerPrivateKey, err := ed25519.GenerateKey(nil)
+	// Create a publisher.
+	_, publisherPrivateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate provider keypair")
+		return nil, errors.Wrap(err, "failed to generate publisher keypair")
 	}
-	prov, err := provider.NewContentProvider(ts.L, cat, providerPrivateKey)
+	prov, err := publisher.NewContentPublisher(ts.L, cat, publisherPrivateKey)
 	if err != nil {
 		return nil, err
 	}
-	ts.Provider = prov
+	ts.Publisher = prov
 
-	// Create escrow and add it to the provider.
+	// Create escrow and add it to the publisher.
 	escrow, err := prov.NewEscrow(&ccmsg.EscrowInfo{
 		Id:              ts.EscrowID[:],
 		DrawDelay:       5,
@@ -178,7 +178,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		// XXX: generate master-key
 		innerMasterKey := testutil.RandBytes(16)
 
-		escrow.Caches = append(escrow.Caches, &provider.ParticipatingCache{
+		escrow.Caches = append(escrow.Caches, &publisher.ParticipatingCache{
 			InnerMasterKey: innerMasterKey,
 			PublicKey:      public,
 			Inetaddr:       net.ParseIP("127.0.0.1"),
@@ -192,7 +192,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		ce := &cache.Escrow{
 			InnerMasterKey:           innerMasterKey,
 			OuterMasterKey:           testutil.RandBytes(16),
-			ProviderCacheServiceAddr: "localhost:8082",
+			PublisherCacheServiceAddr: "localhost:8082",
 		}
 		if params.GenerateObject {
 			if err := c.Storage.PutMetadata(ts.EscrowID, ts.ObjectID, &ccmsg.ObjectMetadata{

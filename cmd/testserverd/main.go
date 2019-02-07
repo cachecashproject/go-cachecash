@@ -10,21 +10,21 @@ import (
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/cache"
 	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/provider"
+	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/testdatagen"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
 /*
-testserverd runs a content provider and a set of caches.  Running them in a single process is more convenient for
-development purposes, but most importantly lets us proceed before cache/provider interactions are fleshed out.
+testserverd runs a content publisher and a set of caches.  Running them in a single process is more convenient for
+development purposes, but most importantly lets us proceed before cache/publisher interactions are fleshed out.
 
 The intent is that
   $ ./bin/cachecash-curl cachecash://localhost:8080/file0.bin
 should return the same output as
   $ curl http://localhost:8081/file0.bin
-(The CacheCash provider runs on port 8080; the HTTP upstream that it pulls content from runs on port 8081.)
+(The CacheCash publisher runs on port 8080; the HTTP upstream that it pulls content from runs on port 8081.)
 
 TODO:
 - Using the `cachecash-curl` binary to fetch an object that doesn't exist should return a 404 error.
@@ -40,12 +40,12 @@ type TestServer struct {
 
 	conf *Config
 
-	provider *provider.ContentProvider
-	escrow   *provider.Escrow
+	publisher *publisher.ContentPublisher
+	escrow   *publisher.Escrow
 	obj      cachecash.ContentObject
 	caches   []*cache.Cache
 
-	providerApp provider.Application
+	publisherApp publisher.Application
 	cacheApps   []cache.Application
 
 	originServer *http.Server
@@ -74,7 +74,7 @@ func (ts *TestServer) setup() error {
 		return err
 	}
 
-	ts.provider = scen.Provider
+	ts.publisher = scen.Publisher
 	ts.escrow = scen.Escrow
 	ts.obj = scen.Obj
 	ts.caches = scen.Caches
@@ -96,20 +96,20 @@ func (ts *TestServer) Start() error {
 		}
 	}()
 
-	// Start provider.
-	ps, err := provider.NewApplication(ts.l, ts.provider, &provider.Config{})
+	// Start publisher.
+	ps, err := publisher.NewApplication(ts.l, ts.publisher, &publisher.Config{})
 	if err != nil {
-		return errors.Wrap(err, "failed to create provider application")
+		return errors.Wrap(err, "failed to create publisher application")
 	}
 	if err := ps.Start(); err != nil {
-		return errors.Wrap(err, "failed to start provider application")
+		return errors.Wrap(err, "failed to start publisher application")
 	}
-	ts.providerApp = ps
+	ts.publisherApp = ps
 
 	// Start caches.
 	for i, c := range ts.caches {
 		cs, err := cache.NewApplication(ts.l, c, &cache.Config{
-			// XXX: This must match what is set up in the Escrow struct on the provider side so that the provider sends
+			// XXX: This must match what is set up in the Escrow struct on the publisher side so that the publisher sends
 			// clients to the right place.
 			ClientProtocolAddr: fmt.Sprintf(":%v", 9000+i),
 			StatusAddr:         fmt.Sprintf(":%v", 9100+i),
@@ -128,8 +128,8 @@ func (ts *TestServer) Start() error {
 
 func (ts *TestServer) Shutdown(ctx context.Context) error {
 	// TODO: @kelleyk: Should do these simultaneously, not sequentially; I have code in my personal library that does this
-	if err := ts.providerApp.Shutdown(ctx); err != nil {
-		return errors.Wrap(err, "failed to shut down provider application")
+	if err := ts.publisherApp.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to shut down publisher application")
 	}
 	for _, a := range ts.cacheApps {
 		if err := a.Shutdown(ctx); err != nil {

@@ -20,7 +20,7 @@ The API of client should mirror that of `http` and `ctxhttp`:
 - https://godoc.org/golang.org/x/net/context/ctxhttp
 
 Simplifications made in this implementation of the client:
-- A client interacts with a single content provider.
+- A client interacts with a single content publisher.
 - A client requests only a single object at a time.
 */
 
@@ -49,7 +49,7 @@ type client struct {
 	publicKey  ed25519.PublicKey
 	privateKey ed25519.PrivateKey
 
-	providerConn *providerConnection
+	publisherConn *publisherConnection
 
 	// Unclear what key type should be.
 	cacheConns map[cacheID]*cacheConnection
@@ -64,9 +64,9 @@ func New(l *logrus.Logger, addr string) (Client, error) {
 	}
 
 	ctx := context.Background() // XXX:
-	pc, err := newProviderConnection(ctx, l, addr)
+	pc, err := newPublisherConnection(ctx, l, addr)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to connect to provider")
+		return nil, errors.Wrap(err, "failed to connect to publisher")
 	}
 
 	return &client{
@@ -74,7 +74,7 @@ func New(l *logrus.Logger, addr string) (Client, error) {
 		publicKey:  pub,
 		privateKey: priv,
 
-		providerConn: pc,
+		publisherConn: pc,
 
 		cacheConns: make(map[cacheID]*cacheConnection),
 	}, nil
@@ -120,7 +120,7 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 }
 
 func (cl *client) Close(ctx context.Context) error {
-	// XXX: Open question: how should cache/provider connection management work?  Probably needs to be a setting, or on
+	// XXX: Open question: how should cache/publisher connection management work?  Probably needs to be a setting, or on
 	// a timer, where we have some way of automatically closing connections we aren't using any longer but do allow for
 	// reuse.  In the meantime, this function (which may not be appropriately named) manually closes them.  It isn't
 	// concurrency-safe, which is probably an issue.
@@ -136,7 +136,7 @@ func (cl *client) Close(ctx context.Context) error {
 	}
 	cl.cacheConns = make(map[cacheID]*cacheConnection)
 
-	if err := cl.providerConn.Close(ctx); err != nil {
+	if err := cl.publisherConn.Close(ctx); err != nil {
 		retErr = err
 	}
 
@@ -177,16 +177,16 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 		RangeBegin:      rangeBegin,
 		RangeEnd:        0, // "continue to the end of the object"
 	}
-	cl.l.Infof("sending content request to provider: %v", req)
+	cl.l.Infof("sending content request to publisher: %v", req)
 
-	// Send request to provider; get TicketBundle in response.
-	resp, err := cl.providerConn.grpcClient.GetContent(ctx, req)
+	// Send request to publisher; get TicketBundle in response.
+	resp, err := cl.publisherConn.grpcClient.GetContent(ctx, req)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to request bundle from provider")
+		return nil, errors.Wrap(err, "failed to request bundle from publisher")
 	}
 	bundle := resp.Bundle
-	cl.l.Info("got ticket bundle from provider")
-	// cl.l.Debugf("got ticket bundle from provider: %v", proto.MarshalTextString(bundle))
+	cl.l.Info("got ticket bundle from publisher")
+	// cl.l.Debugf("got ticket bundle from publisher: %v", proto.MarshalTextString(bundle))
 
 	cacheQty := len(bundle.CacheInfo)
 

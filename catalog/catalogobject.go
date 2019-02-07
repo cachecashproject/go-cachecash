@@ -15,10 +15,10 @@ import (
 
 /*
 
-- The provider can decide how each object is split into blocks; the cache must accept whatever decision the provider
+- The publisher can decide how each object is split into blocks; the cache must accept whatever decision the publisher
   made.
 
-- The provider won't use a CacheCash upstream; caches may be told to.
+- The publisher won't use a CacheCash upstream; caches may be told to.
 
 
 Things that need to be extended here:
@@ -49,7 +49,7 @@ type ObjectMetadata struct {
 	blocks   [][]byte
 }
 
-// ObjectPolicy contains provider-determined metadata such as block size.  This is distinct from ccmsg.ObjectMetadata,
+// ObjectPolicy contains publisher-determined metadata such as block size.  This is distinct from ccmsg.ObjectMetadata,
 // which contains metadata cached from the upstream.
 type ObjectPolicy struct {
 	BlockSize int

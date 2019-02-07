@@ -34,7 +34,7 @@ func ErrorResponse(w http.ResponseWriter, err error) {
 }
 
 // --------------
-// XXX: Code below this line was moved here from `cmd/providerd/util.go` and probably needs some refactoring.  In
+// XXX: Code below this line was moved here from `cmd/publisherd/util.go` and probably needs some refactoring.  In
 // particular, many things don't seem to be exported.
 // --------------
 

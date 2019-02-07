@@ -57,14 +57,14 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 		return err
 	}
 
-	prov := scen.Provider
+	prov := scen.Publisher
 	caches := scen.Caches
 
-	// Pull information about the object into the provider's catalog so that no upstream fetches are necessary.
-	// l.Infof("pulling metadata into provider catalog: start")
+	// Pull information about the object into the publisher's catalog so that no upstream fetches are necessary.
+	// l.Infof("pulling metadata into publisher catalog: start")
 	// // scen.Catalog.
-	// l.Infof("pulling metadata into provider catalog: done")
-	l.Infof("pulling data into provider catalog: start")
+	// l.Infof("pulling metadata into publisher catalog: done")
+	l.Infof("pulling data into publisher catalog: start")
 	for i := 0; i < int(scen.BlockCount()); i++ {
 		_, err = scen.Catalog.GetData(ctx, &ccmsg.ContentRequest{
 			Path:       "/foo/bar",
@@ -75,7 +75,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 			return err
 		}
 	}
-	l.Infof("pulling data into provider catalog: done")
+	l.Infof("pulling data into publisher catalog: done")
 
 	// Create a client keypair.
 	clientPublicKey, clientPrivateKey, err := ed25519.GenerateKey(nil)
@@ -92,7 +92,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 		SequenceNo:      1,
 	}
 
-	// Get a ticket bundle from the provider.
+	// Get a ticket bundle from the publisher.
 	bundle, err := prov.HandleContentRequest(context.Background(), bundleReq)
 	if err != nil {
 		return err
@@ -211,7 +211,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 		plaintextBlocks = append(plaintextBlocks, plaintext)
 	}
 
-	// Verify that the plaintext data the client has received matches what the provider and caches have.
+	// Verify that the plaintext data the client has received matches what the publisher and caches have.
 	for i, b := range plaintextBlocks {
 		expected, err := scen.Obj.GetBlock(uint32(bundle.TicketRequest[i].BlockIdx))
 		if err != nil {

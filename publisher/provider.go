@@ -1,4 +1,4 @@
-package provider
+package publisher
 
 import (
 	"context"
@@ -16,8 +16,8 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-type ContentProvider struct {
-	// The ContentProvider knows each cache's "inner master key" (aka "master key")?  This is an AES key.
+type ContentPublisher struct {
+	// The ContentPublisher knows each cache's "inner master key" (aka "master key")?  This is an AES key.
 	// For each cache, it also knows an IP address, a port number, and a public key.
 
 	l *logrus.Logger
@@ -28,7 +28,7 @@ type ContentProvider struct {
 	escrows []*Escrow
 
 	// XXX: It's obviously not great that this is necessary.
-	// Maps object IDs to metadata; necessary to allow the provider to generate cache-miss responses.
+	// Maps object IDs to metadata; necessary to allow the publisher to generate cache-miss responses.
 	reverseMapping map[common.ObjectID]reverseMappingEntry
 
 	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
@@ -43,8 +43,8 @@ type reverseMappingEntry struct {
 	path string
 }
 
-func NewContentProvider(l *logrus.Logger, catalog catalog.ContentCatalog, signer crypto.Signer) (*ContentProvider, error) {
-	p := &ContentProvider{
+func NewContentPublisher(l *logrus.Logger, catalog catalog.ContentCatalog, signer crypto.Signer) (*ContentPublisher, error) {
+	p := &ContentPublisher{
 		l:              l,
 		signer:         signer,
 		catalog:        catalog,
@@ -55,13 +55,13 @@ func NewContentProvider(l *logrus.Logger, catalog catalog.ContentCatalog, signer
 }
 
 // XXX: Temporary
-func (p *ContentProvider) AddEscrow(escrow *Escrow) error {
+func (p *ContentPublisher) AddEscrow(escrow *Escrow) error {
 	p.escrows = append(p.escrows, escrow)
 	return nil
 }
 
 // XXX: Temporary
-func (p *ContentProvider) getEscrowByRequest(req *ccmsg.ContentRequest) (*Escrow, error) {
+func (p *ContentPublisher) getEscrowByRequest(req *ccmsg.ContentRequest) (*Escrow, error) {
 	if len(p.escrows) == 0 {
 		return nil, errors.New("no escrow for request")
 	}
@@ -75,27 +75,27 @@ The process of satisfying a request
     implementation, they're HTTP-like paths.)  It (optionally) includes a _byte range_, which may be open-ended (which
     means "continue until the end of the object").
 
-  - The _byte range_ is translated to a _block range_ depending on how the provider would like to chunk the object.
-    (Right now, we only support fixed-size blocks, but this is not inherent.)  The provider may also choose how many
+  - The _byte range_ is translated to a _block range_ depending on how the publisher would like to chunk the object.
+    (Right now, we only support fixed-size blocks, but this is not inherent.)  The publisher may also choose how many
     blocks it would like to serve, and how many block-groups they will be divided into.  (The following steps are
     repeated for each block-group; the results are returned together in a single response to the client.)
 
   - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and valid.
     (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A future
-    enhancement might require that the provider fetch only the cipher-blocks that will be used in puzzle generation,
+    enhancement might require that the publisher fetch only the cipher-blocks that will be used in puzzle generation,
     instead of all of the cipher-blocks in the data blocks.)
 
   - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by the
-    provider.  (Our implementation uses the block's digest.)
+    publisher.  (Our implementation uses the block's digest.)
 
-  - The provider selects a single escrow that will be used to service the request.
+  - The publisher selects a single escrow that will be used to service the request.
 
-  - The provider selects a set of caches that are enrolled in that escrow.  This selection should be designed to place
+  - The publisher selects a set of caches that are enrolled in that escrow.  This selection should be designed to place
     the same blocks on the same caches (expanding the number in rotation as demand for the chunks grows), and to reuse
     the same caches for consecutive block-groups served to a single client (so that connection reuse and pipelining can
     improve performance, once implemented).
 
-  - For each cache, the provider chooses a logical slot index.  (For details, see documentation on the logical cache
+  - For each cache, the publisher chooses a logical slot index.  (For details, see documentation on the logical cache
     model.)  This slot index should be consistent between requests for the cache to serve the same block.
 
 ***************************************************************
@@ -104,17 +104,17 @@ XXX: Temporary notes:
 
 Object identifier (path) -> escrow-object (escrow & ID pair; do the IDs really matter?)
 
-    The provider will probably want to maintain a list of existing escrow-ID pairs for each object;
+    The publisher will probably want to maintain a list of existing escrow-ID pairs for each object;
     it may also, at its option, create a new pair and return that.  (That is, it can choose to serve
     the request out of an escrow that's already been used to serve the object, or it can choose to serve
     the request out of an escrow that hasn't been.)
 
     This should be designed so that cache rollover/reuse between escrows is possible.
 
-The provider must also ensure that the metadata and data required to generate the puzzle is available
-in the local catalog.  (The provider doesn't use the catalog yet; that needs to be implemented.)
+The publisher must also ensure that the metadata and data required to generate the puzzle is available
+in the local catalog.  (The publisher doesn't use the catalog yet; that needs to be implemented.)
 
-The provider will also need to decide on LCM slot IDs for each block it asks a cache to serve.  These can vary per
+The publisher will also need to decide on LCM slot IDs for each block it asks a cache to serve.  These can vary per
 cache, per escrow.  They should also be designed to support escrow rollover.
 
 */
@@ -123,7 +123,7 @@ const (
 	blocksPerGroup = 4
 )
 
-func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
+func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
 	p.l.WithFields(logrus.Fields{
 		"path":       req.Path,
 		"rangeBegin": req.RangeBegin,
@@ -132,7 +132,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 
 	// - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and
 	//   valid.  (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A
-	//   future enhancement might require that the provider fetch only the cipher-blocks that will be used in puzzle
+	//   future enhancement might require that the publisher fetch only the cipher-blocks that will be used in puzzle
 	//   generation, instead of all of the cipher-blocks in the data blocks.)
 	p.l.Debug("pulling metadata and blocks into catalog")
 	obj, err := p.catalog.GetData(ctx, &ccmsg.ContentRequest{Path: req.Path})
@@ -140,8 +140,8 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		return nil, errors.Wrap(err, "failed to get metadata for requested object")
 	}
 
-	// - The _byte range_ is translated to a _block range_ depending on how the provider would like to chunk the object.
-	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The provider may also choose how
+	// - The _byte range_ is translated to a _block range_ depending on how the publisher would like to chunk the object.
+	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The publisher may also choose how
 	//   many blocks it would like to serve, and how many block-groups they will be divided into.  (The following steps
 	//   are repeated for each block-group; the results are returned together in a single response to the client.)
 	if req.RangeEnd != 0 && req.RangeEnd <= req.RangeBegin {
@@ -163,7 +163,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	}).Info("content request")
 
 	// - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by
-	// the provider.  (Our implementation uses the block's digest.)
+	// the publisher.  (Our implementation uses the block's digest.)
 	p.l.Debug("mapping block indices into block identifiers")
 	blockIndices := make([]uint64, 0, rangeEnd-rangeBegin)
 	blockIDs := make([]common.BlockID, 0, rangeEnd-rangeBegin)
@@ -177,14 +177,14 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 		blockIndices = append(blockIndices, blockIdx)
 	}
 
-	// - The provider selects a single escrow that will be used to service the request.
+	// - The publisher selects a single escrow that will be used to service the request.
 	p.l.Debug("selecting escrow")
 	escrow, err := p.getEscrowByRequest(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get escrow for request")
 	}
 
-	// - The provider selects a set of caches that are enrolled in that escrow.  This selection should be designed to
+	// - The publisher selects a set of caches that are enrolled in that escrow.  This selection should be designed to
 	//   place the same blocks on the same caches (expanding the number in rotation as demand for the chunks grows), and
 	//   to reuse the same caches for consecutive block-groups served to a single client (so that connection reuse and
 	//   pipelining can improve performance, once implemented).
@@ -194,7 +194,7 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	}
 	caches := escrow.Caches[0:len(blockIndices)]
 
-	// - For each cache, the provider chooses a logical slot index.  (For details, see documentation on the logical
+	// - For each cache, the publisher chooses a logical slot index.  (For details, see documentation on the logical
 	//   cache model.)  This slot index should be consistent between requests for the cache to serve the same block.
 
 	// *********************************************************
@@ -266,20 +266,20 @@ func (p *ContentProvider) HandleContentRequest(ctx context.Context, req *ccmsg.C
 	return bundle, nil
 }
 
-func (p *ContentProvider) assignSlot(path string, blockIdx uint64, blockID uint64) uint64 {
+func (p *ContentPublisher) assignSlot(path string, blockIdx uint64, blockID uint64) uint64 {
 	// XXX: should depend on number of slots available to cache, etc.
 	return blockIdx
 }
 
-// TODO: XXX: Since object policy is, by definition, something that the provider can set arbitrarily on a per-object
+// TODO: XXX: Since object policy is, by definition, something that the publisher can set arbitrarily on a per-object
 // basis, this should be the only place that these values are hardcoded.
-func (p *ContentProvider) objectPolicy(path string) (*catalog.ObjectPolicy, error) {
+func (p *ContentPublisher) objectPolicy(path string) (*catalog.ObjectPolicy, error) {
 	return &catalog.ObjectPolicy{
 		BlockSize: 128 * 1024,
 	}, nil
 }
 
-func (p *ContentProvider) getBlockID(obj *catalog.ObjectMetadata, blockIdx uint64) (common.BlockID, error) {
+func (p *ContentPublisher) getBlockID(obj *catalog.ObjectMetadata, blockIdx uint64) (common.BlockID, error) {
 	data, err := obj.GetBlock(uint32(blockIdx))
 	if err != nil {
 		return common.BlockID{}, errors.Wrap(err, "failed to get block data to generate ID")
@@ -297,7 +297,7 @@ func (p *ContentProvider) getBlockID(obj *catalog.ObjectMetadata, blockIdx uint6
 	return id, nil
 }
 
-func (p *ContentProvider) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
+func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
 	// TODO: How do we identify the cache submitting the request?
 
 	objectID, err := common.BytesToObjectID(req.ObjectId)
