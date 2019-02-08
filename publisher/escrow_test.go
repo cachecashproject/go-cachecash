@@ -22,7 +22,7 @@ type TicketBundleTestSuite struct {
 	l *logrus.Logger
 
 	publisher *ContentPublisher
-	escrow   *Escrow
+	escrow    *Escrow
 
 	clientPublic  ed25519.PublicKey
 	clientPrivate ed25519.PrivateKey
@@ -116,7 +116,7 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 		},
 	}
 
-	batchSigner, err := batchsignature.NewTrivialBatchSigner(suite.escrow.PrivateKey.(ed25519.PrivateKey))
+	batchSigner, err := batchsignature.NewTrivialBatchSigner(suite.escrow.PrivateKey)
 	if err != nil {
 		t.Fatalf("failed to construct batch signer: %v", err)
 	}
