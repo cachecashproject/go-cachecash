@@ -33,6 +33,7 @@ TODO:
 
 var (
 	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
 )
 
 type TestServer struct {
@@ -64,6 +65,7 @@ func (ts *TestServer) setup() error {
 		return errors.Wrap(err, "failed to parse log level")
 	}
 	ts.l.SetLevel(logLevel)
+	ts.l.SetReportCaller(*logCaller)
 
 	scen, err := testdatagen.GenerateTestScenario(ts.l, &testdatagen.TestScenarioParams{
 		L:          ts.l,

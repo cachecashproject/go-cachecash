@@ -16,6 +16,7 @@ import (
 
 var (
 	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
 	configPath  = flag.String("config", "cache.config.json", "Path to configuration file")
 )
 
@@ -52,6 +53,7 @@ func mainC() error {
 		return errors.Wrap(err, "failed to parse log level")
 	}
 	l.SetLevel(logLevel)
+	l.SetReportCaller(*logCaller)
 
 	cf, err := loadConfigFile(*configPath)
 	if err != nil {

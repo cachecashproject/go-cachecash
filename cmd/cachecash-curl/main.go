@@ -18,8 +18,9 @@ import (
 // `cachecash-curl` is a simple command-line utility that retrieves a file being served via CacheCash.
 
 var (
-	outputPath  = flag.String("o", "", "Path where retrieved file will be written")
 	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
+	outputPath  = flag.String("o", "", "Path where retrieved file will be written")
 )
 
 func main() {
@@ -41,6 +42,7 @@ func mainC() error {
 		return errors.Wrap(err, "failed to parse log level")
 	}
 	l.SetLevel(logLevel)
+	l.SetReportCaller(*logCaller)
 
 	// e.g. "cachecash://localhost:8080/foo/bar"
 	rawURI := flag.Arg(0)

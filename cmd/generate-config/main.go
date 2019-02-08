@@ -19,6 +19,7 @@ import (
 
 var (
 	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
 	outputPath  = flag.String("outputPath", ".", "Directory where configuration files will be written")
 )
 
@@ -42,6 +43,7 @@ func mainC() error {
 		return errors.Wrap(err, "failed to parse log level")
 	}
 	l.SetLevel(logLevel)
+	l.SetReportCaller(*logCaller)
 
 	scen, err := testdatagen.GenerateTestScenario(l, &testdatagen.TestScenarioParams{
 		L:          l,
