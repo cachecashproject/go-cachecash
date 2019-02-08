@@ -133,6 +133,23 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 			"len": len(data),
 		}).Info("got response from HTTP upstream")
 
+		if httpResp.StatusCode == http.StatusOK {
+			c.l.Warn("server doesn't support range requests, slicing range from full response")
+
+			// XXX: make sure RangeEnd doesn't go beyond the file length.
+			// This should not happen with a correctly calculated RangeEnd
+			rangeEnd := source.Http.RangeEnd
+			fileLen := uint64(len(data))
+			if rangeEnd > fileLen {
+				rangeEnd = fileLen
+			}
+
+			data = data[source.Http.RangeBegin:rangeEnd]
+			c.l.WithFields(logrus.Fields{
+				"len": len(data),
+			}).Info("sliced to correct range")
+		}
+
 		// Insert it into the cache.
 		c.l.Info("inserting data into cache")
 		if err := c.Storage.PutMetadata(escrowID, objectID, resp.Metadata); err != nil {
