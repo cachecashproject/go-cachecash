@@ -1,7 +1,7 @@
 BINNAMES2:=$(wildcard cmd/*)
 BINNAMES:=$(BINNAMES2:cmd/%=%)
 PREFIX?=.
-GOPATH?=$(HOME)/go
+GOPATH?=$(shell go env GOPATH)
 
 .PHONY: $(BINNAMES)
 
