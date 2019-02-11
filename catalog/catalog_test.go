@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -10,9 +11,15 @@ import (
 	"time"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+)
+
+const (
+	dataSeed  = 0xDEADBEEF
+	blockSize = 128 * 1024 // in bytes; used to generate ObjectPolicy structs
 )
 
 type CatalogTestSuite struct {
@@ -23,6 +30,7 @@ type CatalogTestSuite struct {
 	cat *catalog
 
 	upstreamResponseDelay time.Duration
+	objectData            []byte
 
 	muMetrics          sync.Mutex
 	upstreamRequestQty int
@@ -38,6 +46,7 @@ func (suite *CatalogTestSuite) SetupTest() {
 	suite.l = logrus.New()
 	suite.l.SetLevel(logrus.DebugLevel)
 
+	suite.objectData = testutil.RandBytesFromSource(rand.NewSource(dataSeed), 4*blockSize)
 	suite.upstreamRequestQty = 0
 
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
@@ -57,7 +66,10 @@ func (suite *CatalogTestSuite) TearDownTest() {
 	suite.ts.Close()
 }
 
+// TODO: Will need to be extended when we want to test HEAD requests and/or range requests that produce 206 responses.
 func (suite *CatalogTestSuite) handleUpstreamRequest(w http.ResponseWriter, r *http.Request) {
+	t := suite.T()
+
 	suite.muMetrics.Lock()
 	suite.upstreamRequestQty++
 	suite.muMetrics.Unlock()
@@ -66,7 +78,12 @@ func (suite *CatalogTestSuite) handleUpstreamRequest(w http.ResponseWriter, r *h
 
 	switch r.URL.Path {
 	case "/foo/bar":
-		fmt.Fprintln(w, "Hello, client")
+		// TODO: Test behavior without this header (currently, causes catalog to panic; see comment in #16).
+		w.Header().Add("Content-Length", fmt.Sprintf("%v", len(suite.objectData)))
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(suite.objectData); err != nil {
+			t.Fatalf("failed to write response in HTTP handler: %v", err)
+		}
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -83,9 +100,7 @@ func (suite *CatalogTestSuite) TestSimple() {
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 
-	// This should indicate a Content-Length of 14 ("Hello, client\n").
-	// TODO: Replace with an assertion once the test server is serving actual data.
-	fmt.Printf("object metadata: %v\n", m)
+	assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
 }
 
 /*
@@ -154,10 +169,9 @@ func (suite *CatalogTestSuite) TestCacheValid() {
 		mm[i] = m
 	}
 
-	// This should indicate a Content-Length of 14 ("Hello, client\n").
-	// TODO: Replace with an assertion once the test server is serving actual data.
+	// TODO: Add additional test cases covering how the object is split up into chunks.
 	for i := 0; i < len(mm); i++ {
-		fmt.Printf("object metadata %v: %v\n", i, mm[i])
+		assert.Equal(t, uint64(len(suite.objectData)), mm[i].ObjectSize())
 	}
 
 	// Due to caching, only a single request should be sent upstream.
@@ -202,10 +216,7 @@ func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 
-	// This should indicate a Content-Length of 14 ("Hello, client\n").
-	// TODO: Replace with an assertion once the test server is serving actual data.
-	fmt.Printf("object metadata: %v\n", m)
-
+	// XXX: Test that the object metadata contains an error response.
 }
 
 // TestUpstreamTimeout covers what happens if the upstream does not respond before our request times out.
