@@ -254,25 +254,35 @@ func (suite *CatalogTestSuite) TestUpstreamTimeout() {
 //     - cache contains data from within [a,b] but not overlapping [a,b]; two subrange requests are generated
 // Also, behavior of above when error(s) are generated
 
+// XXX: Should these BlockSource() tests actually be tests of ContentPublisher.CacheMiss? A lot of the logic here, where
+// we turn the object ID into a path and then use that to look up metadata and policy, duplicates actual logic in that
+// function.
 func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expectedSrc *ccmsg.BlockSourceHTTP) {
 	t := suite.T()
-	cat := suite.cat
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	_, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/foo/bar"})
+	path := "/foo/bar"
+
+	_, err := suite.cat.GetData(ctx, &ccmsg.ContentRequest{Path: path})
 	if err != nil {
 		t.Fatalf("failed to pull object into catalog: %v", err)
 	}
 
-	upstream, err := cat.Upstream("/foo/bar")
+	upstream, err := suite.cat.Upstream("/foo/bar")
 	if err != nil {
 		t.Fatalf("failed to get upstream for object: %v", err)
 	}
 
+	// XXX: Duplicates logic in ContentPublisher.CacheMiss.
+	objMeta, err := suite.cat.GetMetadata(ctx, path)
+	if err != nil {
+		t.Fatalf("failed to get metadata for object: %v", err)
+	}
+
 	policy := &ObjectPolicy{BlockSize: suite.blockSize}
-	resp, err := upstream.BlockSource(req, "/foo/bar", policy)
+	resp, err := upstream.BlockSource(req, path, objMeta.Metadata(), policy)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 
