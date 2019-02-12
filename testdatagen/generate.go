@@ -4,6 +4,7 @@ import (
 	"crypto/sha512"
 	"math"
 	"net"
+	"time"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/cache"
@@ -126,7 +127,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			}
 			ts.Upstream = mockUpstream
 		} else {
-			ts.Upstream, err = catalog.NewHTTPUpstream(ts.L, "http://localhost:8081")
+			ts.Upstream, err = catalog.NewHTTPUpstream(ts.L, "http://localhost:8081", 5*time.Minute)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to create HTTP upstream")
 			}

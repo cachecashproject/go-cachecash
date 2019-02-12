@@ -19,6 +19,7 @@ const (
 	StatusUnknown ObjectStatus = iota
 	StatusOK
 	StatusNotFound
+	StatusNotModified
 	StatusInternalError
 	StatusUpstreamUnreachable
 	StatusUpstreamError
@@ -47,7 +48,7 @@ func (r *FetchResult) ObjectSize() (int, error) {
 
 	if cr == "" {
 		if cl == "" {
-			return 0, errors.New("response contains neither Content-Length nor Content-Range header")
+			return len(r.data), nil
 		}
 		return strconv.Atoi(cl)
 	}
@@ -84,7 +85,7 @@ type Upstream interface {
 	// - Some upstreams will require CacheCash (not upstream) metadata for the object.  For example, the HTTP upstream
 	//   will need to know block sizes in order to translate block indices into byte ranges.  How should this be done?
 	//
-	FetchData(ctx context.Context, path string, forceMetadata bool, rangeBegin, rangeEnd uint) (*FetchResult, error)
+	FetchData(ctx context.Context, path string, metadata *ObjectMetadata, rangeBegin, rangeEnd uint) (*FetchResult, error)
 
 	BlockSource(req *ccmsg.CacheMissRequest, path string, meta *ccmsg.ObjectMetadata, policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error)
 }

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
@@ -19,7 +20,7 @@ type httpUpstream struct {
 
 var _ Upstream = (*httpUpstream)(nil)
 
-func NewHTTPUpstream(l *logrus.Logger, baseURL string) (Upstream, error) {
+func NewHTTPUpstream(l *logrus.Logger, baseURL string, defaultCacheDuration time.Duration) (Upstream, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse upstream URL")
@@ -46,12 +47,11 @@ func (up *httpUpstream) upstreamURL(path string) (string, error) {
 
 // XXX: What is the difference between an error returned from this function and an error stored in the FetchResult
 // struct?  When should we do one vs. the other?
-func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadata bool, rangeBegin, rangeEnd uint) (*FetchResult, error) {
+func (up *httpUpstream) FetchData(ctx context.Context, path string, metadata *ObjectMetadata, rangeBegin, rangeEnd uint) (*FetchResult, error) {
 	up.l.WithFields(logrus.Fields{
-		"path":          path,
-		"rangeBegin":    rangeBegin,
-		"rangeEnd":      rangeEnd,
-		"forceMetadata": forceMetadata,
+		"path":       path,
+		"rangeBegin": rangeBegin,
+		"rangeEnd":   rangeEnd,
 	}).Info("upstream fetch")
 
 	if rangeEnd != 0 && rangeEnd <= rangeBegin {
@@ -65,6 +65,7 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 
 	// TODO: Check Accept-Ranges header via HEAD; check Content-Range header in response; handle 416 responses.
 	req, _ := http.NewRequest("GET", u, nil)
+	// XXX: does this work correctly if we request the first block?
 	if rangeBegin != 0 {
 		if rangeEnd != 0 {
 			// N.B.: HTTP ranges are inclusive; our ranges are [inclusive, exclusive).
@@ -72,6 +73,14 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 		} else {
 			req.Header.Add("Range", fmt.Sprintf("bytes=%v-", rangeBegin))
 		}
+	}
+
+	if metadata.HTTPEtag != nil {
+		req.Header.Add("If-None-Match", *metadata.HTTPEtag)
+	}
+
+	if metadata.HTTPLastModified != nil {
+		req.Header.Add("If-Modified-Since", *metadata.HTTPLastModified)
 	}
 
 	client := &http.Client{}
@@ -100,6 +109,8 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 		status = StatusOK
 	case resp.StatusCode == http.StatusNotFound:
 		status = StatusNotFound
+	case resp.StatusCode == http.StatusNotModified:
+		status = StatusNotModified
 	case resp.StatusCode >= 500 && resp.StatusCode < 600:
 		status = StatusUpstreamError
 	default:
@@ -112,6 +123,16 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to read request body")
 		}
+	}
+
+	etag := resp.Header.Get("ETag")
+	if etag != "" {
+		metadata.HTTPEtag = &etag
+	}
+
+	lastModified := resp.Header.Get("Last-Modified")
+	if lastModified != "" {
+		metadata.HTTPLastModified = &lastModified
 	}
 
 	return &FetchResult{
