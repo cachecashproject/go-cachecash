@@ -86,7 +86,7 @@ type Upstream interface {
 	//
 	FetchData(ctx context.Context, path string, forceMetadata bool, rangeBegin, rangeEnd uint) (*FetchResult, error)
 
-	BlockSource(req *ccmsg.CacheMissRequest, path string, policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error)
+	BlockSource(req *ccmsg.CacheMissRequest, path string, meta *ccmsg.ObjectMetadata, policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error)
 }
 
 type ContentCatalog interface {

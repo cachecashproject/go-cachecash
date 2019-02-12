@@ -121,7 +121,9 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, forceMetadat
 	}, nil
 }
 
-func (up *httpUpstream) BlockSource(req *ccmsg.CacheMissRequest, path string, policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error) {
+func (up *httpUpstream) BlockSource(req *ccmsg.CacheMissRequest, path string, meta *ccmsg.ObjectMetadata,
+	policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error) {
+
 	u, err := up.upstreamURL(path)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get upstream URL")
@@ -130,6 +132,10 @@ func (up *httpUpstream) BlockSource(req *ccmsg.CacheMissRequest, path string, po
 	var rangeEnd uint64
 	if req.RangeEnd != 0 {
 		rangeEnd = req.RangeEnd * uint64(policy.BlockSize)
+
+		if rangeEnd > meta.ObjectSize {
+			rangeEnd = meta.ObjectSize
+		}
 	}
 
 	return &ccmsg.CacheMissResponse{

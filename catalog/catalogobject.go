@@ -67,6 +67,11 @@ func newObjectMetadata(c *catalog) *ObjectMetadata {
 	}
 }
 
+// XXX: Is this a concurrency issue?
+func (m *ObjectMetadata) Metadata() *ccmsg.ObjectMetadata {
+	return m.metadata
+}
+
 // XXX: Needs real implementation.
 func (m *ObjectMetadata) Fresh() bool {
 	return true

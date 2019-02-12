@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -30,6 +31,7 @@ type CatalogTestSuite struct {
 	cat *catalog
 
 	upstreamResponseDelay time.Duration
+	blockSize             int
 	objectData            []byte
 
 	muMetrics          sync.Mutex
@@ -48,6 +50,7 @@ func (suite *CatalogTestSuite) SetupTest() {
 
 	suite.objectData = testutil.RandBytesFromSource(rand.NewSource(dataSeed), 4*blockSize)
 	suite.upstreamRequestQty = 0
+	suite.blockSize = 128 * 1024 // TODO: Ensure this is used everywhere.
 
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 
@@ -250,3 +253,99 @@ func (suite *CatalogTestSuite) TestUpstreamTimeout() {
 //     - cache contains data overlapping a or b but not both; one subrange request is generated
 //     - cache contains data from within [a,b] but not overlapping [a,b]; two subrange requests are generated
 // Also, behavior of above when error(s) are generated
+
+// XXX: Should these BlockSource() tests actually be tests of ContentPublisher.CacheMiss? A lot of the logic here, where
+// we turn the object ID into a path and then use that to look up metadata and policy, duplicates actual logic in that
+// function.
+func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expectedSrc *ccmsg.BlockSourceHTTP) {
+	t := suite.T()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	path := "/foo/bar"
+
+	_, err := suite.cat.GetData(ctx, &ccmsg.ContentRequest{Path: path})
+	if err != nil {
+		t.Fatalf("failed to pull object into catalog: %v", err)
+	}
+
+	upstream, err := suite.cat.Upstream("/foo/bar")
+	if err != nil {
+		t.Fatalf("failed to get upstream for object: %v", err)
+	}
+
+	// XXX: Duplicates logic in ContentPublisher.CacheMiss.
+	objMeta, err := suite.cat.GetMetadata(ctx, path)
+	if err != nil {
+		t.Fatalf("failed to get metadata for object: %v", err)
+	}
+
+	policy := &ObjectPolicy{BlockSize: suite.blockSize}
+	resp, err := upstream.BlockSource(req, path, objMeta.Metadata(), policy)
+	assert.Nil(t, err)
+	assert.NotNil(t, resp)
+
+	// XXX: TODO: These fields are not yet populated.
+	// // Test that slot_idx and block_id contain enough elements to cover the entire object.
+	// expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
+	// assert.Equal(t, expectedBlockCount, len(resp.BlockId))
+	// assert.Equal(t, expectedBlockCount, len(resp.SlotIdx))
+
+	// XXX: TODO: Test fails; metadata is not populated.
+	// // Test that object metadata was correctly passed along.
+	// // TODO: Other fields, such as etag/last_modified, are not yet implemented.
+	// assert.NotNil(t, resp.Metadata)
+	// assert.Equal(t, uint64(len(suite.objectData)), resp.Metadata.ObjectSize)
+	// assert.Equal(t, uint64(suite.blockSize), resp.Metadata.BlockSize)
+
+	bsrc, ok := resp.Source.(*ccmsg.CacheMissResponse_Http)
+	if !ok {
+		t.Fatalf("unexpected CacheMissResponse source type")
+	}
+
+	assert.Equal(t, expectedSrc.Url, bsrc.Http.Url)
+	assert.Equal(t, expectedSrc.RangeBegin, bsrc.Http.RangeBegin)
+	assert.Equal(t, expectedSrc.RangeEnd, bsrc.Http.RangeEnd)
+}
+
+// N.B. This works even with objectID unset in CacheMissRequest because we are translating back to the path "/foo/bar"
+// in the call to BlockSource().  This is messy.
+func (suite *CatalogTestSuite) TestBlockSource_WholeObject() {
+	suite.testBlockSource(&ccmsg.CacheMissRequest{}, &ccmsg.BlockSourceHTTP{
+		Url:        suite.ts.URL + "/foo/bar",
+		RangeBegin: 0,
+		RangeEnd:   0,
+	})
+}
+
+func (suite *CatalogTestSuite) TestBlockSource_FirstBlock() {
+	suite.testBlockSource(&ccmsg.CacheMissRequest{
+		RangeBegin: 0,
+		RangeEnd:   1,
+	}, &ccmsg.BlockSourceHTTP{
+		Url:        suite.ts.URL + "/foo/bar",
+		RangeBegin: 0,
+		RangeEnd:   uint64(suite.blockSize),
+	})
+}
+
+// Tests that the publisher/catalog returns the actual end of a partial final block instead of simply computing where
+// the block would end were it full-size.
+func (suite *CatalogTestSuite) TestBlockSource_PartialFinalBlock() {
+	// Remove the last half-block.
+	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.blockSize/2)]
+
+	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
+
+	suite.testBlockSource(&ccmsg.CacheMissRequest{
+		RangeBegin: uint64(expectedBlockCount - 1),
+		RangeEnd:   uint64(expectedBlockCount),
+	}, &ccmsg.BlockSourceHTTP{
+		Url:        suite.ts.URL + "/foo/bar",
+		RangeBegin: uint64((expectedBlockCount - 1) * suite.blockSize),
+		RangeEnd:   uint64(len(suite.objectData)),
+	})
+}
+
+// TODO: Test with different blockSize.  See issue #17.
