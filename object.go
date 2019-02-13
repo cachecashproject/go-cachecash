@@ -3,7 +3,6 @@ package cachecash
 import (
 	"crypto/aes"
 	"crypto/rand"
-	"crypto/sha512"
 	"io/ioutil"
 	"os"
 
@@ -30,8 +29,6 @@ type ContentObject interface {
 
 	// BlockCount returns the number of bloks in this object.
 	BlockCount() int
-
-	BlockDigest(dataBlockIdx uint32) ([]byte, error)
 }
 
 // type contentFile struct {
@@ -116,13 +113,4 @@ func (o *contentBuffer) BlockSize(dataBlockIdx uint32) (int, error) {
 
 func (o *contentBuffer) BlockCount() int {
 	return len(o.blocks)
-}
-
-func (o *contentBuffer) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
-	if int(dataBlockIdx) >= len(o.blocks) {
-		return nil, errors.New("data block index out of range")
-	}
-	d := sha512.Sum384(o.blocks[dataBlockIdx])
-	// fmt.Printf(`"%v",`+"\n", hex.EncodeToString(d[:]))
-	return d[:], nil
 }

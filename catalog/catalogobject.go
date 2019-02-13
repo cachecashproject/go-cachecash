@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/cachecontrol"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
@@ -83,8 +82,6 @@ func (policy *ObjectPolicy) ChunkIntoBlocks(buf []byte) [][]byte {
 	return blocks
 }
 
-var _ cachecash.ContentObject = (*ObjectMetadata)(nil)
-
 func newObjectMetadata(c *catalog) *ObjectMetadata {
 	return &ObjectMetadata{
 		c:      c,
@@ -154,13 +151,6 @@ func (m *ObjectMetadata) getBlock(dataBlockIdx uint32) ([]byte, error) {
 	return m.blocks[dataBlockIdx], nil
 }
 
-func (m *ObjectMetadata) GetCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]byte, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return m.getCipherBlock(dataBlockIdx, cipherBlockIdx)
-}
-
 // GetCipherBlock returns an individual cipher block (aka "sub-block") of a particular data block (a protocol-level
 // block).  The return value will be aes.BlockSize bytes long (16 bytes).  ciperBlockIdx is taken modulo the number
 // of whole cipher blocks that exist in the data block.
@@ -188,11 +178,6 @@ func (m *ObjectMetadata) BlockCount() int {
 
 func (m *ObjectMetadata) ObjectSize() uint64 {
 	return m.metadata.ObjectSize
-}
-
-func (m *ObjectMetadata) BlockDigest(dataBlockIdx uint32) ([]byte, error) {
-	panic("no impl")
-	// return nil, nil
 }
 
 // Converts a byte range to a block range.  An end value of 0, which indicates that the range continues to the end of

@@ -147,7 +147,6 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		// TODO: Return 4xx, since this is a bad request from the client.
 		return nil, errors.New("invalid range")
 	}
-	// XXX: We also have `ContentObject.BlockSize()`; should pick one or the other.
 	rangeBegin := uint64(req.RangeBegin / obj.PolicyBlockSize())
 	rangeEnd := uint64(req.RangeEnd / obj.PolicyBlockSize()) // XXX: This probably needs a ceil()
 	// TODO: Return multiple block-groups if appropriate.
