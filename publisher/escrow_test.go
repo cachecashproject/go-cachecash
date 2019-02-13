@@ -5,7 +5,6 @@ import (
 	"net"
 	"testing"
 
-	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/batchsignature"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
@@ -89,14 +88,13 @@ func (suite *TicketBundleTestSuite) generateCacheInfo() *ParticipatingCache {
 func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 	t := suite.T()
 
-	caches := []*ParticipatingCache{
-		suite.generateCacheInfo(),
-		suite.generateCacheInfo(),
-	}
+	const blockCount = 2
 
-	obj, err := cachecash.RandomContentBuffer(4, aes.BlockSize*50)
-	if err != nil {
-		t.Fatalf("failed to construct random test data: %v", err)
+	plaintextBlocks := make([][]byte, 0, blockCount)
+	caches := make([]*ParticipatingCache, 0, blockCount)
+	for i := 0; i < blockCount; i++ {
+		plaintextBlocks = append(plaintextBlocks, testutil.RandBytes(aes.BlockSize*50))
+		caches = append(caches, suite.generateCacheInfo())
 	}
 
 	objectID, err := common.BytesToObjectID(testutil.RandBytes(common.ObjectIDSize))
@@ -108,12 +106,12 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 		ClientPublicKey:   suite.clientPublic,
 		RequestSequenceNo: 123,
 		Escrow:            suite.escrow,
-		Object:            obj,
 		ObjectID:          objectID,
 		Entries: []BundleEntryParams{
 			{TicketNo: 0, BlockIdx: 0, Cache: caches[0]},
 			{TicketNo: 1, BlockIdx: 1, Cache: caches[1]},
 		},
+		PlaintextBlocks: plaintextBlocks,
 	}
 
 	batchSigner, err := batchsignature.NewTrivialBatchSigner(suite.escrow.PrivateKey)

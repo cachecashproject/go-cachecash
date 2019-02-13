@@ -230,7 +230,6 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		Escrow:            escrow,
 		RequestSequenceNo: req.SequenceNo,
 		ClientPublicKey:   ed25519.PublicKey(req.ClientPublicKey.PublicKey),
-		Object:            obj,
 		ObjectID:          objID,
 	}
 	for i, blockIdx := range blockIndices {
@@ -241,6 +240,12 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 			BlockID:  blockIDs[i],
 			Cache:    caches[i],
 		})
+
+		b, err := obj.GetBlock(uint32(blockIdx))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get data block")
+		}
+		bp.PlaintextBlocks = append(bp.PlaintextBlocks, b)
 	}
 
 	p.l.Debug("generating and signing bundle")

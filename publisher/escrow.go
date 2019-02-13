@@ -1,7 +1,6 @@
 package publisher
 
 import (
-	"fmt"
 	"net"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
@@ -86,9 +85,9 @@ type BundleParams struct {
 	Escrow            *Escrow         // XXX: Do we need this?
 	ObjectID          common.ObjectID // This is a per-escrow value.
 	Entries           []BundleEntryParams
+	PlaintextBlocks   [][]byte
 	RequestSequenceNo uint64
 	ClientPublicKey   ed25519.PublicKey
-	Object            cachecash.ContentObject
 }
 
 type BundleEntryParams struct {
@@ -158,7 +157,6 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 		blockIndices[i] = bep.BlockIdx
 
 		// Generate a ticket-request for each cache.
-		fmt.Printf("bep.Cache.PublicKey has type %T\n", bep.Cache.PublicKey)
 		resp.TicketRequest = append(resp.TicketRequest, &ccmsg.TicketRequest{
 			BlockIdx:       uint64(bep.BlockIdx),
 			BlockId:        bep.BlockID[:],
@@ -187,16 +185,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 	gen.l.WithFields(logrus.Fields{
 		"blockIdx": blockIndices,
 	}).Info("generating puzzle")
-	// XXX: Refactoring dust here as we remove the ContentObject interface.
-	plaintextBlocks := make([][]byte, 0, len(blockIndices))
-	for _, idx := range blockIndices {
-		b, err := bp.Object.GetBlock(idx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get data block")
-		}
-		plaintextBlocks = append(plaintextBlocks, b)
-	}
-	puzzle, err := colocationpuzzle.Generate(*gen.PuzzleParams, plaintextBlocks, innerKeys, innerIVs)
+	puzzle, err := colocationpuzzle.Generate(*gen.PuzzleParams, bp.PlaintextBlocks, innerKeys, innerIVs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate colocation puzzle")
 	}

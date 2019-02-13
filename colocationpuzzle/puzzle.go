@@ -66,6 +66,9 @@ func Generate(params Parameters, blocks [][]byte, innerKeys [][]byte, innerIVs [
 	if len(blocks) == 0 {
 		return nil, errors.New("must have at least one data block")
 	}
+	if len(blocks) != len(innerKeys) || len(blocks) != len(innerIVs) {
+		return nil, errors.New("must have same numer of blocks, keys, and IVs")
+	}
 
 	if params.Rounds*uint32(len(blocks)) <= 1 {
 		// XXX: Using a single ruond and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
