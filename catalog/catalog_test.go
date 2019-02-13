@@ -13,6 +13,7 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/testutil"
+	"github.com/jonboulle/clockwork"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -26,9 +27,10 @@ const (
 type CatalogTestSuite struct {
 	suite.Suite
 
-	l   *logrus.Logger
-	ts  *httptest.Server
-	cat *catalog
+	l     *logrus.Logger
+	ts    *httptest.Server
+	cat   *catalog
+	clock clockwork.FakeClock
 
 	upstreamResponseDelay time.Duration
 	blockSize             int
@@ -47,6 +49,7 @@ func (suite *CatalogTestSuite) SetupTest() {
 
 	suite.l = logrus.New()
 	suite.l.SetLevel(logrus.DebugLevel)
+	suite.clock = clockwork.NewFakeClock()
 
 	suite.objectData = testutil.RandBytesFromSource(rand.NewSource(dataSeed), 4*blockSize)
 	suite.upstreamRequestQty = 0
@@ -60,6 +63,7 @@ func (suite *CatalogTestSuite) SetupTest() {
 	}
 
 	suite.cat, err = NewCatalog(suite.l, upstream)
+	suite.cat.clock = suite.clock
 	if err != nil {
 		t.Fatalf("failed to create catalog: %v", err)
 	}
@@ -77,6 +81,7 @@ func (suite *CatalogTestSuite) handleUpstreamRequest(w http.ResponseWriter, r *h
 	suite.upstreamRequestQty++
 	suite.muMetrics.Unlock()
 
+	// This needs to be an actual sleep because of TestUpstreamTimeout
 	time.Sleep(suite.upstreamResponseDelay)
 
 	switch r.URL.Path {
@@ -226,6 +231,9 @@ func (suite *CatalogTestSuite) TestCacheImmutable() {
 		assert.NotNil(t, m)
 		assert.Equal(t, StatusOK, m.Status, "unexpected response status")
 		assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
+
+		// Delay for a year
+		suite.clock.Advance(365 * 24 * time.Hour)
 	}
 
 	// Due to caching, only a single request should be sent upstream.
@@ -248,7 +256,7 @@ func (suite *CatalogTestSuite) TestCacheRevalidate() {
 	assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
 
 	// Delay until cache is stale
-	time.Sleep(2 * time.Second)
+	suite.clock.Advance(2 * time.Second)
 
 	// Second request should be a cache miss and trigger a revalidation
 	m, err = cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/renew/1sec"})
@@ -278,7 +286,7 @@ func (suite *CatalogTestSuite) TestCacheUpdate() {
 	assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
 
 	// Delay until cache is stale
-	time.Sleep(2 * time.Second)
+	suite.clock.Advance(2 * time.Second)
 
 	// Second request should update cache
 	m, err = cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/update/1sec"})

@@ -75,6 +75,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:302ad9379eb146668760df4d779a95379acab43ce5f9a28f27f3273f98232020"
+  name = "github.com/jonboulle/clockwork"
+  packages = ["."]
+  pruneopts = ""
+  revision = "2eee05ed794112d45db504eb05aa693efd2b8b09"
+  version = "v0.1.0"
+
+[[projects]]
   digest = "1:6a874e3ddfb9db2b42bd8c85b6875407c702fa868eed20634ff489bc896ccfd3"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
@@ -343,6 +351,7 @@
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
     "github.com/gorilla/websocket",
+    "github.com/jonboulle/clockwork",
     "github.com/mattn/go-sqlite3",
     "github.com/pkg/errors",
     "github.com/sirupsen/logrus",

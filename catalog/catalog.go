@@ -5,11 +5,13 @@ import (
 	"sync"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/jonboulle/clockwork"
 	"github.com/sirupsen/logrus"
 )
 
 type catalog struct {
-	l *logrus.Logger
+	l     *logrus.Logger
+	clock clockwork.Clock
 
 	upstream Upstream
 
@@ -22,6 +24,7 @@ var _ ContentCatalog = (*catalog)(nil)
 func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	return &catalog{
 		l:        l,
+		clock:    clockwork.NewRealClock(),
 		upstream: upstream,
 		objects:  make(map[string]*ObjectMetadata),
 	}, nil

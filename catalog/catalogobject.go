@@ -112,7 +112,7 @@ func (m *ObjectMetadata) Fresh() bool {
 		return false
 	}
 
-	if time.Now().Before(*m.ValidUntil) {
+	if m.c.clock.Now().Before(*m.ValidUntil) {
 		m.c.l.Traceln("Fresh() - ObjectMetadata is still fresh, not revalidating")
 		return true
 	}
@@ -291,7 +291,7 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 		cc, err := cachecontrol.Parse(cacheControl)
 		if err == nil {
 			if cc.MaxAge != nil {
-				validUntil := time.Now().Add(*cc.MaxAge)
+				validUntil := m.c.clock.Now().Add(*cc.MaxAge)
 				m.ValidUntil = &validUntil
 			}
 			m.Immutable = cc.Immutable
@@ -300,7 +300,7 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 
 	if m.ValidUntil == nil && !m.Immutable {
 		log.Warnf("fetchData - no cache control rules found, using default: %s", m.policy.DefaultCacheDuration)
-		validUntil := time.Now().Add(m.policy.DefaultCacheDuration)
+		validUntil := m.c.clock.Now().Add(m.policy.DefaultCacheDuration)
 		m.ValidUntil = &validUntil
 	}
 }
