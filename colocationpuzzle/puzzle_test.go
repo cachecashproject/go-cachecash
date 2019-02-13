@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"testing"
 
-	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -17,13 +16,11 @@ import (
 type ColocationPuzzleTestSuite struct {
 	suite.Suite
 
-	obj              cachecash.ContentObject
 	plaintextBlocks  [][]byte
 	ciphertextBlocks [][]byte
 	innerKeys        [][]byte
 	innerIVs         [][]byte
 	params           Parameters
-	blockIndices     []uint32
 }
 
 const (
@@ -68,12 +65,7 @@ func (suite *ColocationPuzzleTestSuite) SetupSuite() {
 		cb := make([]byte, len(b))
 		stream.XORKeyStream(cb, b)
 		suite.ciphertextBlocks = append(suite.ciphertextBlocks, cb)
-
-		suite.blockIndices = append(suite.blockIndices, uint32(i))
 	}
-
-	// Wrap the plaintext blocks in a ContentObject.
-	suite.obj = cachecash.NewContentBuffer(suite.plaintextBlocks)
 
 	fmt.Printf("ciphertextblocks len=%v", len(suite.ciphertextBlocks))
 }
@@ -95,7 +87,7 @@ func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolveSingleBlock() {
 func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEnd int) {
 	t := suite.T()
 
-	puzzle, err := Generate(suite.params, suite.obj, suite.blockIndices[rangeBegin:rangeEnd],
+	puzzle, err := Generate(suite.params, suite.plaintextBlocks[rangeBegin:rangeEnd],
 		suite.innerKeys[rangeBegin:rangeEnd], suite.innerIVs[rangeBegin:rangeEnd])
 	if !assert.Nil(t, err, "failed to generate puzzle") {
 		return
@@ -118,7 +110,7 @@ func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEn
 func (suite *ColocationPuzzleTestSuite) TestKeyAndIVFromSecret() {
 	t := suite.T()
 
-	puzzle, err := Generate(suite.params, suite.obj, suite.blockIndices, suite.innerKeys, suite.innerIVs)
+	puzzle, err := Generate(suite.params, suite.plaintextBlocks, suite.innerKeys, suite.innerIVs)
 	if !assert.Nil(t, err, "failed to generate puzzle") {
 		return
 	}

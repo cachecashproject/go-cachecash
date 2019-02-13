@@ -14,7 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/util"
 )
 
@@ -60,7 +59,7 @@ func init() {
 
 // params, raw-blocks, keys -> secret, goal, offset
 // (offset is not shared with the client)
-func Generate(params Parameters, obj cachecash.ContentObject, blocks []uint32, innerKeys [][]byte, innerIVs [][]byte) (*Puzzle, error) {
+func Generate(params Parameters, blocks [][]byte, innerKeys [][]byte, innerIVs [][]byte) (*Puzzle, error) {
 	if err := params.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid parameters")
 	}
@@ -79,10 +78,9 @@ func Generate(params Parameters, obj cachecash.ContentObject, blocks []uint32, i
 	// Compute, in advance, how many cipher blocks each data block contains.
 	blockSize := make([]int, len(blocks))
 	for i := 0; i < len(blocks); i++ {
-		blockLen, err := obj.BlockSize(blocks[i])
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get block size")
-		}
+		blockLen := len(blocks[i])
+		// XXX: This is almost certainly a problem: what do we do when we get objects that are not a multiple of the
+		// cipher block size?
 		if blockLen%aes.BlockSize != 0 {
 			// XXX: Is this actually a problem?
 			return nil, errors.New("input block size is not a multiple of cipher block size")
@@ -96,13 +94,9 @@ func Generate(params Parameters, obj cachecash.ContentObject, blocks []uint32, i
 	startOffset := uint32(rand.Intn(blockSize[0]))
 
 	getBlockFn := func(i, offset uint32) ([]byte, error) {
-		blockIdx := blocks[i]
-		blockLen, err := obj.BlockSize(blockIdx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get block size")
-		}
+		blockLen := len(blocks[i])
 		offset = offset % uint32(blockLen/aes.BlockSize)
-		plaintext, err := obj.GetCipherBlock(blockIdx, offset)
+		plaintext, err := getCipherBlock(blocks[i], offset)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get sub-block")
 		}
@@ -217,4 +211,10 @@ func runPuzzle(rounds, blockQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 	}
 
 	return curLoc, prevLoc, nil
+}
+
+func getCipherBlock(dataBlock []byte, cipherBlockIdx uint32) ([]byte, error) {
+	cipherBlockIdx = cipherBlockIdx % uint32(len(dataBlock)/aes.BlockSize)
+	cipherBlock := dataBlock[cipherBlockIdx*aes.BlockSize : (cipherBlockIdx+1)*aes.BlockSize]
+	return cipherBlock, nil
 }

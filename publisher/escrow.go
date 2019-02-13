@@ -187,7 +187,16 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 	gen.l.WithFields(logrus.Fields{
 		"blockIdx": blockIndices,
 	}).Info("generating puzzle")
-	puzzle, err := colocationpuzzle.Generate(*gen.PuzzleParams, bp.Object, blockIndices, innerKeys, innerIVs)
+	// XXX: Refactoring dust here as we remove the ContentObject interface.
+	plaintextBlocks := make([][]byte, 0, len(blockIndices))
+	for _, idx := range blockIndices {
+		b, err := bp.Object.GetBlock(idx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get data block")
+		}
+		plaintextBlocks = append(plaintextBlocks, b)
+	}
+	puzzle, err := colocationpuzzle.Generate(*gen.PuzzleParams, plaintextBlocks, innerKeys, innerIVs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate colocation puzzle")
 	}

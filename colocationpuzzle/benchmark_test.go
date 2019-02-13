@@ -44,7 +44,7 @@ func BenchmarkGenerate(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		suite := suites[i%len(suites)]
-		puzzle, err := Generate(suite.params, suite.obj, suite.blockIndices, suite.innerKeys, suite.innerIVs)
+		puzzle, err := Generate(suite.params, suite.plaintextBlocks, suite.innerKeys, suite.innerIVs)
 
 		_ = puzzle
 		_ = err
@@ -56,7 +56,7 @@ func BenchmarkSolve(b *testing.B) {
 	puzzles := make([]*Puzzle, 0, len(suites))
 	for i := 0; i < cap(puzzles); i++ {
 		suite := suites[i]
-		p, err := Generate(suite.params, suite.obj, suite.blockIndices, suite.innerKeys, suite.innerIVs)
+		p, err := Generate(suite.params, suite.plaintextBlocks, suite.innerKeys, suite.innerIVs)
 		if err != nil {
 			b.Fatal("failed to generate puzzle")
 			return
