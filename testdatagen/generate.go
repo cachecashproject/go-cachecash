@@ -6,7 +6,6 @@ import (
 	"net"
 	"time"
 
-	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/cache"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
@@ -45,27 +44,22 @@ type TestScenario struct {
 	Escrow              *publisher.Escrow
 	EscrowID            common.EscrowID
 
-	Params   *TestScenarioParams
-	Obj      cachecash.ContentObject
-	ObjectID common.ObjectID
-	Caches   []*cache.Cache
+	Params     *TestScenarioParams
+	DataBlocks [][]byte
+	ObjectID   common.ObjectID
+	Caches     []*cache.Cache
 }
 
 func (ts *TestScenario) BlockCount() uint64 {
 	return uint64(math.Ceil(float64(ts.Params.ObjectSize) / float64(ts.Params.BlockSize)))
 }
 
-// XXX: This shouldn't be necessary; we should reduce/eliminate the use of ContentObject.
-func contentObjectToBytes(obj cachecash.ContentObject) ([]byte, error) {
+func (ts *TestScenario) ObjectData() []byte {
 	var data []byte
-	for i := 0; i < obj.BlockCount(); i++ {
-		block, err := obj.GetBlock(uint32(i))
-		if err != nil {
-			return nil, errors.New("failed to get data block")
-		}
-		data = append(data, block...)
+	for _, b := range ts.DataBlocks {
+		data = append(data, b...)
 	}
-	return data, nil
+	return data
 }
 
 func generateBlockID(data []byte) common.BlockID {
@@ -104,11 +98,10 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 
 	// Create a content object.
 	if params.GenerateObject {
-		obj, err := cachecash.RandomContentBuffer(uint32(ts.BlockCount()), uint32(ts.Params.BlockSize))
-		if err != nil {
-			return nil, err
+		ts.DataBlocks = make([][]byte, 0, ts.BlockCount())
+		for i := 0; i < cap(ts.DataBlocks); i++ {
+			ts.DataBlocks = append(ts.DataBlocks, testutil.RandBytes(int(ts.Params.BlockSize)))
 		}
-		ts.Obj = obj
 	}
 
 	// Create upstream.
@@ -119,11 +112,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 				return nil, errors.Wrap(err, "failed to create mock upstream")
 			}
 			if params.GenerateObject {
-				objData, err := contentObjectToBytes(ts.Obj)
-				if err != nil {
-					return nil, errors.Wrap(err, "failed to convert ContentObject to bytes")
-				}
-				mockUpstream.Objects["/foo/bar"] = objData
+				mockUpstream.Objects["/foo/bar"] = ts.ObjectData()
 			}
 			ts.Upstream = mockUpstream
 		} else {
@@ -206,11 +195,8 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			}); err != nil {
 				return nil, err
 			}
-			for j := 0; j < ts.Obj.BlockCount(); j++ {
-				data, err := ts.Obj.GetBlock(uint32(j))
-				if err != nil {
-					return nil, err
-				}
+			for j := 0; j < int(ts.BlockCount()); j++ {
+				data := ts.DataBlocks[j]
 				blockID := generateBlockID(data)
 				if err := c.Storage.PutData(ts.EscrowID, blockID, data); err != nil {
 					return nil, err

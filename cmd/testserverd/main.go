@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 
-	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/cache"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/publisher"
@@ -43,7 +42,6 @@ type TestServer struct {
 
 	publisher *publisher.ContentPublisher
 	escrow    *publisher.Escrow
-	obj       cachecash.ContentObject
 	caches    []*cache.Cache
 
 	publisherApp publisher.Application
@@ -78,7 +76,6 @@ func (ts *TestServer) setup() error {
 
 	ts.publisher = scen.Publisher
 	ts.escrow = scen.Escrow
-	ts.obj = scen.Obj
 	ts.caches = scen.Caches
 
 	return nil

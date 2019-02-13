@@ -213,10 +213,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 
 	// Verify that the plaintext data the client has received matches what the publisher and caches have.
 	for i, b := range plaintextBlocks {
-		expected, err := scen.Obj.GetBlock(uint32(bundle.TicketRequest[i].BlockIdx))
-		if err != nil {
-			return errors.Wrap(err, "failed to get expected block contents")
-		}
+		expected := scen.DataBlocks[bundle.TicketRequest[i].BlockIdx]
 		if !bytes.Equal(expected, b) {
 			return errors.New("plaintext data received by client does not match expected value")
 		}
