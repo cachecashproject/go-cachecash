@@ -9,8 +9,10 @@ import (
 	"time"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
+	"github.com/cachecashproject/go-cachecash/cachecontrol"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -40,6 +42,11 @@ type ObjectMetadata struct {
 	Status      ObjectStatus
 	LastUpdate  time.Time
 	LastAttempt time.Time
+	ValidUntil  *time.Time
+	Immutable   bool
+
+	HTTPLastModified *string
+	HTTPEtag         *string
 
 	mu sync.RWMutex
 
@@ -52,7 +59,28 @@ type ObjectMetadata struct {
 // ObjectPolicy contains publisher-determined metadata such as block size.  This is distinct from ccmsg.ObjectMetadata,
 // which contains metadata cached from the upstream.
 type ObjectPolicy struct {
-	BlockSize int
+	BlockSize            int
+	DefaultCacheDuration time.Duration
+}
+
+func (policy *ObjectPolicy) ChunkIntoBlocks(buf []byte) [][]byte {
+	blockSize := policy.BlockSize
+
+	var block []byte
+	blockCount := BlockCount(uint64(len(buf)), blockSize)
+	blocks := make([][]byte, 0, blockCount)
+
+	for len(buf) >= blockSize {
+		block, buf = buf[:blockSize], buf[blockSize:]
+		blocks = append(blocks, block)
+	}
+
+	// doing this afterwards so we don't need to branch inside the loop
+	if len(buf) > 0 {
+		blocks = append(blocks, buf[:len(buf)])
+	}
+
+	return blocks
 }
 
 var _ cachecash.ContentObject = (*ObjectMetadata)(nil)
@@ -62,7 +90,8 @@ func newObjectMetadata(c *catalog) *ObjectMetadata {
 		c:      c,
 		blocks: make([][]byte, 0),
 		policy: &ObjectPolicy{
-			BlockSize: 128 * 1024, // Fixed 128 KiB block size.  XXX: Don't hardwire this!
+			BlockSize:            128 * 1024,      // Fixed 128 KiB block size.  XXX: Don't hardwire this!
+			DefaultCacheDuration: 5 * time.Minute, // XXX: Don't hardwire this!
 		},
 	}
 }
@@ -72,9 +101,24 @@ func (m *ObjectMetadata) Metadata() *ccmsg.ObjectMetadata {
 	return m.metadata
 }
 
-// XXX: Needs real implementation.
 func (m *ObjectMetadata) Fresh() bool {
-	return true
+	if m.Immutable {
+		m.c.l.Debugln("Fresh() - Object is immutable")
+		return true
+	}
+
+	if m.ValidUntil == nil {
+		m.c.l.Debugln("Fresh() - ValidUntil hasn't been populated, force revalidation")
+		return false
+	}
+
+	if m.c.clock.Now().Before(*m.ValidUntil) {
+		m.c.l.Traceln("Fresh() - ObjectMetadata is still fresh, not revalidating")
+		return true
+	}
+
+	m.c.l.Debugln("Fresh() - ObjectMetadata is stale, revalidating now")
+	return false
 }
 
 func (m *ObjectMetadata) PolicyBlockSize() uint64 {
@@ -132,10 +176,14 @@ func (m *ObjectMetadata) getCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]
 	return cipherBlock, nil
 }
 
+func BlockCount(size uint64, blockSize int) int {
+	return int(math.Ceil(float64(size) / float64(blockSize)))
+}
+
 // BlockCount returns the number of blocks in this object.
 // XXX: This is a problem; m.metadata may be nil if we don't know anything about the object.
 func (m *ObjectMetadata) BlockCount() int {
-	return int(math.Ceil(float64(m.metadata.ObjectSize) / float64(m.policy.BlockSize)))
+	return BlockCount(m.metadata.ObjectSize, m.policy.BlockSize)
 }
 
 func (m *ObjectMetadata) ObjectSize() uint64 {
@@ -160,45 +208,17 @@ func (m *ObjectMetadata) blockRange(rangeBegin, rangeEnd uint64) (uint64, uint64
 	return blockRangeBegin, blockRangeEnd
 }
 
-// Requires that the caller hold a read lock on `m.mu`.
-func (m *ObjectMetadata) rangeInCache(rangeBegin, rangeEnd uint64) bool {
-	blockRangeBegin, blockRangeEnd := m.blockRange(rangeBegin, rangeEnd)
-
-	m.c.l.Debugf("rangeInCache() bytes [%v, %v) -> blocks [%v, %v)",
-		rangeBegin, rangeEnd, blockRangeBegin, blockRangeEnd)
-
-	if blockRangeEnd == 0 {
-		if m.metadata == nil || m.metadata.ObjectSize == 0 {
-			// We don't know how long the object is yet, so we must need to make an upstream request.
-			m.c.l.Debugf("rangeInCache() - unfilled metadata")
-			return false
-		}
-		blockRangeEnd = uint64(m.BlockCount())
-	}
-
-	if int(blockRangeEnd) > len(m.blocks) {
-		m.c.l.Debugf("rangeInCache() - cache too short to cover request")
-		return false
-	}
-	for i := blockRangeBegin; i < blockRangeEnd; i++ {
-		if m.blocks[i] == nil {
-			m.c.l.Debugf("rangeInCache() - cache missing block %v", i)
-			return false
-		}
-	}
-	return true
-}
-
 // ensureFresh ensures that the object's metadata is valid (i.e. has not changed/expired), and that the block(s)
 // described by req are present in cache.
 func (m *ObjectMetadata) ensureFresh(ctx context.Context, req *ccmsg.ContentRequest) error {
 	m.mu.Lock()
-	covered := m.rangeInCache(req.RangeBegin, req.RangeEnd)
 	fresh := m.Fresh()
 	m.mu.Unlock()
 
-	m.c.l.Debugf("ensureFresh for byte range [%v, %v) -> covered=%v fresh=%v", req.RangeBegin, req.RangeEnd, covered, fresh)
-	if covered && fresh {
+	m.c.l.WithFields(log.Fields{
+		"path": req.Path,
+	}).Debugf("ensureFresh for byte range [%v, %v] -> fresh=%v", req.RangeBegin, req.RangeEnd, fresh)
+	if fresh {
 		return nil
 	}
 
@@ -217,9 +237,14 @@ func (m *ObjectMetadata) ensureFresh(ctx context.Context, req *ccmsg.ContentRequ
 func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentRequest, doneCh chan struct{}) {
 	defer close(doneCh)
 
-	r, err := m.c.upstream.FetchData(ctx, req.Path, true, uint(req.RangeBegin), uint(req.RangeEnd))
+	log := m.c.l.WithFields(log.Fields{
+		"path": req.Path,
+	})
+
+	// XXX: this is set to 0, 0 to fetch the whole file. This function might be used by the cache in the future, so range support is still needed
+	r, err := m.c.upstream.FetchData(ctx, req.Path, m, 0, 0)
 	if err != nil {
-		m.c.l.WithError(err).Error("failed to fetch from upstream")
+		log.WithError(err).Error("failed to fetch from upstream")
 		// XXX: Should set m.metadata.Status, right?  Why isn't this covered by the test suite?
 		return
 	}
@@ -228,53 +253,54 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 	defer m.mu.Unlock()
 
 	blockRangeBegin, blockRangeEnd := m.blockRange(req.RangeBegin, req.RangeEnd)
-	m.c.l.Debugf("fetchData for requested blockRange [%v, %v)", blockRangeBegin, blockRangeEnd)
+	log.Debugf("fetchData for requested blockRange [%v, %v]", blockRangeBegin, blockRangeEnd)
 
 	// Populate metadata.
 	if m.metadata == nil {
 		m.metadata = &ccmsg.ObjectMetadata{}
 	}
-	// XXX: What if header is absent?
+
 	size, err := r.ObjectSize()
 	if err != nil {
 		panic(fmt.Sprintf("error parsing metadata: %v", err))
 	}
 	m.metadata.ObjectSize = uint64(size)
-	m.c.l.Debugf("fetchData populates metadata; ObjectSize=%v", m.metadata.ObjectSize)
+	log.Debugf("fetchData populates metadata; ObjectSize=%v", m.metadata.ObjectSize)
 
-	if blockRangeEnd == 0 {
-		blockRangeEnd = uint64(m.BlockCount())
-	}
-	m.c.l.Debugf("fetchData using blockRange [%v, %v)", blockRangeBegin, blockRangeEnd)
-
-	// XXX: Error responses from upstream shouldn't make us immediately drop the entire object on the floor.
-	m.c.l.Debugf("fetchData - r.status=%v (%d)", r.status, r.status)
+	// XXX: don't expose the status, this is handled in here
+	log.Debugf("fetchData - r.status=%v", r.status)
 	m.Status = r.status
-	if m.Status != StatusOK {
+
+	switch r.status {
+	case StatusOK:
+		log.Debugln("fetchData - got response, slicing into blocks")
+		m.blocks = m.policy.ChunkIntoBlocks(r.data)
+		log.Debugf("fetchData - populated cache with %v blocks", len(m.blocks))
+
+	case StatusNotModified:
+		log.Debugln("fetchData - upstream wasn't modified, our data is still fresh")
+
+	default:
+		log.Errorf("fetchData - received unexpected http status: %v", r.status)
 		return
 	}
 
-	// XXX: Handle case where we need to invalidate the data that's already in the cache.
-
-	// Ensure len(m.blocks) >= blockRangeEnd.
-	if len(m.blocks) <= int(blockRangeEnd) {
-		m.blocks = append(m.blocks, make([][]byte, int(blockRangeEnd)-len(m.blocks))...)
-	}
-	m.c.l.Debugf("fetchData: after extend, len(m.blocks)=%v", len(m.blocks))
-
-	m.c.l.Debugf("fetchData: response len(data)=%v", len(r.data))
-
-	// XXX: Should not assume that response range matches request range.
-	blockSize := m.policy.BlockSize // XXX:
-	for i := 0; i < int(blockRangeEnd-blockRangeBegin); i++ {
-		m.c.l.Debugf("inserting object block into cache: %v", i+int(blockRangeBegin))
-
-		blockEnd := (i + 1) * blockSize
-		if blockEnd > len(r.data) {
-			blockEnd = len(r.data)
+	// set freshness values accordingly
+	cacheControl := r.header.Get("Cache-Control")
+	if cacheControl != "" {
+		cc, err := cachecontrol.Parse(cacheControl)
+		if err == nil {
+			if cc.MaxAge != nil {
+				validUntil := m.c.clock.Now().Add(*cc.MaxAge)
+				m.ValidUntil = &validUntil
+			}
+			m.Immutable = cc.Immutable
 		}
-		buf := r.data[i*blockSize : blockEnd]
+	}
 
-		m.blocks[i+int(blockRangeBegin)] = buf
+	if m.ValidUntil == nil && !m.Immutable {
+		log.Warnf("fetchData - no cache control rules found, using default: %s", m.policy.DefaultCacheDuration)
+		validUntil := m.c.clock.Now().Add(m.policy.DefaultCacheDuration)
+		m.ValidUntil = &validUntil
 	}
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/testutil"
+	"github.com/jonboulle/clockwork"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -26,9 +27,10 @@ const (
 type CatalogTestSuite struct {
 	suite.Suite
 
-	l   *logrus.Logger
-	ts  *httptest.Server
-	cat *catalog
+	l     *logrus.Logger
+	ts    *httptest.Server
+	cat   *catalog
+	clock clockwork.FakeClock
 
 	upstreamResponseDelay time.Duration
 	blockSize             int
@@ -47,6 +49,7 @@ func (suite *CatalogTestSuite) SetupTest() {
 
 	suite.l = logrus.New()
 	suite.l.SetLevel(logrus.DebugLevel)
+	suite.clock = clockwork.NewFakeClock()
 
 	suite.objectData = testutil.RandBytesFromSource(rand.NewSource(dataSeed), 4*blockSize)
 	suite.upstreamRequestQty = 0
@@ -54,12 +57,13 @@ func (suite *CatalogTestSuite) SetupTest() {
 
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 
-	upstream, err := NewHTTPUpstream(suite.l, suite.ts.URL)
+	upstream, err := NewHTTPUpstream(suite.l, suite.ts.URL, 5*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create HTTP upstream: %v", err)
 	}
 
 	suite.cat, err = NewCatalog(suite.l, upstream)
+	suite.cat.clock = suite.clock
 	if err != nil {
 		t.Fatalf("failed to create catalog: %v", err)
 	}
@@ -77,16 +81,55 @@ func (suite *CatalogTestSuite) handleUpstreamRequest(w http.ResponseWriter, r *h
 	suite.upstreamRequestQty++
 	suite.muMetrics.Unlock()
 
+	// This needs to be an actual sleep because of TestUpstreamTimeout
 	time.Sleep(suite.upstreamResponseDelay)
 
 	switch r.URL.Path {
+	// This path can be cached for 1h
 	case "/foo/bar":
-		// TODO: Test behavior without this header (currently, causes catalog to panic; see comment in #16).
 		w.Header().Add("Content-Length", fmt.Sprintf("%v", len(suite.objectData)))
+
 		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write(suite.objectData); err != nil {
 			t.Fatalf("failed to write response in HTTP handler: %v", err)
 		}
+
+	// This path is immutable and cached forever
+	case "/forever":
+		w.Header().Add("Cache-Control", "public, immutable")
+
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(suite.objectData); err != nil {
+			t.Fatalf("failed to write response in HTTP handler: %v", err)
+		}
+
+	// This path is cachable for 1sec, a revalidation returns a 304
+	case "/renew/1sec":
+		w.Header().Add("Cache-Control", "public,max-age=1")
+		w.Header().Add("Last-Modified", "Wed, 21 Oct 2015 07:28:00 GMT")
+		w.Header().Add("ETag", "asdf")
+
+		if r.Header.Get("If-None-Match") == "asdf" {
+			w.WriteHeader(http.StatusNotModified)
+		} else {
+			w.WriteHeader(http.StatusOK)
+			if _, err := w.Write(suite.objectData); err != nil {
+				t.Fatalf("failed to write response in HTTP handler: %v", err)
+			}
+		}
+
+	// This path is cachable for 1sec, a revalidation returns a 200
+	case "/update/1sec":
+		w.Header().Add("Cache-Control", "public,max-age=1")
+		w.Header().Add("Last-Modified", "Wed, 21 Oct 2015 07:28:00 GMT")
+		w.Header().Add("ETag", "asdf")
+
+		// always changed/200
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(suite.objectData); err != nil {
+			t.Fatalf("failed to write response in HTTP handler: %v", err)
+		}
+
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -161,24 +204,100 @@ func (suite *CatalogTestSuite) TestCacheValid() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	mm := make([]*ObjectMetadata, 2)
-	for i := 0; i < len(mm); i++ {
+	for i := 0; i < 2; i++ {
 		m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/foo/bar"})
 		assert.Nil(t, err)
 		assert.NotNil(t, m)
 		// assert.Nil(t, m.RespErr)
 		assert.Equal(t, StatusOK, m.Status, "unexpected response status")
 
-		mm[i] = m
-	}
-
-	// TODO: Add additional test cases covering how the object is split up into chunks.
-	for i := 0; i < len(mm); i++ {
-		assert.Equal(t, uint64(len(suite.objectData)), mm[i].ObjectSize())
+		assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
 	}
 
 	// Due to caching, only a single request should be sent upstream.
 	assert.Equal(t, 1, suite.upstreamRequestQty, "request for cached data should not create another upstream request")
+}
+
+func (suite *CatalogTestSuite) TestCacheImmutable() {
+	t := suite.T()
+	cat := suite.cat
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	for i := 0; i < 2; i++ {
+		m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/forever"})
+		assert.Nil(t, err)
+		assert.NotNil(t, m)
+		assert.Equal(t, StatusOK, m.Status, "unexpected response status")
+		assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
+
+		// Delay for a year
+		suite.clock.Advance(365 * 24 * time.Hour)
+	}
+
+	// Due to caching, only a single request should be sent upstream.
+	assert.Equal(t, 1, suite.upstreamRequestQty, "request for cached data should not create another upstream request")
+}
+
+func (suite *CatalogTestSuite) TestCacheRevalidate() {
+	t := suite.T()
+	cat := suite.cat
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// First request should populate cache
+	m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/renew/1sec"})
+	assert.Nil(t, err)
+	assert.NotNil(t, m)
+
+	assert.Equal(t, StatusOK, m.Status, "unexpected response status")
+	assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
+
+	// Delay until cache is stale
+	suite.clock.Advance(2 * time.Second)
+
+	// Second request should be a cache miss and trigger a revalidation
+	m, err = cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/renew/1sec"})
+	assert.Nil(t, err)
+	assert.NotNil(t, m)
+
+	assert.Equal(t, StatusNotModified, m.Status, "unexpected response status")
+	assert.Equal(t, uint64(0), m.ObjectSize())
+
+	// Due to caching, only a single request should be sent upstream.
+	assert.Equal(t, 2, suite.upstreamRequestQty, "request for cached data should not create another upstream request")
+}
+
+func (suite *CatalogTestSuite) TestCacheUpdate() {
+	t := suite.T()
+	cat := suite.cat
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// First request to populate cache
+	m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/update/1sec"})
+	assert.Nil(t, err)
+	assert.NotNil(t, m)
+
+	assert.Equal(t, StatusOK, m.Status, "unexpected response status")
+	assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
+
+	// Delay until cache is stale
+	suite.clock.Advance(2 * time.Second)
+
+	// Second request should update cache
+	m, err = cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/update/1sec"})
+	assert.Nil(t, err)
+	assert.NotNil(t, m)
+
+	assert.Equal(t, StatusOK, m.Status, "unexpected response status")
+	assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
+
+	// Due to caching, only a single request should be sent upstream.
+	assert.Equal(t, 2, suite.upstreamRequestQty, "request for cached data should not create another upstream request")
 }
 
 func (suite *CatalogTestSuite) TestNotFound() {
@@ -202,7 +321,7 @@ func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
 	ts := httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 	ts.Close()
 
-	upstream, err := NewHTTPUpstream(suite.l, ts.URL)
+	upstream, err := NewHTTPUpstream(suite.l, ts.URL, 5*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create HTTP upstream: %v", err)
 	}
@@ -281,7 +400,10 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expe
 		t.Fatalf("failed to get metadata for object: %v", err)
 	}
 
-	policy := &ObjectPolicy{BlockSize: suite.blockSize}
+	policy := &ObjectPolicy{
+		BlockSize:            suite.blockSize,
+		DefaultCacheDuration: 5 * time.Minute,
+	}
 	resp, err := upstream.BlockSource(req, path, objMeta.Metadata(), policy)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)

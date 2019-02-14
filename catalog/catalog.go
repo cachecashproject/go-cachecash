@@ -5,11 +5,13 @@ import (
 	"sync"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/jonboulle/clockwork"
 	"github.com/sirupsen/logrus"
 )
 
 type catalog struct {
-	l *logrus.Logger
+	l     *logrus.Logger
+	clock clockwork.Clock
 
 	upstream Upstream
 
@@ -22,6 +24,7 @@ var _ ContentCatalog = (*catalog)(nil)
 func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	return &catalog{
 		l:        l,
+		clock:    clockwork.NewRealClock(),
 		upstream: upstream,
 		objects:  make(map[string]*ObjectMetadata),
 	}, nil
@@ -29,6 +32,7 @@ func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 
 func (c *catalog) GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {
 	// XXX: This works, but is NOT a good long-term solution: it may cause a fetch of the first block of the object.
+	// XXX: This should trigger a HEAD request instead of a range request
 	return c.GetData(ctx, &ccmsg.ContentRequest{
 		Path:       path,
 		RangeBegin: 0,

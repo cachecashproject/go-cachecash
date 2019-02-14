@@ -32,3 +32,7 @@
 [[constraint]]
   name = "github.com/stretchr/testify"
   version = "1.1.4"
+
+[[constraint]]
+  name = "github.com/jonboulle/clockwork"
+  version = "0.1.0"

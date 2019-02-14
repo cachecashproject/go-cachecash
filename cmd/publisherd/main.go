@@ -61,7 +61,7 @@ func mainC() error {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
 
-	upstream, err := catalog.NewHTTPUpstream(l, cf.UpstreamURL)
+	upstream, err := catalog.NewHTTPUpstream(l, cf.UpstreamURL, cf.Config.DefaultCacheDuration)
 	if err != nil {
 		return errors.Wrap(err, "failed to create HTTP upstream")
 	}

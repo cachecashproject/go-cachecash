@@ -3,6 +3,7 @@ package publisher
 import (
 	"context"
 	"net"
+	"time"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
@@ -27,8 +28,9 @@ type ConfigFile struct {
 
 // XXX: Right now, this is shared between the client- and cache-facing servers.
 type Config struct {
-	ClientProtocolAddr string
-	CacheProtocolAddr  string
+	ClientProtocolAddr   string
+	CacheProtocolAddr    string
+	DefaultCacheDuration time.Duration
 }
 
 func (c *Config) FillDefaults() {
@@ -37,6 +39,9 @@ func (c *Config) FillDefaults() {
 	}
 	if c.CacheProtocolAddr == "" {
 		c.CacheProtocolAddr = ":8082"
+	}
+	if c.DefaultCacheDuration == 0 {
+		c.DefaultCacheDuration = 5 * time.Minute
 	}
 }
 
