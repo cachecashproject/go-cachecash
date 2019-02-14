@@ -31,6 +31,8 @@ type TestScenarioParams struct {
 	// These are optional.  If provided, they override the default that would have been generated.
 	L        *logrus.Logger
 	Upstream catalog.Upstream
+
+	PublisherCacheServiceAddr string
 }
 
 type TestScenario struct {
@@ -183,10 +185,15 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		if err != nil {
 			return nil, err
 		}
+
+		if params.PublisherCacheServiceAddr == "" {
+			params.PublisherCacheServiceAddr = "localhost:8082"
+		}
+
 		ce := &cache.Escrow{
 			InnerMasterKey:            innerMasterKey,
 			OuterMasterKey:            testutil.RandBytes(16),
-			PublisherCacheServiceAddr: "localhost:8082",
+			PublisherCacheServiceAddr: params.PublisherCacheServiceAddr,
 		}
 		if params.GenerateObject {
 			if err := c.Storage.PutMetadata(ts.EscrowID, ts.ObjectID, &ccmsg.ObjectMetadata{
