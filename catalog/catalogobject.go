@@ -207,19 +207,21 @@ func (m *ObjectMetadata) ensureFresh(ctx context.Context, req *ccmsg.ContentRequ
 		return nil
 	}
 
-	doneCh := make(chan struct{})
+	doneCh := make(chan error)
 	go m.fetchData(ctx, req, doneCh)
 
 	select {
-	case <-doneCh:
+	case err := <-doneCh:
+		if err != nil {
+			log.Error(err)
+		}
+		return err
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-
-	return nil
 }
 
-func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentRequest, doneCh chan struct{}) {
+func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentRequest, doneCh chan error) {
 	defer close(doneCh)
 
 	log := m.c.l.WithFields(log.Fields{
@@ -229,8 +231,8 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 	// XXX: this is set to 0, 0 to fetch the whole file. This function might be used by the cache in the future, so range support is still needed
 	r, err := m.c.upstream.FetchData(ctx, req.Path, m, 0, 0)
 	if err != nil {
-		log.WithError(err).Error("failed to fetch from upstream")
 		// XXX: Should set m.metadata.Status, right?  Why isn't this covered by the test suite?
+		doneCh <- errors.Wrap(err, "failed to fetch from upstream")
 		return
 	}
 
@@ -247,7 +249,8 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 
 	size, err := r.ObjectSize()
 	if err != nil {
-		panic(fmt.Sprintf("error parsing metadata: %v", err))
+		doneCh <- errors.Wrap(err, "error parsing metadata")
+		return
 	}
 	m.metadata.ObjectSize = uint64(size)
 	log.Debugf("fetchData populates metadata; ObjectSize=%v", m.metadata.ObjectSize)
@@ -266,7 +269,8 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 		log.Debugln("fetchData - upstream wasn't modified, our data is still fresh")
 
 	default:
-		log.Errorf("fetchData - received unexpected http status: %v", r.status)
+		// log.Errorf("fetchData - received unexpected http status: %v", r.status)
+		doneCh <- fmt.Errorf("Received unexpected http status: %v", r.status)
 		return
 	}
 

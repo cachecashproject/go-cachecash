@@ -308,10 +308,10 @@ func (suite *CatalogTestSuite) TestNotFound() {
 	defer cancel()
 
 	m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/bogus"})
-	assert.Nil(t, err)
-	assert.NotNil(t, m)
+	assert.NotNil(t, err)
+	assert.Nil(t, m)
 	// assert.Nil(t, m.RespErr)
-	assert.Equal(t, StatusNotFound, m.Status)
+	// assert.Equal(t, StatusNotFound, m.Status)
 }
 
 func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
@@ -335,8 +335,8 @@ func (suite *CatalogTestSuite) TestUpstreamUnreachable() {
 	defer cancel()
 
 	m, err := cat.GetData(ctx, &ccmsg.ContentRequest{Path: "/foo/bar"})
-	assert.Nil(t, err)
-	assert.NotNil(t, m)
+	assert.NotNil(t, err)
+	assert.Nil(t, m)
 
 	// XXX: Test that the object metadata contains an error response.
 }
