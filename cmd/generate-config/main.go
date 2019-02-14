@@ -18,9 +18,11 @@ import (
 )
 
 var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	outputPath  = flag.String("outputPath", ".", "Directory where configuration files will be written")
+	logLevelStr               = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller                 = flag.Bool("logCaller", false, "Enable method name logging")
+	outputPath                = flag.String("outputPath", ".", "Directory where configuration files will be written")
+	upstream                  = flag.String("upstream", "http://localhost:8081", "Upstream url")
+	publisherCacheServiceAddr = flag.String("publisherCacheServiceAddr", "", "Publisher cache service address")
 )
 
 func main() {
@@ -46,9 +48,10 @@ func mainC() error {
 	l.SetReportCaller(*logCaller)
 
 	scen, err := testdatagen.GenerateTestScenario(l, &testdatagen.TestScenarioParams{
-		L:          l,
-		BlockSize:  128 * 1024,
-		ObjectSize: 128 * 1024 * 16,
+		L:                         l,
+		BlockSize:                 128 * 1024,
+		ObjectSize:                128 * 1024 * 16,
+		PublisherCacheServiceAddr: *publisherCacheServiceAddr,
 	})
 	if err != nil {
 		return err
@@ -84,7 +87,7 @@ func mainC() error {
 		Escrows: []*publisher.Escrow{
 			scen.Escrow,
 		},
-		UpstreamURL: "http://localhost:8081",
+		UpstreamURL: *upstream,
 		PrivateKey:  scen.PublisherPrivateKey,
 	}
 
