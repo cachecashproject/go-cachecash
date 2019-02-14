@@ -74,6 +74,11 @@ func mainC() error {
 			return err
 		}
 
+		err = os.MkdirAll(*outputPath, 0755)
+		if err != nil {
+			return err
+		}
+
 		path := filepath.Join(*outputPath, fmt.Sprintf("cache-%v.config.json", i))
 		l.Debugf("writing cache configuration: %v", path)
 		if err := ioutil.WriteFile(path, buf, 0644); err != nil {

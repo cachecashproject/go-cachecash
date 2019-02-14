@@ -1,0 +1,49 @@
+---
+
+# ./bin/generate-config -outputPath cfg/ -upstream http://upstream:80 -publisherCacheServiceAddr publisher:8082
+
+version: '3'
+services:
+  upstream:
+    image: nginx
+    ports:
+     - 8081:80
+    volumes:
+    - ./testdata/content:/usr/share/nginx/html
+  publisher:
+    build: .
+    command: publisherd -logLevel debug -logCaller -config /etc/publisher.config.json
+    ports:
+     - 8080:8080
+     - 8082:8082
+    volumes:
+    - ./cfg/publisher.config.json:/etc/publisher.config.json
+  cache-0:
+    build: .
+    command: cached -logLevel debug -config /etc/cached.config.json
+    ports:
+     - 9000:9000
+    volumes:
+    - ./cfg/cache-0.config.json:/etc/cached.config.json
+  cache-1:
+    build: .
+    command: cached -logLevel debug -config /etc/cached.config.json
+    ports:
+     - 9001:9001
+    volumes:
+    - ./cfg/cache-1.config.json:/etc/cached.config.json
+  cache-2:
+    build: .
+    command: cached -logLevel debug -config /etc/cached.config.json
+    ports:
+     - 9002:9002
+    volumes:
+    - ./cfg/cache-2.config.json:/etc/cached.config.json
+  cache-3:
+    build: .
+    command: cached -logLevel debug -config /etc/cached.config.json
+    ports:
+     - 9003:9003
+    volumes:
+    - ./cfg/cache-3.config.json:/etc/cached.config.json
+...

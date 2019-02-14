@@ -1,4 +1,5 @@
 .git
 Dockerfile
+docker-compose.yml
 .dockerignore
 /bin/
