@@ -94,6 +94,7 @@ func mainC() error {
 		},
 		UpstreamURL: *upstream,
 		PrivateKey:  scen.PublisherPrivateKey,
+		Database:    "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable",
 	}
 
 	buf, err := json.MarshalIndent(cf, "", "  ")

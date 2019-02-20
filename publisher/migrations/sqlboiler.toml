@@ -1,0 +1,44 @@
+[psql]
+  host = "127.0.0.1"
+  port = 5432
+  user = "postgres"
+  pass = "c4chec4sh"
+  dbname = "publisher"
+  sslmode = "disable"
+  blacklist = ["migrations"]
+
+[[types]]
+  [types.match]
+    name = "public_key"
+  [types.replace]
+    type = "ed25519.PublicKey"
+  [types.imports]
+	third_party = ['"golang.org/x/crypto/ed25519"']
+
+[[types]]
+  [types.match]
+    name = "private_key"
+  [types.replace]
+    type = "ed25519.PrivateKey"
+  [types.imports]
+	third_party = ['"golang.org/x/crypto/ed25519"']
+
+[[types]]
+  [types.match]
+    name = "port"
+  [types.replace]
+    type = "uint32"
+
+[[types]]
+  [types.match]
+    name = "inetaddr"
+  [types.replace]
+    type = "net.IP"
+  [types.imports]
+	third_party = ['"net"']
+
+[aliases.tables.escrow_caches]
+    up_plural     = "EscrowCaches"
+    up_singular   = "EscrowCache"
+    down_plural   = "escrowCaches"
+    down_singular = "escrowCache"

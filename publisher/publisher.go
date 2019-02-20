@@ -4,14 +4,18 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/sha512"
+	"database/sql"
 	"fmt"
 
 	"github.com/cachecashproject/go-cachecash/batchsignature"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/publisher/models"
+	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -19,7 +23,8 @@ type ContentPublisher struct {
 	// The ContentPublisher knows each cache's "inner master key" (aka "master key")?  This is an AES key.
 	// For each cache, it also knows an IP address, a port number, and a public key.
 
-	l *logrus.Logger
+	l  *logrus.Logger
+	db *sql.DB
 
 	signer  ed25519.PrivateKey
 	catalog catalog.ContentCatalog
@@ -42,9 +47,10 @@ type reverseMappingEntry struct {
 	path string
 }
 
-func NewContentPublisher(l *logrus.Logger, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
+func NewContentPublisher(l *logrus.Logger, db *sql.DB, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
 	p := &ContentPublisher{
 		l:              l,
+		db:             db,
 		signer:         signer,
 		catalog:        catalog,
 		reverseMapping: make(map[common.ObjectID]reverseMappingEntry),
@@ -187,10 +193,24 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	//   to reuse the same caches for consecutive block-groups served to a single client (so that connection reuse and
 	//   pipelining can improve performance, once implemented).
 	p.l.Debug("selecting caches")
-	if len(escrow.Caches) < len(blockIndices) {
-		return nil, errors.New(fmt.Sprintf("not enough caches: have %v; need %v", len(escrow.Caches), len(blockIndices)))
+
+	ecs, err := models.EscrowCaches(qm.Load("Cache"), qm.Where("escrow_id = ?", escrow.Inner.ID)).All(ctx, p.db)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query database")
 	}
-	caches := escrow.Caches[0:len(blockIndices)]
+
+	caches := []ParticipatingCache{}
+	for _, participant := range ecs {
+		caches = append(caches, ParticipatingCache{
+			InnerMasterKey: participant.InnerMasterKey,
+			Cache:          *participant.R.Cache,
+		})
+	}
+
+	if len(caches) < len(blockIndices) {
+		return nil, errors.New(fmt.Sprintf("not enough caches: have %v; need %v", len(caches), len(blockIndices)))
+	}
+	caches = caches[0:len(blockIndices)]
 
 	// - For each cache, the publisher chooses a logical slot index.  (For details, see documentation on the logical
 	//   cache model.)  This slot index should be consistent between requests for the cache to serve the same block.

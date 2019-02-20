@@ -18,6 +18,13 @@ services:
      - 8082:8082
     volumes:
     - ./cfg/publisher.config.json:/etc/publisher.config.json
+  publisher-db:
+    image: postgres
+    ports:
+    - 5432:5432
+    environment:
+    - POSTGRES_DB=publisher
+    - POSTGRES_PASSWORD=c4chec4sh
   cache-0:
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
