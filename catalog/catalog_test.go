@@ -35,6 +35,7 @@ type CatalogTestSuite struct {
 	upstreamResponseDelay time.Duration
 	blockSize             int
 	objectData            []byte
+	policy                ObjectPolicy
 
 	muMetrics          sync.Mutex
 	upstreamRequestQty int
@@ -54,6 +55,9 @@ func (suite *CatalogTestSuite) SetupTest() {
 	suite.objectData = testutil.RandBytesFromSource(rand.NewSource(dataSeed), 4*blockSize)
 	suite.upstreamRequestQty = 0
 	suite.blockSize = 128 * 1024 // TODO: Ensure this is used everywhere.
+	suite.policy = ObjectPolicy{
+		BlockSize: suite.blockSize,
+	}
 
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
 
@@ -376,7 +380,7 @@ func (suite *CatalogTestSuite) TestUpstreamTimeout() {
 // XXX: Should these BlockSource() tests actually be tests of ContentPublisher.CacheMiss? A lot of the logic here, where
 // we turn the object ID into a path and then use that to look up metadata and policy, duplicates actual logic in that
 // function.
-func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expectedSrc *ccmsg.BlockSourceHTTP) {
+func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expectedSrc *ccmsg.BlockSourceInline) {
 	t := suite.T()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -389,22 +393,14 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expe
 		t.Fatalf("failed to pull object into catalog: %v", err)
 	}
 
-	upstream, err := suite.cat.Upstream("/foo/bar")
-	if err != nil {
-		t.Fatalf("failed to get upstream for object: %v", err)
-	}
-
 	// XXX: Duplicates logic in ContentPublisher.CacheMiss.
 	objMeta, err := suite.cat.GetMetadata(ctx, path)
 	if err != nil {
 		t.Fatalf("failed to get metadata for object: %v", err)
 	}
 
-	policy := &ObjectPolicy{
-		BlockSize:            suite.blockSize,
-		DefaultCacheDuration: 5 * time.Minute,
-	}
-	resp, err := upstream.BlockSource(req, path, objMeta.Metadata(), policy)
+	resp, err := suite.cat.BlockSource(ctx, req, objMeta)
+
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 
@@ -421,34 +417,29 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expe
 	// assert.Equal(t, uint64(len(suite.objectData)), resp.Metadata.ObjectSize)
 	// assert.Equal(t, uint64(suite.blockSize), resp.Metadata.BlockSize)
 
-	bsrc, ok := resp.Source.(*ccmsg.CacheMissResponse_Http)
+	bsrc, ok := resp.Source.(*ccmsg.CacheMissResponse_Inline)
 	if !ok {
 		t.Fatalf("unexpected CacheMissResponse source type")
 	}
 
-	assert.Equal(t, expectedSrc.Url, bsrc.Http.Url)
-	assert.Equal(t, expectedSrc.RangeBegin, bsrc.Http.RangeBegin)
-	assert.Equal(t, expectedSrc.RangeEnd, bsrc.Http.RangeEnd)
+	assert.Equal(t, expectedSrc.Blocks, bsrc.Inline.Blocks)
 }
 
 // N.B. This works even with objectID unset in CacheMissRequest because we are translating back to the path "/foo/bar"
 // in the call to BlockSource().  This is messy.
 func (suite *CatalogTestSuite) TestBlockSource_WholeObject() {
-	suite.testBlockSource(&ccmsg.CacheMissRequest{}, &ccmsg.BlockSourceHTTP{
-		Url:        suite.ts.URL + "/foo/bar",
-		RangeBegin: 0,
-		RangeEnd:   0,
-	})
+	suite.testBlockSource(&ccmsg.CacheMissRequest{},
+		&ccmsg.BlockSourceInline{
+			Blocks: suite.policy.ChunkIntoBlocks(suite.objectData[:]),
+		})
 }
 
 func (suite *CatalogTestSuite) TestBlockSource_FirstBlock() {
 	suite.testBlockSource(&ccmsg.CacheMissRequest{
 		RangeBegin: 0,
 		RangeEnd:   1,
-	}, &ccmsg.BlockSourceHTTP{
-		Url:        suite.ts.URL + "/foo/bar",
-		RangeBegin: 0,
-		RangeEnd:   uint64(suite.blockSize),
+	}, &ccmsg.BlockSourceInline{
+		Blocks: suite.policy.ChunkIntoBlocks(suite.objectData[:blockSize]),
 	})
 }
 
@@ -460,13 +451,12 @@ func (suite *CatalogTestSuite) TestBlockSource_PartialFinalBlock() {
 
 	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
 
+	blocks := suite.policy.ChunkIntoBlocks(suite.objectData[:])
 	suite.testBlockSource(&ccmsg.CacheMissRequest{
 		RangeBegin: uint64(expectedBlockCount - 1),
 		RangeEnd:   uint64(expectedBlockCount),
-	}, &ccmsg.BlockSourceHTTP{
-		Url:        suite.ts.URL + "/foo/bar",
-		RangeBegin: uint64((expectedBlockCount - 1) * suite.blockSize),
-		RangeEnd:   uint64(len(suite.objectData)),
+	}, &ccmsg.BlockSourceInline{
+		Blocks: blocks[len(blocks)-1:],
 	})
 }
 

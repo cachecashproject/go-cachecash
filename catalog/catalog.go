@@ -30,6 +30,21 @@ func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	}, nil
 }
 
+func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, metadata *ObjectMetadata) (*ccmsg.CacheMissResponse, error) {
+	blocks, err := metadata.BlockRange(req.RangeBegin, req.RangeEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ccmsg.CacheMissResponse{
+		Source: &ccmsg.CacheMissResponse_Inline{
+			Inline: &ccmsg.BlockSourceInline{
+				Blocks: blocks,
+			},
+		},
+	}, nil
+}
+
 func (c *catalog) GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {
 	// XXX: This works, but is NOT a good long-term solution: it may cause a fetch of the first block of the object.
 	// XXX: This should trigger a HEAD request instead of a range request

@@ -91,63 +91,24 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch upstream info from publisher")
 		}
-		c.l.Debugf("cache-miss response: %v", resp)
-
-		// Build request.
-		c.l.Info("building request")
-		source, ok := resp.Source.(*ccmsg.CacheMissResponse_Http)
-		if !ok {
-			return nil, errors.New(fmt.Sprintf("unexpected block source type: %T", resp.Source))
-		}
-		req, err := http.NewRequest("GET", source.Http.Url, nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to build HTTP request")
-		}
-		// N.B.: HTTP ranges are inclusive; our ranges are [inclusive, exclusive).
-		req.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", source.Http.RangeBegin, source.Http.RangeEnd-1))
-
-		// Make request to upstream.
-		c.l.Infof("fetching data from HTTP upstream; req=%v", req)
-		httpClient := &http.Client{}
-		httpResp, err := httpClient.Do(req)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to fetch object from HTTP upstream")
-		}
-		defer func() {
-			_ = httpResp.Body.Close()
-		}()
-
-		// Interpret response.
-		switch {
-		case httpResp.StatusCode == http.StatusOK:
-		case httpResp.StatusCode == http.StatusPartialContent:
-		default:
-			return nil, fmt.Errorf("unexpected status from HTTP upstream: %v", httpResp.Status)
-		}
-		data, err = ioutil.ReadAll(httpResp.Body)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to read body of object from HTTP upstream")
-		}
 
 		c.l.WithFields(logrus.Fields{
-			"len": len(data),
-		}).Info("got response from HTTP upstream")
+			"slot_idx":    resp.SlotIdx,
+			"object_size": resp.Metadata.ObjectSize,
+			"block_size":  resp.Metadata.BlockSize,
+		}).Debug("cache-miss response")
 
-		if httpResp.StatusCode == http.StatusOK {
-			c.l.Warn("server doesn't support range requests, slicing range from full response")
-
-			// XXX: make sure RangeEnd doesn't go beyond the file length.
-			// This should not happen with a correctly calculated RangeEnd
-			rangeEnd := source.Http.RangeEnd
-			fileLen := uint64(len(data))
-			if rangeEnd > fileLen {
-				rangeEnd = fileLen
+		// Setup data retrieval
+		switch source := resp.Source.(type) {
+		case *ccmsg.CacheMissResponse_Http:
+			data, err = c.getDataBlockHTTP(source)
+			if err != nil {
+				return nil, err
 			}
-
-			data = data[source.Http.RangeBegin:rangeEnd]
-			c.l.WithFields(logrus.Fields{
-				"len": len(data),
-			}).Info("sliced to correct range")
+		case *ccmsg.CacheMissResponse_Inline:
+			data = bytes.Join(source.Inline.Blocks, nil)
+		default:
+			return nil, fmt.Errorf("unexpected block source type: %T", resp.Source)
 		}
 
 		// Insert it into the cache.
@@ -161,6 +122,62 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 	}
 
 	c.l.Info("cache returns data")
+	return data, nil
+}
+
+func (c *Cache) getDataBlockHTTP(source *ccmsg.CacheMissResponse_Http) ([]byte, error) {
+	c.l.Info("sending request")
+	req, err := http.NewRequest("GET", source.Http.Url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build HTTP request")
+	}
+	// N.B.: HTTP ranges are inclusive; our ranges are [inclusive, exclusive).
+	req.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", source.Http.RangeBegin, source.Http.RangeEnd-1))
+
+	// Make request to upstream.
+	c.l.Infof("fetching data from HTTP upstream; req=%v", req)
+	httpClient := &http.Client{}
+	httpResp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch object from HTTP upstream")
+	}
+	defer func() {
+		_ = httpResp.Body.Close()
+	}()
+
+	// Interpret response.
+	switch {
+	case httpResp.StatusCode == http.StatusOK:
+	case httpResp.StatusCode == http.StatusPartialContent:
+	default:
+		return nil, fmt.Errorf("unexpected status from HTTP upstream: %v", httpResp.Status)
+	}
+	data, err := ioutil.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read body of object from HTTP upstream")
+	}
+
+	c.l.WithFields(logrus.Fields{
+		"len": len(data),
+	}).Info("got response from HTTP upstream")
+
+	if httpResp.StatusCode == http.StatusOK {
+		c.l.Warn("server doesn't support range requests, slicing range from full response")
+
+		// XXX: make sure RangeEnd doesn't go beyond the file length.
+		// This should not happen with a correctly calculated RangeEnd
+		rangeEnd := source.Http.RangeEnd
+		fileLen := uint64(len(data))
+		if rangeEnd > fileLen {
+			rangeEnd = fileLen
+		}
+
+		data = data[source.Http.RangeBegin:rangeEnd]
+		c.l.WithFields(logrus.Fields{
+			"len": len(data),
+		}).Info("sliced to correct range")
+	}
+
 	return data, nil
 }
 

@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -139,33 +138,5 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, metadata *Ob
 		header: resp.Header,
 		data:   body,
 		status: status,
-	}, nil
-}
-
-func (up *httpUpstream) BlockSource(req *ccmsg.CacheMissRequest, path string, meta *ccmsg.ObjectMetadata,
-	policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error) {
-
-	u, err := up.upstreamURL(path)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get upstream URL")
-	}
-
-	var rangeEnd uint64
-	if req.RangeEnd != 0 {
-		rangeEnd = req.RangeEnd * uint64(policy.BlockSize)
-
-		if rangeEnd > meta.ObjectSize {
-			rangeEnd = meta.ObjectSize
-		}
-	}
-
-	return &ccmsg.CacheMissResponse{
-		Source: &ccmsg.CacheMissResponse_Http{
-			Http: &ccmsg.BlockSourceHTTP{
-				Url:        u,
-				RangeBegin: req.RangeBegin * uint64(policy.BlockSize),
-				RangeEnd:   rangeEnd,
-			},
-		},
 	}, nil
 }

@@ -20,7 +20,7 @@ message PublicKey {
 message EscrowInfo {
     PublicKey public_key = 1;
     PublicKey publisher_public_key = 2;  // XXX: Do we need this?
-        
+
     uint64 draw_delay = 3;  // number of blocks after issue that lottery draws occur
     uint64 expiration_delay = 4;  // number of blocks after draw that tickets expire
 
@@ -43,11 +43,11 @@ message TicketBundle {
 
     repeated TicketRequest ticket_request = 5;
     repeated TicketL1 ticket_l1 = 6;
-    
+
     bytes encrypted_ticket_l2 = 10;
 
     // ---- Fields below this point are not covered by the message hash.
-    
+
     BatchSignature batch_sig = 8;
     Certificate bundle_signer_cert = 11;
 
@@ -66,7 +66,7 @@ message TicketBundleRemainder {
 
     bytes escrow_id = 1;
     bytes object_id = 3;
-    
+
     ColocationPuzzleInfo puzzle_info = 7;
 
     PublicKey client_public_key = 8;
@@ -129,7 +129,7 @@ message TicketL1 {
 
     // XXX: TODO: Similarly, do we actually need to repeat the draw-time and expiration-time here?  What if the CP lies
     // to the cache?
-    
+
     // XXX: TODO: Do we need to explicitly give the issue-time here?  Can't that be determined by comparing the ticket
     // number to the parameters in the escrow transaction?
 
@@ -143,8 +143,8 @@ message TicketL1 {
     // the cache does need to be able to work out which block-index the L1 ticket corresponds to so that it can derive
     // the right outer key to give to the client.
     uint64 block_idx = 4;
-    
-    
+
+
     // ts1 -- "block index (in blockchain) that will be used for the lottery draw; see 6.10"
     // ts2 -- "time of the lottery draw"
     // ts3 -- Expiration time; after this block, the cache cannot redeem a winning ticket.
@@ -163,7 +163,7 @@ message TicketL2 {
     // included all of those keys in the hashed ticket L2.  However, it still seems as though the group of hashes trying
     // to claim the ticket could find each other when they all show up to try to claim their win.
     bytes nonce = 2;
-    
+
     // // XXX: Formerly ts1/ts2/ts3.  Are these necessary, or can they be inferred from the escrow?
     // uint64 time_issue = 3; // Block index in the blockchain that will be used for the lottery draw (see 6.10).
     // uint64 time_draw = 4; // Time of the lottery draw.
@@ -181,7 +181,7 @@ message TicketL2 {
     // The inner session keys are here in order to force the client to solve the colocation puzzle (which is required in
     // order to decrypt the L2 ticket).
     repeated BlockKey inner_session_key = 3;
-    
+
 }
 
 message TicketL2Info {
@@ -324,6 +324,7 @@ message CacheMissResponse {
 
     oneof source {
         BlockSourceHTTP http = 10;
+        BlockSourceInline inline = 20;
     }
 
     // XXX: We probably need batch_sig and etc. once we want to use this as part of a proof-of-cheating.
@@ -332,7 +333,11 @@ message CacheMissResponse {
 message BlockSourceHTTP {
     string url = 1;
     uint64 range_begin = 2;
-    uint64 range_end = 3;    
+    uint64 range_end = 3;
+}
+
+message BlockSourceInline {
+    repeated bytes blocks = 1;
 }
 
 // ------------------------

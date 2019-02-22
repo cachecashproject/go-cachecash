@@ -330,13 +330,7 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 		return nil, errors.New("failed to get object policy")
 	}
 
-	// Get upstream URL for this object.
-	upstream, err := p.catalog.Upstream(path)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get upstream for path")
-	}
-
-	resp, err := upstream.BlockSource(req, path, objMeta.Metadata(), pol)
+	resp, err := p.catalog.BlockSource(ctx, req, objMeta)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get block source")
 	}
