@@ -11,6 +11,10 @@ There can be lots of moving pieces in a CacheCash environment:
 
 The resources in this subdirectory make it easy to reproducibly run those pieces in different configurations.
 
+## Creating images
+
+Containernet requires that `/bin/bash` be present in each image.
+
 ## Environment
 
 Mininet uses Open vSwitch, a software OpenFlow implementation.  Without it available, switch nodes in the Mininet
@@ -27,4 +31,7 @@ Containernet itself is run in a privileged container.
 ```
 # Run this command from this directory.
 $ docker run --name containernet -it --rm --privileged --pid=host -v $PWD:/cachecash-cnet -v /var/run/docker.sock:/var/run/docker.sock containernet/containernet:d764c67ec639 /cachecash-cnet/dataservice.py
+
+# Remove anything that is left over after an unclean exit.
+$ ... mn -c
 ```
