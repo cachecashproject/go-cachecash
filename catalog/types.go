@@ -86,8 +86,6 @@ type Upstream interface {
 	//   will need to know block sizes in order to translate block indices into byte ranges.  How should this be done?
 	//
 	FetchData(ctx context.Context, path string, metadata *ObjectMetadata, rangeBegin, rangeEnd uint) (*FetchResult, error)
-
-	BlockSource(req *ccmsg.CacheMissRequest, path string, meta *ccmsg.ObjectMetadata, policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error)
 }
 
 type ContentCatalog interface {
@@ -95,6 +93,8 @@ type ContentCatalog interface {
 	GetData(ctx context.Context, req *ccmsg.ContentRequest) (*ObjectMetadata, error)
 
 	GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error)
+
+	BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.CacheMissResponse, error)
 
 	Upstream(path string) (Upstream, error)
 }

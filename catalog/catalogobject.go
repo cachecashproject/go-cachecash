@@ -151,6 +151,15 @@ func (m *ObjectMetadata) getBlock(dataBlockIdx uint32) ([]byte, error) {
 	return m.blocks[dataBlockIdx], nil
 }
 
+func (m *ObjectMetadata) BlockRange(rangeBegin uint64, rangeEnd uint64) ([][]byte, error) {
+	if int(rangeEnd) > len(m.blocks) {
+		return nil, errors.New("block end out of range")
+	} else if rangeEnd == 0 {
+		rangeEnd = uint64(len(m.blocks))
+	}
+	return m.blocks[rangeBegin:rangeEnd], nil
+}
+
 // GetCipherBlock returns an individual cipher block (aka "sub-block") of a particular data block (a protocol-level
 // block).  The return value will be aes.BlockSize bytes long (16 bytes).  ciperBlockIdx is taken modulo the number
 // of whole cipher blocks that exist in the data block.
