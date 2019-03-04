@@ -6,14 +6,23 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/jonboulle/clockwork"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+)
+
+type BlockSource int
+
+const (
+	BlockSourceInline BlockSource = 0
+	BlockSourceHTTP   BlockSource = 1
 )
 
 type catalog struct {
 	l     *logrus.Logger
 	clock clockwork.Clock
 
-	upstream Upstream
+	upstream    Upstream
+	blockSource BlockSource
 
 	mu      sync.Mutex
 	objects map[string]*ObjectMetadata
@@ -30,19 +39,54 @@ func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	}, nil
 }
 
-func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, metadata *ObjectMetadata) (*ccmsg.CacheMissResponse, error) {
-	blocks, err := metadata.BlockRange(req.RangeBegin, req.RangeEnd)
-	if err != nil {
-		return nil, err
-	}
+func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.CacheMissResponse, error) {
+	switch c.blockSource {
+	case BlockSourceInline:
 
-	return &ccmsg.CacheMissResponse{
-		Source: &ccmsg.CacheMissResponse_Inline{
-			Inline: &ccmsg.BlockSourceInline{
-				Blocks: blocks,
+		blocks, err := metadata.BlockRange(req.RangeBegin, req.RangeEnd)
+		if err != nil {
+			return nil, err
+		}
+
+		return &ccmsg.CacheMissResponse{
+			Source: &ccmsg.CacheMissResponse_Inline{
+				Inline: &ccmsg.BlockSourceInline{
+					Blocks: blocks,
+				},
 			},
-		},
-	}, nil
+		}, nil
+	case BlockSourceHTTP:
+		up, ok := c.upstream.(*httpUpstream)
+		if !ok {
+			return nil, errors.New("BlockSourceHTTP doesn't have a http upstream")
+		}
+
+		u, err := up.upstreamURL(path)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get upstream URL")
+		}
+
+		var rangeEnd uint64
+		if req.RangeEnd != 0 {
+			rangeEnd = req.RangeEnd * uint64(metadata.policy.BlockSize)
+
+			if rangeEnd > metadata.ObjectSize() {
+				rangeEnd = metadata.ObjectSize()
+			}
+		}
+
+		return &ccmsg.CacheMissResponse{
+			Source: &ccmsg.CacheMissResponse_Http{
+				Http: &ccmsg.BlockSourceHTTP{
+					Url:        u,
+					RangeBegin: req.RangeBegin * uint64(metadata.policy.BlockSize),
+					RangeEnd:   rangeEnd,
+				},
+			},
+		}, nil
+	default:
+		return nil, errors.New("unsupported blocksource")
+	}
 }
 
 func (c *catalog) GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {

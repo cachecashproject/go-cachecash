@@ -330,7 +330,7 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 		return nil, errors.New("failed to get object policy")
 	}
 
-	resp, err := p.catalog.BlockSource(ctx, req, objMeta)
+	resp, err := p.catalog.BlockSource(ctx, req, path, objMeta)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get block source")
 	}

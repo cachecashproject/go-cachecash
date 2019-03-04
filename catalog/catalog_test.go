@@ -380,7 +380,7 @@ func (suite *CatalogTestSuite) TestUpstreamTimeout() {
 // XXX: Should these BlockSource() tests actually be tests of ContentPublisher.CacheMiss? A lot of the logic here, where
 // we turn the object ID into a path and then use that to look up metadata and policy, duplicates actual logic in that
 // function.
-func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expectedSrc *ccmsg.BlockSourceInline) {
+func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, blockSource BlockSource, expectedSrc interface{}) {
 	t := suite.T()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -399,7 +399,8 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expe
 		t.Fatalf("failed to get metadata for object: %v", err)
 	}
 
-	resp, err := suite.cat.BlockSource(ctx, req, objMeta)
+	suite.cat.blockSource = blockSource
+	resp, err := suite.cat.BlockSource(ctx, req, path, objMeta)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
@@ -417,35 +418,77 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, expe
 	// assert.Equal(t, uint64(len(suite.objectData)), resp.Metadata.ObjectSize)
 	// assert.Equal(t, uint64(suite.blockSize), resp.Metadata.BlockSize)
 
-	bsrc, ok := resp.Source.(*ccmsg.CacheMissResponse_Inline)
-	if !ok {
-		t.Fatalf("unexpected CacheMissResponse source type")
-	}
+	switch blockSource {
+	case BlockSourceInline:
+		bsrc, ok := resp.Source.(*ccmsg.CacheMissResponse_Inline)
+		if !ok {
+			t.Fatalf("unexpected CacheMissResponse source type")
+		}
 
-	assert.Equal(t, expectedSrc.Blocks, bsrc.Inline.Blocks)
+		expectedSrc, ok := expectedSrc.(*ccmsg.BlockSourceInline)
+		if !ok {
+			t.Fatalf("failed to cast expected blocksource result")
+		}
+
+		assert.Equal(t, expectedSrc.Blocks, bsrc.Inline.Blocks)
+	case BlockSourceHTTP:
+		bsrc, ok := resp.Source.(*ccmsg.CacheMissResponse_Http)
+		if !ok {
+			t.Fatalf("unexpected CacheMissResponse source type")
+		}
+
+		expectedSrc, ok := expectedSrc.(*ccmsg.BlockSourceHTTP)
+		if !ok {
+			t.Fatalf("failed to cast expected blocksource result")
+		}
+
+		assert.Equal(t, expectedSrc.Url, bsrc.Http.Url)
+		assert.Equal(t, expectedSrc.RangeBegin, bsrc.Http.RangeBegin)
+		assert.Equal(t, expectedSrc.RangeEnd, bsrc.Http.RangeEnd)
+	}
 }
 
 // N.B. This works even with objectID unset in CacheMissRequest because we are translating back to the path "/foo/bar"
 // in the call to BlockSource().  This is messy.
-func (suite *CatalogTestSuite) TestBlockSource_WholeObject() {
-	suite.testBlockSource(&ccmsg.CacheMissRequest{},
+func (suite *CatalogTestSuite) TestBlockSource_Inline_WholeObject() {
+	suite.testBlockSource(&ccmsg.CacheMissRequest{}, BlockSourceInline,
 		&ccmsg.BlockSourceInline{
 			Blocks: suite.policy.ChunkIntoBlocks(suite.objectData[:]),
 		})
 }
 
-func (suite *CatalogTestSuite) TestBlockSource_FirstBlock() {
+func (suite *CatalogTestSuite) TestBlockSource_HTTP_WholeObject() {
+	suite.testBlockSource(&ccmsg.CacheMissRequest{}, BlockSourceHTTP,
+		&ccmsg.BlockSourceHTTP{
+			Url:        suite.ts.URL + "/foo/bar",
+			RangeBegin: 0,
+			RangeEnd:   0,
+		})
+}
+
+func (suite *CatalogTestSuite) TestBlockSource_Inline_FirstBlock() {
 	suite.testBlockSource(&ccmsg.CacheMissRequest{
 		RangeBegin: 0,
 		RangeEnd:   1,
-	}, &ccmsg.BlockSourceInline{
+	}, BlockSourceInline, &ccmsg.BlockSourceInline{
 		Blocks: suite.policy.ChunkIntoBlocks(suite.objectData[:blockSize]),
+	})
+}
+
+func (suite *CatalogTestSuite) TestBlockSource_HTTP_FirstBlock() {
+	suite.testBlockSource(&ccmsg.CacheMissRequest{
+		RangeBegin: 0,
+		RangeEnd:   1,
+	}, BlockSourceHTTP, &ccmsg.BlockSourceHTTP{
+		Url:        suite.ts.URL + "/foo/bar",
+		RangeBegin: 0,
+		RangeEnd:   uint64(suite.blockSize),
 	})
 }
 
 // Tests that the publisher/catalog returns the actual end of a partial final block instead of simply computing where
 // the block would end were it full-size.
-func (suite *CatalogTestSuite) TestBlockSource_PartialFinalBlock() {
+func (suite *CatalogTestSuite) TestBlockSource_Inline_PartialFinalBlock() {
 	// Remove the last half-block.
 	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.blockSize/2)]
 
@@ -455,8 +498,26 @@ func (suite *CatalogTestSuite) TestBlockSource_PartialFinalBlock() {
 	suite.testBlockSource(&ccmsg.CacheMissRequest{
 		RangeBegin: uint64(expectedBlockCount - 1),
 		RangeEnd:   uint64(expectedBlockCount),
-	}, &ccmsg.BlockSourceInline{
+	}, BlockSourceInline, &ccmsg.BlockSourceInline{
 		Blocks: blocks[len(blocks)-1:],
+	})
+}
+
+// Tests that the publisher/catalog returns the actual end of a partial final block instead of simply computing where
+// the block would end were it full-size.
+func (suite *CatalogTestSuite) TestBlockSource_HTTP_PartialFinalBlock() {
+	// Remove the last half-block.
+	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.blockSize/2)]
+
+	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
+
+	suite.testBlockSource(&ccmsg.CacheMissRequest{
+		RangeBegin: uint64(expectedBlockCount - 1),
+		RangeEnd:   uint64(expectedBlockCount),
+	}, BlockSourceHTTP, &ccmsg.BlockSourceHTTP{
+		Url:        suite.ts.URL + "/foo/bar",
+		RangeBegin: uint64((expectedBlockCount - 1) * suite.blockSize),
+		RangeEnd:   uint64(len(suite.objectData)),
 	})
 }
 
