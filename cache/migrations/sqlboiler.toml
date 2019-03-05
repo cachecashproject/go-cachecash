@@ -5,7 +5,6 @@
   host = "192.168.64.2"
   port = 32768
   user = "postgres"
-  pass = "c4chec4sh"
   dbname = "postgres"
   sslmode = "disable"
   blacklist = ["migrations"]

@@ -20,6 +20,15 @@ notifications:
 before_script:
 - git lfs pull
 - go get github.com/golangci/golangci-lint/cmd/golangci-lint
+- go get github.com/rubenv/sql-migrate/...
+
+- sudo service postgresql stop
+- docker network create cachecash
+- docker run -d -p 5432:5432 -e POSTGRES_DB=publisher --name publisher-db --net=cachecash postgres:10
+- docker build -t cachecash-ci -f ci/Dockerfile .
+
+- while ! psql 'host=127.0.0.1 port=5432 user=postgres dbname=publisher sslmode=disable' -c 'select 1;'; do sleep 10; done
+- (cd publisher/migrations/; sql-migrate up -config=dbconfig.yml -env=development)
 #
 # # For once we switch to modules; ensure that golangci-lint is vendored first.
 # - go install -mod vendor github.com/golangci/golangci-lint/cmd/golangci-lint
@@ -32,6 +41,6 @@ before_script:
 # - go get -u github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/...
 
 script:
-- go test -v -race -tags=sqlboiler_test ./...
+- docker run --rm --network=cachecash -e PSQL_HOST=publisher-db cachecash-ci
 # Linting is non-fatal right now.  See `.golangci.yml` for configuration.
 - golangci-lint run || true

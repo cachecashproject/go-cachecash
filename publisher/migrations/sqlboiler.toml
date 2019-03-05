@@ -2,7 +2,6 @@
   host = "127.0.0.1"
   port = 5432
   user = "postgres"
-  pass = "c4chec4sh"
   dbname = "publisher"
   sslmode = "disable"
   blacklist = ["migrations"]

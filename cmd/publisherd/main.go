@@ -83,13 +83,14 @@ func mainC() error {
 		return errors.Wrap(err, "failed to connect to database")
 	}
 
-	for i := 0; ; i++ {
+	deadline := time.Now().Add(5 * time.Minute)
+	for {
 		err = db.Ping()
 
 		if err == nil {
 			// connected successfully
 			break
-		} else if i < 4*120 {
+		} else if time.Now().Before(deadline) {
 			// connection failed, try again
 			l.Info("Connection failed, trying again shortly")
 			time.Sleep(250 * time.Millisecond)
