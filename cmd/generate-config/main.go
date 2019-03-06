@@ -66,7 +66,8 @@ func mainC() error {
 				ClientProtocolAddr: fmt.Sprintf(":%v", 9000+i),
 				StatusAddr:         fmt.Sprintf(":%v", 9100+i),
 			},
-			Escrows: c.Escrows,
+			Escrows:         c.Escrows,
+			BadgerDirectory: c.BadgerDirectory,
 		}
 
 		buf, err := json.MarshalIndent(cf, "", "  ")

@@ -2,6 +2,7 @@ package testdatagen
 
 import (
 	"crypto/sha512"
+	"fmt"
 	"math"
 	"net"
 	"time"
@@ -212,7 +213,8 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			},
 		})
 
-		c, err := cache.NewCache(ts.L)
+		badgerDirectory := fmt.Sprintf("./cache-%d/", i)
+		c, err := cache.NewCache(ts.L, badgerDirectory)
 		if err != nil {
 			return nil, err
 		}

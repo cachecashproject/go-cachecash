@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  branch = "master"
+  digest = "1:be8511fbdf669eb267e4ba4f964b9c380ec3b95b8931ee3e89ce22ae01418b4b"
+  name = "github.com/AndreasBriese/bbloom"
+  packages = ["."]
+  pruneopts = ""
+  revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
+
+[[projects]]
   digest = "1:dee2213a8b87cc125f834c8aa12646dd4e55d918a75977536251c7ade96b9608"
   name = "github.com/DATA-DOG/go-sqlmock"
   packages = ["."]
@@ -16,6 +24,29 @@
   pruneopts = ""
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
   version = "v1.1.1"
+
+[[projects]]
+  digest = "1:81d49e94365e7f1ed77edddf9a5482ab4ced461dab56fbf8fc2834da6c295de5"
+  name = "github.com/dgraph-io/badger"
+  packages = [
+    ".",
+    "options",
+    "protos",
+    "skl",
+    "table",
+    "y",
+  ]
+  pruneopts = ""
+  revision = "99233d725dbdd26d156c61b2f42ae1671b794656"
+  version = "v1.5.4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:b45f6aa072ce3656b08b31953fe77eb5eb2cbe9723b08554a4f1cf36152c4880"
+  name = "github.com/dgryski/go-farm"
+  packages = ["."]
+  pruneopts = ""
+  revision = "3adb47b1fb0f6d9efcc5051a6c62e2e413ac85a9"
 
 [[projects]]
   digest = "1:57b4616ca3d02b2abfb773e5bed848c6611cd028c49eb0e4c40df5d57bac10e0"
@@ -472,6 +503,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/DATA-DOG/go-sqlmock",
+    "github.com/dgraph-io/badger",
     "github.com/gobuffalo/packr",
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
