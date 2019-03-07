@@ -256,14 +256,6 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 		m.metadata = &ccmsg.ObjectMetadata{}
 	}
 
-	size, err := r.ObjectSize()
-	if err != nil {
-		doneCh <- errors.Wrap(err, "error parsing metadata")
-		return
-	}
-	m.metadata.ObjectSize = uint64(size)
-	log.Debugf("fetchData populates metadata; ObjectSize=%v", m.metadata.ObjectSize)
-
 	// XXX: don't expose the status, this is handled in here
 	log.Debugf("fetchData - r.status=%v", r.status)
 	m.Status = r.status
@@ -274,6 +266,13 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 		m.blocks = m.policy.ChunkIntoBlocks(r.data)
 		log.Debugf("fetchData - populated cache with %v blocks", len(m.blocks))
 
+		size, err := r.ObjectSize()
+		if err != nil {
+			doneCh <- errors.Wrap(err, "error parsing metadata")
+			return
+		}
+		m.metadata.ObjectSize = uint64(size)
+
 	case StatusNotModified:
 		log.Debugln("fetchData - upstream wasn't modified, our data is still fresh")
 
@@ -283,7 +282,11 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 		return
 	}
 
+	log.Debugf("fetchData populates metadata; ObjectSize=%v", m.metadata.ObjectSize)
+
 	// set freshness values accordingly
+	m.ValidUntil = nil
+
 	cacheControl := r.header.Get("Cache-Control")
 	if cacheControl != "" {
 		cc, err := cachecontrol.Parse(cacheControl)
