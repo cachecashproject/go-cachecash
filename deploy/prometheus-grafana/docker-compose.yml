@@ -1,0 +1,23 @@
+version: "3.7"
+services:
+  prom:
+    image: quay.io/prometheus/prometheus:v2.7.2
+    volumes:
+     - ./etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+     - ./promdata:/srv/prometheus
+    command: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/srv/prometheus"
+    ports:
+     - 9090:9090
+    depends_on:
+     - exporter
+  exporter:
+    image: prom/node-exporter:v0.17.0
+    ports:
+     - "9100:9100"
+#    network_mode: host
+  grafana:
+    image: grafana/grafana:6.0.1
+    ports:
+     - "3000:3000"
+    depends_on:
+      - prom
