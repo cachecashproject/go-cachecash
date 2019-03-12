@@ -6,11 +6,13 @@ import (
 	"net"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/cachecashproject/go-cachecash/cache"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/publisher"
+	"github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -140,7 +142,42 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	ts.PublisherPrivateKey = publisherPrivateKey
 
 	// Create the publisher.
-	prov, err := publisher.NewContentPublisher(ts.L, cat, publisherPrivateKey)
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create stub database connection")
+	}
+
+	innerMasterKeys := [][]byte{}
+	cachePublicKeys := []ed25519.PublicKey{}
+
+	for i := 0; i < 4; i++ {
+		public, _, err := ed25519.GenerateKey(nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate cache keypair")
+		}
+		cachePublicKeys = append(cachePublicKeys, public)
+		innerMasterKeys = append(innerMasterKeys, testutil.RandBytes(16))
+	}
+
+	rows := sqlmock.NewRows([]string{"id", "escrow_id", "cache_id", "inner_master_key"}).
+		AddRow(1, 0, 123, innerMasterKeys[0]).
+		AddRow(2, 0, 124, innerMasterKeys[1]).
+		AddRow(3, 0, 125, innerMasterKeys[2]).
+		AddRow(4, 0, 126, innerMasterKeys[3])
+	mock.ExpectQuery("^SELECT \\* FROM \"escrow_caches\" WHERE \\(escrow_id = \\$1\\);").
+		WithArgs(0).
+		WillReturnRows(rows)
+
+	rows = sqlmock.NewRows([]string{"id", "public_key", "inetaddr", "port"}).
+		AddRow(123, cachePublicKeys[0], net.ParseIP("127.0.0.1"), 9000).
+		AddRow(124, cachePublicKeys[1], net.ParseIP("127.0.0.1"), 9001).
+		AddRow(125, cachePublicKeys[2], net.ParseIP("127.0.0.1"), 9002).
+		AddRow(126, cachePublicKeys[3], net.ParseIP("127.0.0.1"), 9003)
+	mock.ExpectQuery("^SELECT \\* FROM \"cache\" WHERE \\(\"id\" IN \\(\\$1,\\$2,\\$3,\\$4\\)\\);").
+		WithArgs(123, 124, 125, 126).
+		WillReturnRows(rows)
+
+	prov, err := publisher.NewContentPublisher(ts.L, db, cat, publisherPrivateKey) // TODO: this one causes panic
 	if err != nil {
 		return nil, err
 	}
@@ -166,19 +203,13 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 
 	// Create caches that are participating in this escrow.
 	for i := 0; i < 4; i++ {
-		public, _, err := ed25519.GenerateKey(nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate cache keypair")
-		}
-
-		// XXX: generate master-key
-		innerMasterKey := testutil.RandBytes(16)
-
-		escrow.Caches = append(escrow.Caches, &publisher.ParticipatingCache{
-			InnerMasterKey: innerMasterKey,
-			PublicKey:      public,
-			Inetaddr:       net.ParseIP("127.0.0.1"),
-			Port:           uint32(9000 + i),
+		ts.Escrow.Caches = append(ts.Escrow.Caches, publisher.ParticipatingCache{
+			InnerMasterKey: innerMasterKeys[i],
+			Cache: models.Cache{
+				PublicKey: cachePublicKeys[i],
+				Inetaddr:  net.ParseIP("127.0.0.1"),
+				Port:      uint32(9000 + i),
+			},
 		})
 
 		c, err := cache.NewCache(ts.L)
@@ -191,7 +222,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		}
 
 		ce := &cache.Escrow{
-			InnerMasterKey:            innerMasterKey,
+			InnerMasterKey:            innerMasterKeys[i],
 			OuterMasterKey:            testutil.RandBytes(16),
 			PublisherCacheServiceAddr: params.PublisherCacheServiceAddr,
 		}

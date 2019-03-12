@@ -8,32 +8,19 @@ import (
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/colocationpuzzle"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/cachecashproject/go-cachecash/util"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
 )
 
-type ParticipatingCache struct {
-	InnerMasterKey []byte // ...?
-
-	PublicKey ed25519.PublicKey
-
-	Inetaddr net.IP
-	Port     uint32
-}
-
 type Escrow struct {
 	ID common.EscrowID
 
 	Publisher *ContentPublisher
-
-	PublicKey  ed25519.PublicKey
-	PrivateKey ed25519.PrivateKey
-
-	Info *ccmsg.EscrowInfo
-
-	Caches []*ParticipatingCache
+	Inner     models.Escrow
+	Caches    []ParticipatingCache
 }
 
 // The info object does not need to have its keys populated.
@@ -65,10 +52,12 @@ func (p *ContentPublisher) NewEscrow(info *ccmsg.EscrowInfo) (*Escrow, error) {
 	return &Escrow{
 		ID: id,
 
-		Publisher:  p,
-		PublicKey:  pub,
-		PrivateKey: priv,
-		Info:       info,
+		Publisher: p,
+		Inner: models.Escrow{
+			PublicKey:  pub,
+			PrivateKey: priv,
+			State:      models.EscrowStateOk,
+		},
 	}, nil
 }
 
@@ -78,6 +67,23 @@ func (e *Escrow) reserveTicketNumbers(qty int) ([]uint64, error) {
 		nos = append(nos, i)
 	}
 	return nos, nil
+}
+
+type ParticipatingCache struct {
+	Cache          models.Cache
+	InnerMasterKey []byte
+}
+
+func (p ParticipatingCache) PublicKey() ed25519.PublicKey {
+	return p.Cache.PublicKey
+}
+
+func (p ParticipatingCache) Inetaddr() net.IP {
+	return p.Cache.Inetaddr
+}
+
+func (p ParticipatingCache) Port() uint32 {
+	return p.Cache.Port
 }
 
 // BundleParams is everything necessary to generate a complete TicketBundle message.
@@ -94,7 +100,7 @@ type BundleEntryParams struct {
 	TicketNo uint64
 	BlockIdx uint32
 	BlockID  common.BlockID
-	Cache    *ParticipatingCache
+	Cache    ParticipatingCache
 }
 
 func NewBundleGenerator(l *logrus.Logger, signer batchsignature.BatchSigner) *BundleGenerator {
@@ -160,7 +166,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 		resp.TicketRequest = append(resp.TicketRequest, &ccmsg.TicketRequest{
 			BlockIdx:       uint64(bep.BlockIdx),
 			BlockId:        bep.BlockID[:],
-			CachePublicKey: cachecash.PublicKeyMessage(bep.Cache.PublicKey),
+			CachePublicKey: cachecash.PublicKeyMessage(bep.Cache.PublicKey()),
 
 			// XXX: Why is 'inner_key' in this message?  Regardless, we need the submessage not to be nil, or we'll get
 			// a nil deref when computing the digest.
@@ -169,15 +175,15 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 
 		resp.CacheInfo = append(resp.CacheInfo, &ccmsg.CacheInfo{
 			Addr: &ccmsg.NetworkAddress{
-				Inetaddr: bep.Cache.Inetaddr,
-				Port:     bep.Cache.Port,
+				Inetaddr: bep.Cache.Inetaddr(),
+				Port:     bep.Cache.Port(),
 			},
 		})
 
 		// Generate a lottery ticket 1 for each cache.
 		resp.TicketL1 = append(resp.TicketL1, &ccmsg.TicketL1{
 			TicketNo:       bep.TicketNo,
-			CachePublicKey: cachecash.PublicKeyMessage(bep.Cache.PublicKey), // XXX: Does this need to be repeated here?
+			CachePublicKey: cachecash.PublicKeyMessage(bep.Cache.PublicKey()), // XXX: Does this need to be repeated here?
 		})
 	}
 

@@ -8,6 +8,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/batchsignature"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -44,7 +45,7 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 		t.Fatalf("failed to generate keypair: %v", err)
 	}
 	// XXX: Once we start using the catalog, passing nil is going to cause runtime panics.
-	suite.publisher, err = NewContentPublisher(l, nil, priv)
+	suite.publisher, err = NewContentPublisher(l, nil, nil, priv)
 	if err != nil {
 		t.Fatalf("failed to construct publisher: %v", err)
 	}
@@ -69,7 +70,7 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 	}
 }
 
-func (suite *TicketBundleTestSuite) generateCacheInfo() *ParticipatingCache {
+func (suite *TicketBundleTestSuite) generateCacheInfo() ParticipatingCache {
 	t := suite.T()
 
 	pub, _, err := ed25519.GenerateKey(nil) // TOOS: use faster, lower-quality entropy?
@@ -77,11 +78,13 @@ func (suite *TicketBundleTestSuite) generateCacheInfo() *ParticipatingCache {
 		t.Fatalf("failed to generate cache keypair: %v", err)
 	}
 
-	return &ParticipatingCache{
+	return ParticipatingCache{
 		InnerMasterKey: testutil.RandBytes(16), // XXX: ??
-		PublicKey:      pub,
-		Inetaddr:       net.ParseIP("10.0.0.1"),
-		Port:           9999,
+		Cache: models.Cache{
+			PublicKey: pub,
+			Inetaddr:  net.ParseIP("10.0.0.1"),
+			Port:      9999,
+		},
 	}
 }
 
@@ -91,7 +94,7 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 	const blockCount = 2
 
 	plaintextBlocks := make([][]byte, 0, blockCount)
-	caches := make([]*ParticipatingCache, 0, blockCount)
+	caches := make([]ParticipatingCache, 0, blockCount)
 	for i := 0; i < blockCount; i++ {
 		plaintextBlocks = append(plaintextBlocks, testutil.RandBytes(aes.BlockSize*50))
 		caches = append(caches, suite.generateCacheInfo())
@@ -114,7 +117,7 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 		PlaintextBlocks: plaintextBlocks,
 	}
 
-	batchSigner, err := batchsignature.NewTrivialBatchSigner(suite.escrow.PrivateKey)
+	batchSigner, err := batchsignature.NewTrivialBatchSigner(suite.escrow.Inner.PrivateKey)
 	if err != nil {
 		t.Fatalf("failed to construct batch signer: %v", err)
 	}

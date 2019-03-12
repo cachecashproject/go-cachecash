@@ -24,6 +24,7 @@ type ConfigFile struct {
 	Escrows     []*Escrow          `json:"escrows"`
 	UpstreamURL string             `json:"upstreamURL"`
 	PrivateKey  ed25519.PrivateKey `json:"privateKey"`
+	Database    string             `json:"database"`
 }
 
 // XXX: Right now, this is shared between the client- and cache-facing servers.

@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:dee2213a8b87cc125f834c8aa12646dd4e55d918a75977536251c7ade96b9608"
+  name = "github.com/DATA-DOG/go-sqlmock"
+  packages = ["."]
+  pruneopts = ""
+  revision = "472e287dbafe67e526a3797165b64cb14f34705a"
+  version = "v1.3.2"
+
+[[projects]]
   digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -10,12 +18,57 @@
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:57b4616ca3d02b2abfb773e5bed848c6611cd028c49eb0e4c40df5d57bac10e0"
+  name = "github.com/ericlagergren/decimal"
+  packages = [
+    ".",
+    "internal/arith",
+    "internal/arith/checked",
+    "internal/c",
+  ]
+  pruneopts = ""
+  revision = "73749d4874d5d3efba704f6046eae0517f998f4e"
+  version = "v3.3.1"
+
+[[projects]]
   digest = "1:eb53021a8aa3f599d29c7102e65026242bdedce998a54837dc67f14b6a97c5fd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   pruneopts = ""
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
   version = "v1.4.7"
+
+[[projects]]
+  digest = "1:83e42cd058ee568f8897de6fb1ec66ba5751ab88436e8d9759824502a9fbed27"
+  name = "github.com/gobuffalo/envy"
+  packages = ["."]
+  pruneopts = ""
+  revision = "fa0dfdc10b5366ce365b7d9d1755a03e4e797bc5"
+  version = "v1.6.15"
+
+[[projects]]
+  branch = "master"
+  digest = "1:4dc3a807179b54e44ee710e30cae87ea4ba5f3ee6b96a1929ab8042ece05fe19"
+  name = "github.com/gobuffalo/packd"
+  packages = ["."]
+  pruneopts = ""
+  revision = "d04dd98aca5b9aa7ca7c36ee639a21bcc69de32a"
+
+[[projects]]
+  digest = "1:169b0f13452aa130cad334e8398aa8358759ab96e4d045bd8b6cba3e27ccda4d"
+  name = "github.com/gobuffalo/packr"
+  packages = ["."]
+  pruneopts = ""
+  revision = "5aa3f2df6770adb7f8719a43ef25c2522af176ed"
+  version = "v2.0.3"
+
+[[projects]]
+  branch = "master"
+  digest = "1:03179c4a6eecf90cbfbb07648e6202dd999904531c9757ba034f009904de3a9c"
+  name = "github.com/gobuffalo/syncx"
+  packages = ["."]
+  pruneopts = ""
+  revision = "33c29581e754bd354236e977dfe426e55331c45d"
 
 [[projects]]
   digest = "1:141cc9fc6279592458b304038bd16a05ef477d125c6dad281216345a11746fd7"
@@ -75,6 +128,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:7df5a9695a743c3e1626b28bb8741602c8c15527e1efaeaec48ab2ff9a23f74c"
+  name = "github.com/joho/godotenv"
+  packages = ["."]
+  pruneopts = ""
+  revision = "23d116af351c84513e1946b527c88823e476be13"
+  version = "v1.3.0"
+
+[[projects]]
   digest = "1:302ad9379eb146668760df4d779a95379acab43ce5f9a28f27f3273f98232020"
   name = "github.com/jonboulle/clockwork"
   packages = ["."]
@@ -83,12 +144,31 @@
   version = "v0.1.0"
 
 [[projects]]
+  digest = "1:2786f06eed161f2d37c797e9edfe40edeb836e9511dc1216cba6caac0f105079"
+  name = "github.com/kat-co/vala"
+  packages = ["."]
+  pruneopts = ""
+  revision = "bfe9b50e828ad56312e486cbf4165ff1ac3a9bae"
+  version = "v1"
+
+[[projects]]
   digest = "1:6a874e3ddfb9db2b42bd8c85b6875407c702fa868eed20634ff489bc896ccfd3"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
   pruneopts = ""
   revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
   version = "v1.0.1"
+
+[[projects]]
+  digest = "1:29145d7af4adafd72a79df5e41456ac9e232d5a28c1cd4dacf3ff008a217fc10"
+  name = "github.com/lib/pq"
+  packages = [
+    ".",
+    "oid",
+  ]
+  pruneopts = ""
+  revision = "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:961dc3b1d11f969370533390fdf203813162980c858e1dabe827b60940c909a5"
@@ -137,6 +217,29 @@
   pruneopts = ""
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:d367886e3a8134415fad58fb2ac44e2f38aa88068adca7a02d59a555f87085c0"
+  name = "github.com/rogpeppe/go-internal"
+  packages = [
+    "modfile",
+    "module",
+    "semver",
+  ]
+  pruneopts = ""
+  revision = "1cf9852c553c5b7da2d5a4a091129a7822fed0c9"
+  version = "v1.2.2"
+
+[[projects]]
+  branch = "master"
+  digest = "1:83f3e6cbdffc82aae856cb9738a5651aacf8d5c5b490e75f8f23b8cdb1abe10e"
+  name = "github.com/rubenv/sql-migrate"
+  packages = [
+    ".",
+    "sqlparse",
+  ]
+  pruneopts = ""
+  revision = "1007f53448d75fe14190968f5de4d95ed63ebb83"
 
 [[projects]]
   digest = "1:9a3c631555e0351fdc4e696577bb63afd90c399d782a8462dba9d100d7021db3"
@@ -210,17 +313,30 @@
   revision = "e7201282ae8da26cd97aed2e516f75c0bd91bb93"
 
 [[projects]]
+  digest = "1:3610e24260db9be91620fb8f3958c2048cc8856b10037112b2d279cb0b550c1b"
+  name = "github.com/volatiletech/null"
+  packages = [
+    ".",
+    "convert",
+  ]
+  pruneopts = ""
+  revision = "0681ee3b5e046ac8bfbbd3999e79d3905e96972f"
+  version = "v8.0.0"
+
+[[projects]]
   digest = "1:7bdc244c12fbdee05c975f0e352e343d562e5b7f62b2719c0d589b8870faffe0"
   name = "github.com/volatiletech/sqlboiler"
   packages = [
     "boil",
     "drivers",
+    "drivers/sqlboiler-psql/driver",
     "importers",
     "queries",
     "queries/qm",
     "queries/qmhelper",
     "randomize",
     "strmangle",
+    "types",
   ]
   pruneopts = ""
   revision = "df8550538fefdf62f2520e74dbfad73f1bcb84a2"
@@ -243,7 +359,6 @@
   digest = "1:7ec13687f85b25087fe05f6ea8dd116013a8263f8eb7e057da7664bc7599d2d4"
   name = "golang.org/x/net"
   packages = [
-    "context",
     "http/httpguts",
     "http2",
     "http2/hpack",
@@ -337,6 +452,14 @@
   version = "v1.18.0"
 
 [[projects]]
+  digest = "1:cf14a5ea75b0cdb3eed3315839a120110068dce6df03edbe8c3bf4bd642a6024"
+  name = "gopkg.in/gorp.v1"
+  packages = ["."]
+  pruneopts = ""
+  revision = "6a667da9c028871f98598d85413e3fc4c6daa52e"
+  version = "v1.7.2"
+
+[[projects]]
   digest = "1:cedccf16b71e86db87a24f8d4c70b0a855872eb967cb906a66b95de56aefbd0d"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -348,25 +471,31 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/DATA-DOG/go-sqlmock",
+    "github.com/gobuffalo/packr",
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
     "github.com/gorilla/websocket",
     "github.com/jonboulle/clockwork",
+    "github.com/kat-co/vala",
+    "github.com/lib/pq",
     "github.com/mattn/go-sqlite3",
     "github.com/pkg/errors",
+    "github.com/rubenv/sql-migrate",
     "github.com/sirupsen/logrus",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/suite",
     "github.com/volatiletech/sqlboiler/boil",
     "github.com/volatiletech/sqlboiler/drivers",
+    "github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/driver",
     "github.com/volatiletech/sqlboiler/queries",
     "github.com/volatiletech/sqlboiler/queries/qm",
     "github.com/volatiletech/sqlboiler/queries/qmhelper",
     "github.com/volatiletech/sqlboiler/randomize",
     "github.com/volatiletech/sqlboiler/strmangle",
+    "github.com/volatiletech/sqlboiler/types",
     "golang.org/x/crypto/ed25519",
-    "golang.org/x/net/context",
     "google.golang.org/grpc",
   ]
   solver-name = "gps-cdcl"
