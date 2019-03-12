@@ -31,7 +31,6 @@ class Network():
         self.containers['u0'] = self.cn.addDocker('u0', ip='10.0.0.10', dimage="ubuntu:trusty")
         self.containers['u1'] = self.cn.addDocker('u1', ip='10.0.0.11', dimage="ubuntu:trusty")
         self.containers['p0'] = self.cn.addDocker('p0', ip='10.0.0.100', dimage="cachecashproject/go-cachecash", dcmd='')
-        self.containers['ek'] = self.cn.addDocker('ek', ip='10.0.0.200', dimage="cachecashproject/elasticsearch-kibana")
         
         info('*** Creating links\n')
         for c in self.containers.values():
@@ -46,7 +45,6 @@ def main():
     info('*** Testing connectivity\n')
     net.cn.ping([net.containers['u0'], net.containers['u1']])
     net.cn.ping([net.containers['u0'], net.containers['p0']])
-    net.cn.ping([net.containers['u0'], net.containers['ek']])
     info('*** Running CLI\n')
     CLI(net.cn)
     info('*** Stopping network')
