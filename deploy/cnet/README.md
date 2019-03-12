@@ -13,7 +13,24 @@ The resources in this subdirectory make it easy to reproducibly run those pieces
 
 ## Creating images
 
-Containernet requires that `/bin/bash` be present in each image.
+Containernet requires
+that [several utilities](https://github.com/containernet/containernet/wiki/Container-Requirements-and-Compatibility) be
+present in each container image.
+
+For images based on Alpine Linux, add the following to the Dockerfile.  If the Dockerfile contains a `USER` directive,
+these lines must be inserted before that.
+
+```
+# --------------------
+# These steps are only necessary for Containernet.  Containernet expects a version of ifconfig that supports CIDR
+# notation ("ifconfig up 1.2.3.4/8") but installs ifconfig to /bin which is after /sbin (where busybox ifconfig, which
+# is Alpine's default, lives) in root's PATH.  /usr/local/sbin is the first element in that PATH, so symlinking things
+# there fixes the problem.
+RUN apk add --no-cache bash net-tools iproute2 iputils
+RUN mkdir -p /usr/local/sbin
+RUN for XX in ifconfig route netstat domainname hostname ypdomainname nisdomainname; do ln -s /bin/$XX /usr/local/sbin/; done
+# --------------------
+```
 
 ## Environment
 
