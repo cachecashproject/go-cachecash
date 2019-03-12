@@ -31,6 +31,7 @@ services:
      - 9000:9000
     volumes:
     - ./cfg/cache-0.config.json:/etc/cached.config.json
+    - ./cache-0:/cache-0
   cache-1:
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
@@ -38,6 +39,7 @@ services:
      - 9001:9001
     volumes:
     - ./cfg/cache-1.config.json:/etc/cached.config.json
+    - ./cache-1:/cache-1
   cache-2:
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
@@ -45,6 +47,7 @@ services:
      - 9002:9002
     volumes:
     - ./cfg/cache-2.config.json:/etc/cached.config.json
+    - ./cache-2:/cache-2
   cache-3:
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
@@ -52,4 +55,5 @@ services:
      - 9003:9003
     volumes:
     - ./cfg/cache-3.config.json:/etc/cached.config.json
+    - ./cache-3:/cache-3
 ...

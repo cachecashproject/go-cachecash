@@ -268,7 +268,7 @@ func (suite *CatalogTestSuite) TestCacheRevalidate() {
 	assert.NotNil(t, m)
 
 	assert.Equal(t, StatusNotModified, m.Status, "unexpected response status")
-	assert.Equal(t, uint64(0), m.ObjectSize())
+	assert.Equal(t, uint64(len(suite.objectData)), m.ObjectSize())
 
 	// Due to caching, only a single request should be sent upstream.
 	assert.Equal(t, 2, suite.upstreamRequestQty, "request for cached data should not create another upstream request")

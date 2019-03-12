@@ -18,8 +18,9 @@ type Application interface {
 }
 
 type ConfigFile struct {
-	Config  *Config                     `json:"config"`
-	Escrows map[common.EscrowID]*Escrow `json:"escrows"`
+	Config          *Config                     `json:"config"`
+	Escrows         map[common.EscrowID]*Escrow `json:"escrows"`
+	BadgerDirectory string                      `json:"badger_directory"`
 }
 
 type Config struct {

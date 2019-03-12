@@ -60,10 +60,11 @@ func mainC() error {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
 
-	c, err := cache.NewCache(l)
+	c, err := cache.NewCache(l, cf.BadgerDirectory)
 	if err != nil {
 		return nil
 	}
+	defer c.Close()
 
 	c.Escrows = cf.Escrows
 

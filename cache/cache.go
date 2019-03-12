@@ -41,20 +41,26 @@ type Cache struct {
 
 	Escrows map[common.EscrowID]*Escrow
 
-	Storage *CacheStorage
+	Storage         *CacheStorage
+	BadgerDirectory string
 }
 
-func NewCache(l *logrus.Logger) (*Cache, error) {
-	s, err := NewCacheStorage(l)
+func NewCache(l *logrus.Logger, badgerDirectory string) (*Cache, error) {
+	s, err := NewCacheStorage(l, badgerDirectory)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create cache storage")
 	}
 
 	return &Cache{
-		l:       l,
-		Escrows: make(map[common.EscrowID]*Escrow),
-		Storage: s,
+		l:               l,
+		Escrows:         make(map[common.EscrowID]*Escrow),
+		Storage:         s,
+		BadgerDirectory: badgerDirectory,
 	}, nil
+}
+
+func (c *Cache) Close() error {
+	return c.Storage.Close()
 }
 
 func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, objectID common.ObjectID, blockIdx uint64,
