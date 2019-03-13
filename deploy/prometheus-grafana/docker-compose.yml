@@ -1,0 +1,76 @@
+version: "3.7"
+services:
+  prometheus:
+    image: quay.io/prometheus/prometheus:v2.7.2
+    volumes:
+      - ./etc/prometheus/:/etc/prometheus/
+      - ./data/prometheus/:/prometheus/
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - 9090:9090
+    depends_on:
+      - node-exporter
+    # restart:  always
+
+  # N.B.: vegasbrianc/prometheus has a bunch of additional configuration for node-exporter that we might want to take a
+  #   look at.
+  node-exporter:
+    image: prom/node-exporter:v0.17.0
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points'
+      - '^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)'
+    ports:
+      - 9100:9100
+    # restart:  always
+    # network_mode: host
+
+  grafana:
+    image: grafana/grafana:6.0.1
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+      - ./etc/grafana/provisioning/:/etc/grafana/provisioning/
+      - ./etc/grafana/grafana.ini:/etc/grafana/grafana.ini
+    # env_file:
+    #   - ./etc/grafana.env
+    ports:
+      - 3000:3000
+    depends_on:
+      - prometheus
+
+  cadvisor:
+    image: google/cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - 8080:8080  # Needs to match prometheus.yml.
+    # networks:
+    #   - back-tier
+    # restart: always
+    # deploy:
+    #   mode: global
+
+  alertmanager:
+    image: prom/alertmanager
+    ports:
+      - 9093:9093
+    volumes:
+      - ./etc/alertmanager/:/etc/alertmanager/
+    # networks:
+    #   - back-tier
+    # restart: always
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
