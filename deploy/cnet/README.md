@@ -43,11 +43,13 @@ apt-get install openvswitch-switch
 
 ## Running
 
-Containernet itself is run in a privileged container.  The upstream project does not seem to tag releases.  We are currently working with version `d764c67ec639`.
+Containernet itself is run in a privileged container.  We mirror container images from `containernet/containernet` to
+`cachecashproject/containernet` because The upstream project does not seem to tag releases and Docker Hub preserves only
+the last several untagged images.
 
 Each of the following commands should be run the following prefix in place of the ellipsis (...).
 ```
-docker run --name containernet -it --rm --privileged --pid=host -v $PWD:/cachecash-cnet -v /var/run/docker.sock:/var/run/docker.sock containernet/containernet
+docker run --name containernet -it --rm --privileged --pid=host -v $PWD:/cachecash-cnet -v /var/run/docker.sock:/var/run/docker.sock cachecashproject/containernet
 ```
 
 ```
