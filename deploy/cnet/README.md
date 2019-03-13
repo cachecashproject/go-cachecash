@@ -43,11 +43,16 @@ apt-get install openvswitch-switch
 
 ## Running
 
-Containernet itself is run in a privileged container.
+Containernet itself is run in a privileged container.  The upstream project does not seem to tag releases.  We are currently working with version `d764c67ec639`.
+
+Each of the following commands should be run the following prefix in place of the ellipsis (...).
+```
+docker run --name containernet -it --rm --privileged --pid=host -v $PWD:/cachecash-cnet -v /var/run/docker.sock:/var/run/docker.sock containernet/containernet
+```
 
 ```
-# Run this command from this directory.
-$ docker run --name containernet -it --rm --privileged --pid=host -v $PWD:/cachecash-cnet -v /var/run/docker.sock:/var/run/docker.sock containernet/containernet:d764c67ec639 /cachecash-cnet/dataservice.py
+# Run this command from this directory to start the simulated network.  Send SIGINT to tear down the containers.
+$ ... /cachecash-cnet/dataservice.py
 
 # Remove anything that is left over after an unclean exit.
 $ ... mn -c
