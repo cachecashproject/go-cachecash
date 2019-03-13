@@ -155,6 +155,12 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	}
 	rangeBegin := uint64(req.RangeBegin / obj.PolicyBlockSize())
 	rangeEnd := uint64(req.RangeEnd / obj.PolicyBlockSize()) // XXX: This probably needs a ceil()
+
+	// XXX: this doesn't work with empty files
+	if rangeBegin >= uint64(obj.BlockCount()) {
+		return nil, errors.New("rangeBegin beyond last block")
+	}
+
 	// TODO: Return multiple block-groups if appropriate.
 	rangeEnd = rangeBegin + blocksPerGroup
 	if rangeEnd > uint64(obj.BlockCount()) {
