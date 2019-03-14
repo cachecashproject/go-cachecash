@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -36,6 +37,7 @@ func newStatusServer(l *logrus.Logger, c *Cache, conf *Config) (*statusServer, e
 	}
 
 	mux.HandleFunc("/info", s.handleInfo)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	return s, nil
 }
