@@ -31,6 +31,7 @@ type ConfigFile struct {
 type Config struct {
 	ClientProtocolAddr   string
 	CacheProtocolAddr    string
+	StatusAddr           string
 	DefaultCacheDuration time.Duration
 }
 
@@ -40,6 +41,9 @@ func (c *Config) FillDefaults() {
 	}
 	if c.CacheProtocolAddr == "" {
 		c.CacheProtocolAddr = ":8082"
+	}
+	if c.StatusAddr == "" {
+		c.StatusAddr = ":8100"
 	}
 	if c.DefaultCacheDuration == 0 {
 		c.DefaultCacheDuration = 5 * time.Minute
@@ -51,6 +55,7 @@ type application struct {
 
 	clientProtocolServer *clientProtocolServer
 	cacheProtocolServer  *cacheProtocolServer
+	statusServer         *statusServer
 	// TODO: ...
 }
 
@@ -70,10 +75,16 @@ func NewApplication(l *logrus.Logger, p *ContentPublisher, conf *Config) (Applic
 		return nil, errors.Wrap(err, "failed to create cache protocol server")
 	}
 
+	statusServer, err := newStatusServer(l, p, conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create status server")
+	}
+
 	return &application{
 		l:                    l,
 		clientProtocolServer: clientProtocolServer,
 		cacheProtocolServer:  cacheProtocolServer,
+		statusServer:         statusServer,
 	}, nil
 }
 
@@ -84,11 +95,23 @@ func (a *application) Start() error {
 	if err := a.cacheProtocolServer.Start(); err != nil {
 		return errors.Wrap(err, "failed to start cache protocol server")
 	}
+	if err := a.statusServer.Start(); err != nil {
+		return errors.Wrap(err, "failed to start status server")
+	}
 	return nil
 }
 
 func (a *application) Shutdown(ctx context.Context) error {
-	return a.clientProtocolServer.Shutdown(ctx)
+	if err := a.clientProtocolServer.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to shut down client protocol server")
+	}
+	if err := a.cacheProtocolServer.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to shut down cache protocol server")
+	}
+	if err := a.statusServer.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to shut down status server")
+	}
+	return nil
 }
 
 type clientProtocolServer struct {
