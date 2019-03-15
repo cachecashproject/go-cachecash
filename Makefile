@@ -3,7 +3,7 @@ BINNAMES:=$(BINNAMES2:cmd/%=%)
 PREFIX?=.
 GOPATH?=$(shell go env GOPATH)
 
-.PHONY: $(BINNAMES)
+.PHONY: $(BINNAMES) clean
 
 all: $(BINNAMES)
 
@@ -12,3 +12,7 @@ $(BINNAMES):
 		-gcflags="all=-trimpath=${GOPATH}" \
 		-asmflags "all=-trimpath=${GOPATH}" \
 		-o $(PREFIX)/bin/$@ ./cmd/$@
+
+clean:
+	sudo rm -vrf ./cache-*
+	docker-compose rm -f publisher-db

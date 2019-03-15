@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
@@ -9,8 +10,11 @@ import (
 	"os"
 
 	"github.com/cachecashproject/go-cachecash/cache"
+	"github.com/cachecashproject/go-cachecash/cache/migrations"
 	"github.com/cachecashproject/go-cachecash/common"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
+	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
 )
 
@@ -60,7 +64,19 @@ func mainC() error {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
 
-	c, err := cache.NewCache(l, cf.BadgerDirectory)
+	db, err := sql.Open("sqlite3", cf.Database)
+	if err != nil {
+		return errors.Wrap(err, "failed to open database")
+	}
+
+	l.Info("applying migrations")
+	n, err := migrate.Exec(db, "sqlite3", migrations.Migrations, migrate.Up)
+	if err != nil {
+		return errors.Wrap(err, "failed to apply migrations")
+	}
+	l.Infof("applied %d migrations", n)
+
+	c, err := cache.NewCache(l, db, cf.BadgerDirectory)
 	if err != nil {
 		return nil
 	}

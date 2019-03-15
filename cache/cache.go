@@ -5,16 +5,20 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/cachecashproject/go-cachecash/batchsignature"
+	"github.com/cachecashproject/go-cachecash/cache/models"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/util"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/volatiletech/sqlboiler/boil"
+	"github.com/volatiletech/sqlboiler/queries/qm"
 	"google.golang.org/grpc"
 )
 
@@ -29,6 +33,7 @@ type Escrow struct {
 	InnerMasterKey []byte // XXX: Shared with publisher?
 	OuterMasterKey []byte
 
+	Slots                     uint64
 	PublisherCacheServiceAddr string
 }
 
@@ -37,25 +42,25 @@ func (e *Escrow) Active() bool {
 }
 
 type Cache struct {
-	l *logrus.Logger
+	l  *logrus.Logger
+	db *sql.DB
 
 	Escrows map[common.EscrowID]*Escrow
 
-	Storage         *CacheStorage
-	BadgerDirectory string
+	Storage *CacheStorage
 }
 
-func NewCache(l *logrus.Logger, badgerDirectory string) (*Cache, error) {
+func NewCache(l *logrus.Logger, db *sql.DB, badgerDirectory string) (*Cache, error) {
 	s, err := NewCacheStorage(l, badgerDirectory)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create cache storage")
 	}
 
 	return &Cache{
-		l:               l,
-		Escrows:         make(map[common.EscrowID]*Escrow),
-		Storage:         s,
-		BadgerDirectory: badgerDirectory,
+		l:       l,
+		db:      db,
+		Escrows: make(map[common.EscrowID]*Escrow),
+		Storage: s,
 	}, nil
 }
 
@@ -69,7 +74,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 	// Can we satisfy the request out of cache?
 	data, err := c.Storage.GetData(escrowID, blockID)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get data block")
+		return nil, errors.Wrap(err, "failed to get data block from storage")
 	}
 
 	if data == nil {
@@ -98,40 +103,54 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 			return nil, errors.Wrap(err, "failed to fetch upstream info from publisher")
 		}
 
-		c.l.WithFields(logrus.Fields{
-			"slot_idx":    resp.SlotIdx,
-			"object_size": resp.Metadata.ObjectSize,
-			"block_size":  resp.Metadata.BlockSize,
-		}).Debug("cache-miss response")
+		for _, chunk := range resp.Chunks {
+			c.l.WithFields(logrus.Fields{
+				"slot_idx":    chunk.SlotIdx,
+				"block_id":    blockID,
+				"object_size": resp.Metadata.ObjectSize,
+				"block_size":  resp.Metadata.BlockSize,
+			}).Debug("cache-miss response")
 
-		// Setup data retrieval
-		switch source := resp.Source.(type) {
-		case *ccmsg.CacheMissResponse_Http:
-			data, err = c.getDataBlockHTTP(source)
-			if err != nil {
-				return nil, err
+			if chunk.SlotIdx >= escrow.Slots {
+				return nil, errors.New("slot number out of range")
 			}
-		case *ccmsg.CacheMissResponse_Inline:
-			data = bytes.Join(source.Inline.Blocks, nil)
-		default:
-			return nil, fmt.Errorf("unexpected block source type: %T", resp.Source)
-		}
 
-		// Insert it into the cache.
-		c.l.Info("inserting data into cache")
-		if err := c.Storage.PutMetadata(escrowID, objectID, resp.Metadata); err != nil {
-			return nil, errors.Wrap(err, "failed to store metadata in cache")
+			// Setup data retrieval
+			switch source := chunk.Source.(type) {
+			case *ccmsg.Chunk_Http:
+				data, err = c.getDataBlockHTTP(source)
+				if err != nil {
+					return nil, err
+				}
+			case *ccmsg.Chunk_Inline:
+				data = bytes.Join(source.Inline.Block, nil)
+			default:
+				return nil, fmt.Errorf("unexpected block source type: %T", chunk.Source)
+			}
+
+			// update LogicalCacheMapping
+			if err = c.updateLogicalCacheMapping(ctx, chunk, escrowID, blockID); err != nil {
+				return nil, errors.Wrap(err, "failed to update lcm")
+			}
+
+			// Insert it into the cache.
+			c.l.Info("inserting data into cache")
+			if err := c.Storage.PutMetadata(escrowID, objectID, resp.Metadata); err != nil {
+				return nil, errors.Wrap(err, "failed to store metadata in cache")
+			}
+			if err := c.Storage.PutData(escrowID, blockID, data); err != nil {
+				return nil, errors.Wrap(err, "failed to store data in cache")
+			}
 		}
-		if err := c.Storage.PutData(escrowID, blockID, data); err != nil {
-			return nil, errors.Wrap(err, "failed to store data in cache")
-		}
+	} else {
+		c.l.Debug("using data from cache")
 	}
 
 	c.l.Info("cache returns data")
 	return data, nil
 }
 
-func (c *Cache) getDataBlockHTTP(source *ccmsg.CacheMissResponse_Http) ([]byte, error) {
+func (c *Cache) getDataBlockHTTP(source *ccmsg.Chunk_Http) ([]byte, error) {
 	c.l.Info("sending request")
 	req, err := http.NewRequest("GET", source.Http.Url, nil)
 	if err != nil {
@@ -185,6 +204,40 @@ func (c *Cache) getDataBlockHTTP(source *ccmsg.CacheMissResponse_Http) ([]byte, 
 	}
 
 	return data, nil
+}
+
+func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chunk, escrowID common.EscrowID, blockID common.BlockID) error {
+	// test if slot is getting re-assigned
+	slot, err := models.LogicalCacheMappings(qm.Where("escrow_id=? and slot_idx=?", escrowID, chunk.SlotIdx)).One(ctx, c.db)
+	if err != nil {
+		// missing row is fine, fall through in that case
+		if err != sql.ErrNoRows {
+			return errors.Wrap(err, "failed to select logical cache mapping from database")
+		}
+	} else {
+		// slot is already in use, removing old data
+		if err = c.Storage.DeleteData(slot.EscrowID, slot.BlockID); err != nil {
+			return errors.Wrap(err, "failed to remove old key from badger")
+		}
+
+		if _, err = slot.Delete(ctx, c.db); err != nil {
+			return errors.Wrap(err, "failed to remove old logical cache mapping from database")
+		}
+	}
+
+	// add the slot to the database
+	lcm := &models.LogicalCacheMapping{
+		EscrowID:      escrowID,
+		SlotIdx:       chunk.SlotIdx,
+		BlockEscrowID: "TODO",
+		BlockID:       blockID,
+	}
+	err = lcm.Insert(ctx, c.db, boil.Infer())
+	if err != nil {
+		return errors.Wrap(err, "failed to add cache to database")
+	}
+
+	return nil
 }
 
 func (c *Cache) getEscrow(escrowID common.EscrowID) (*Escrow, error) {

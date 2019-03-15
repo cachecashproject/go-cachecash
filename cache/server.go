@@ -21,6 +21,7 @@ type ConfigFile struct {
 	Config          *Config                     `json:"config"`
 	Escrows         map[common.EscrowID]*Escrow `json:"escrows"`
 	BadgerDirectory string                      `json:"badger_directory"`
+	Database        string                      `json:"database"`
 }
 
 type Config struct {

@@ -67,7 +67,8 @@ func mainC() error {
 				StatusAddr:         fmt.Sprintf(":%v", 9100+i),
 			},
 			Escrows:         c.Escrows,
-			BadgerDirectory: c.BadgerDirectory,
+			BadgerDirectory: fmt.Sprintf("./cache-%d/", i),
+			Database:        fmt.Sprintf("./cache-%d.db", i),
 		}
 
 		buf, err := json.MarshalIndent(cf, "", "  ")

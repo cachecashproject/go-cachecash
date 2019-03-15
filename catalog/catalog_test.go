@@ -400,10 +400,10 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 	}
 
 	suite.cat.blockSource = blockSource
-	resp, err := suite.cat.BlockSource(ctx, req, path, objMeta)
+	chunk, err := suite.cat.BlockSource(ctx, req, path, objMeta)
 
 	assert.Nil(t, err)
-	assert.NotNil(t, resp)
+	assert.NotNil(t, chunk)
 
 	// XXX: TODO: These fields are not yet populated.
 	// // Test that slot_idx and block_id contain enough elements to cover the entire object.
@@ -420,7 +420,7 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 
 	switch blockSource {
 	case BlockSourceInline:
-		bsrc, ok := resp.Source.(*ccmsg.CacheMissResponse_Inline)
+		bsrc, ok := chunk.Source.(*ccmsg.Chunk_Inline)
 		if !ok {
 			t.Fatalf("unexpected CacheMissResponse source type")
 		}
@@ -430,9 +430,9 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 			t.Fatalf("failed to cast expected blocksource result")
 		}
 
-		assert.Equal(t, expectedSrc.Blocks, bsrc.Inline.Blocks)
+		assert.Equal(t, expectedSrc.Block, bsrc.Inline.Block)
 	case BlockSourceHTTP:
-		bsrc, ok := resp.Source.(*ccmsg.CacheMissResponse_Http)
+		bsrc, ok := chunk.Source.(*ccmsg.Chunk_Http)
 		if !ok {
 			t.Fatalf("unexpected CacheMissResponse source type")
 		}
@@ -453,7 +453,7 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 func (suite *CatalogTestSuite) TestBlockSource_Inline_WholeObject() {
 	suite.testBlockSource(&ccmsg.CacheMissRequest{}, BlockSourceInline,
 		&ccmsg.BlockSourceInline{
-			Blocks: suite.policy.ChunkIntoBlocks(suite.objectData[:]),
+			Block: suite.policy.ChunkIntoBlocks(suite.objectData[:]),
 		})
 }
 
@@ -471,7 +471,7 @@ func (suite *CatalogTestSuite) TestBlockSource_Inline_FirstBlock() {
 		RangeBegin: 0,
 		RangeEnd:   1,
 	}, BlockSourceInline, &ccmsg.BlockSourceInline{
-		Blocks: suite.policy.ChunkIntoBlocks(suite.objectData[:blockSize]),
+		Block: suite.policy.ChunkIntoBlocks(suite.objectData[:blockSize]),
 	})
 }
 
@@ -499,7 +499,7 @@ func (suite *CatalogTestSuite) TestBlockSource_Inline_PartialFinalBlock() {
 		RangeBegin: uint64(expectedBlockCount - 1),
 		RangeEnd:   uint64(expectedBlockCount),
 	}, BlockSourceInline, &ccmsg.BlockSourceInline{
-		Blocks: blocks[len(blocks)-1:],
+		Block: blocks[len(blocks)-1:],
 	})
 }
 

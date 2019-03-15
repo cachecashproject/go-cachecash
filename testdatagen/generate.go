@@ -214,7 +214,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		})
 
 		badgerDirectory := fmt.Sprintf("./cache-%d/", i)
-		c, err := cache.NewCache(ts.L, badgerDirectory)
+		c, err := cache.NewCache(ts.L, nil, badgerDirectory)
 		if err != nil {
 			return nil, err
 		}
@@ -226,6 +226,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		ce := &cache.Escrow{
 			InnerMasterKey:            innerMasterKeys[i],
 			OuterMasterKey:            testutil.RandBytes(16),
+			Slots:                     uint64(100 + i),
 			PublisherCacheServiceAddr: params.PublisherCacheServiceAddr,
 		}
 		if params.GenerateObject {
