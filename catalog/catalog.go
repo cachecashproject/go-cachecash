@@ -39,19 +39,19 @@ func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	}, nil
 }
 
-func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.CacheMissResponse, error) {
+func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.Chunk, error) {
 	switch c.blockSource {
 	case BlockSourceInline:
 
-		blocks, err := metadata.BlockRange(req.RangeBegin, req.RangeEnd)
+		block, err := metadata.BlockRange(req.RangeBegin, req.RangeEnd)
 		if err != nil {
 			return nil, err
 		}
 
-		return &ccmsg.CacheMissResponse{
-			Source: &ccmsg.CacheMissResponse_Inline{
+		return &ccmsg.Chunk{
+			Source: &ccmsg.Chunk_Inline{
 				Inline: &ccmsg.BlockSourceInline{
-					Blocks: blocks,
+					Block: block,
 				},
 			},
 		}, nil
@@ -75,8 +75,8 @@ func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, 
 			}
 		}
 
-		return &ccmsg.CacheMissResponse{
-			Source: &ccmsg.CacheMissResponse_Http{
+		return &ccmsg.Chunk{
+			Source: &ccmsg.Chunk_Http{
 				Http: &ccmsg.BlockSourceHTTP{
 					Url:        u,
 					RangeBegin: req.RangeBegin * uint64(metadata.policy.BlockSize),

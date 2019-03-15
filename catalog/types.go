@@ -94,7 +94,7 @@ type ContentCatalog interface {
 
 	GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error)
 
-	BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.CacheMissResponse, error)
+	BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.Chunk, error)
 
 	Upstream(path string) (Upstream, error)
 }

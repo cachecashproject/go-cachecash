@@ -1,8 +1,6 @@
 package cache
 
 import (
-	"time"
-
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/dgraph-io/badger"
@@ -69,13 +67,21 @@ func (s *CacheStorage) GetRawBytes(key []byte) ([]byte, error) {
 	return value, nil
 }
 
-func (s *CacheStorage) PutRawBytes(key []byte, bytes []byte, ttl *time.Duration) error {
+func (s *CacheStorage) PutRawBytes(key []byte, bytes []byte) error {
 	err := s.kv.Update(func(txn *badger.Txn) error {
-		if ttl == nil {
-			return txn.Set(key, bytes)
-		} else {
-			return txn.SetWithTTL(key, bytes, *ttl)
-		}
+		return txn.Set(key, bytes)
+	})
+
+	if err != nil {
+		return errors.Wrap(err, "failed to write to badger db")
+	}
+
+	return nil
+}
+
+func (s *CacheStorage) DeleteRawBytes(key []byte) error {
+	err := s.kv.Update(func(txn *badger.Txn) error {
+		return txn.Delete(key)
 	})
 
 	if err != nil {
@@ -138,7 +144,7 @@ func (s *CacheStorage) PutMetadata(escrowID common.EscrowID, objectID common.Obj
 		return errors.Wrap(err, "failed to marshal metadata")
 	}
 
-	err = s.PutRawBytes(key, bytes, nil)
+	err = s.PutRawBytes(key, bytes)
 	if err != nil {
 		return errors.Wrap(err, "failed to put bytes into kv")
 	}
@@ -154,5 +160,16 @@ func (s *CacheStorage) PutData(escrowID common.EscrowID, blockID common.BlockID,
 
 	key := makeDataKey(escrowID, blockID)
 
-	return s.PutRawBytes(key, data, nil)
+	return s.PutRawBytes(key, data)
+}
+
+func (s *CacheStorage) DeleteData(escrowID common.EscrowID, blockID common.BlockID) error {
+	s.l.WithFields(logrus.Fields{
+		"escrowID": escrowID,
+		"blockID":  blockID,
+	}).Debug("(*CacheStorage).DeleteData")
+
+	key := makeDataKey(escrowID, blockID)
+
+	return s.DeleteRawBytes(key)
 }

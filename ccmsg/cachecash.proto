@@ -317,17 +317,19 @@ message CacheMissRequest {
 }
 
 message CacheMissResponse {
-    repeated uint64 slot_idx = 1;
-    repeated bytes block_id = 3;
+    ObjectMetadata metadata = 1;
+    repeated Chunk chunks = 2;
 
-    ObjectMetadata metadata = 2;
+    // XXX: We probably need batch_sig and etc. once we want to use this as part of a proof-of-cheating.
+}
+
+message Chunk {
+    uint64 slot_idx = 1;
 
     oneof source {
         BlockSourceHTTP http = 10;
         BlockSourceInline inline = 20;
     }
-
-    // XXX: We probably need batch_sig and etc. once we want to use this as part of a proof-of-cheating.
 }
 
 message BlockSourceHTTP {
@@ -337,11 +339,12 @@ message BlockSourceHTTP {
 }
 
 message BlockSourceInline {
-    repeated bytes blocks = 1;
+    repeated bytes block = 1;
 }
 
 // ------------------------
 
+// TODO: this struct is also used at the cache, but most of these fields are irrelevant for the cache and only relevant for the publisher
 message ObjectMetadata {
     uint64 object_size = 1;
     uint64 block_size = 2;

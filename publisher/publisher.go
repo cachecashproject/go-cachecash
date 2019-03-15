@@ -356,28 +356,35 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 		return nil, errors.New("failed to get object policy")
 	}
 
-	resp, err := p.catalog.BlockSource(ctx, req, path, objMeta)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get block source")
+	resp := ccmsg.CacheMissResponse{
+		Chunks: []*ccmsg.Chunk{},
 	}
 
 	// XXX: Shouldn't we be telling the cache what block IDs it should expect, and providing enough information for it
 	// to verify that it's getting the right data (e.g. a digest)?
 
 	// Select logical cache slot for each block.
-	var slotIdx []uint64
 	for i := req.RangeBegin; i < req.RangeEnd; i++ {
 		blockID := i // XXX: Not true!
-		slotIdx = append(slotIdx, p.assignSlot(path, i, blockID))
+		slotIdx := p.assignSlot(path, i, blockID)
+		chunk, err := p.catalog.BlockSource(ctx, req, path, objMeta)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get block source")
+		}
+
+		// TODO: we shouldn't need to modify the chunk afterwards
+		// chunk.BlockId = BlockID,
+		chunk.SlotIdx = slotIdx
+
+		resp.Chunks = append(resp.Chunks, chunk)
 	}
-	resp.SlotIdx = slotIdx
 
 	resp.Metadata = &ccmsg.ObjectMetadata{
 		ObjectSize: objMeta.ObjectSize(),
 		BlockSize:  uint64(pol.BlockSize),
 	}
 
-	return resp, nil
+	return &resp, nil
 }
 
 // XXX: This is, obviously, temporary.  We should be using object IDs that are larger than 64 bits, among other
