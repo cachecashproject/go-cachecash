@@ -10,6 +10,33 @@ services:
      - 8081:80
     volumes:
     - ./testdata/content:/usr/share/nginx/html
+
+  upstream-apache:
+    image: httpd
+    ports:
+     - 8091:80
+    volumes:
+    - ./testdata/content:/usr/local/apache2/htdocs
+  upstream-lighttpd:
+    build: deploy/httpds/lighttpd
+    ports:
+     - 8092:80
+    volumes:
+    - ./testdata/content:/var/www/localhost/htdocs
+  upstream-caddy:
+    build: deploy/httpds/caddy
+    ports:
+     - 8093:80
+    volumes:
+    - ./testdata/content:/var/www
+  upstream-python:
+    image: python:3-alpine
+    command: python -m http.server -d /var/www 80
+    ports:
+     - 8094:80
+    volumes:
+    - ./testdata/content:/var/www
+
   publisher:
     build: .
     command: publisherd -logLevel debug -logCaller -config /etc/publisher.config.json
