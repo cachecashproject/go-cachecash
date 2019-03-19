@@ -10,6 +10,15 @@ and testing purposes.
 We use the official Docker images for [ElasticSearch and Kibana](https://www.docker.elastic.co/).  Documentation is
 available for the images for [ElasticSearch](https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html) and for [Kibana](https://www.elastic.co/guide/en/kibana/current/docker.html).
 
+## System configuration
+
+Per [the ElasticSearch docs](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html), you
+will need to increase per-processl imits on `mmap` counts.
+
+```
+sudo sysctl -w vm.max_map_count=262144
+```
+
 ## Quick reference
 
 ```
