@@ -1,0 +1,19 @@
+# filebeat.prospectors:
+# - paths:
+#    - test.log
+#   input_type: log
+#   json.keys_under_root: true
+#   json.add_error_key: true
+
+filebeat.inputs:
+- type: log
+  paths:
+    - test.log
+  json.keys_under_root: true
+  json.add_error_key: true
+
+output.elasticsearch:
+  hosts: ["{{ELASTICSEARCH_URL}}"]
+
+# output.console:
+#   pretty: true
