@@ -63,8 +63,9 @@ func mainC() error {
 			Config: &cache.Config{
 				// XXX: This must match what is set up in the Escrow struct on the publisher side so that the publisher
 				// sends clients to the right place.
-				ClientProtocolAddr: fmt.Sprintf(":%v", 9000+i),
-				StatusAddr:         fmt.Sprintf(":%v", 9100+i),
+				ClientProtocolGrpcAddr: fmt.Sprintf(":%v", 9000+i),
+				ClientProtocolHttpAddr: fmt.Sprintf(":%v", 9443+i),
+				StatusAddr:             fmt.Sprintf(":%v", 9100+i),
 			},
 			Escrows:         c.Escrows,
 			BadgerDirectory: fmt.Sprintf("./cache-%d/", i),

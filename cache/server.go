@@ -3,9 +3,11 @@ package cache
 import (
 	"context"
 	"net"
+	"net/http"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -25,13 +27,17 @@ type ConfigFile struct {
 }
 
 type Config struct {
-	ClientProtocolAddr string
-	StatusAddr         string
+	ClientProtocolGrpcAddr string
+	ClientProtocolHttpAddr string
+	StatusAddr             string
 }
 
 func (c *Config) FillDefaults() {
-	if c.ClientProtocolAddr == "" {
-		c.ClientProtocolAddr = ":9000"
+	if c.ClientProtocolGrpcAddr == "" {
+		c.ClientProtocolGrpcAddr = ":9000"
+	}
+	if c.ClientProtocolHttpAddr == "" {
+		c.ClientProtocolHttpAddr = ":9443"
 	}
 	if c.StatusAddr == "" {
 		c.StatusAddr = ":9100"
@@ -93,6 +99,7 @@ type clientProtocolServer struct {
 	conf       *Config
 	cache      *Cache
 	grpcServer *grpc.Server
+	httpServer *http.Server
 }
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
@@ -101,26 +108,66 @@ func newClientProtocolServer(l *logrus.Logger, c *Cache, conf *Config) (*clientP
 	grpcServer := grpc.NewServer()
 	ccmsg.RegisterClientCacheServer(grpcServer, &grpcClientCacheServer{cache: c})
 
+	httpServer := wrapGrpc(grpcServer)
+
 	return &clientProtocolServer{
 		l:          l,
 		conf:       conf,
 		cache:      c,
 		grpcServer: grpcServer,
+		httpServer: httpServer,
 	}, nil
+}
+
+func wrapGrpc(grpcServer *grpc.Server) *http.Server {
+	wrappedServer := grpcweb.WrapServer(grpcServer)
+
+	handler := func(resp http.ResponseWriter, req *http.Request) {
+		wrappedServer.ServeHTTP(resp, req)
+	}
+
+	return &http.Server{
+		// Addr:    fmt.Sprintf(":%d", port),
+		Handler: http.HandlerFunc(handler),
+	}
+
+	/*
+		if *enableTls {
+			if err := httpServer.ListenAndServeTLS(*tlsCertFilePath, *tlsKeyFilePath); err != nil {
+				grpclog.Fatalf("failed starting http2 server: %v", err)
+			}
+		} else {
+			if err := httpServer.ListenAndServe(); err != nil {
+				grpclog.Fatalf("failed starting http server: %v", err)
+			}
+		}
+	*/
 }
 
 func (s *clientProtocolServer) Start() error {
 	s.l.Info("clientProtocolServer - Start - enter")
 
-	lis, err := net.Listen("tcp", s.conf.ClientProtocolAddr)
+	grpcLis, err := net.Listen("tcp", s.conf.ClientProtocolGrpcAddr)
+	if err != nil {
+		return errors.Wrap(err, "failed to bind listener")
+	}
+
+	httpLis, err := net.Listen("tcp", s.conf.ClientProtocolHttpAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to bind listener")
 	}
 
 	go func() {
 		// This will block until we call `Stop`.
-		if err := s.grpcServer.Serve(lis); err != nil {
-			s.l.WithError(err).Error("failed to serve clientProtocolServer")
+		if err := s.grpcServer.Serve(grpcLis); err != nil {
+			s.l.WithError(err).Error("failed to serve clientProtocolServer(grpc)")
+		}
+	}()
+
+	go func() {
+		// This will block until we call `Stop`.
+		if err := s.httpServer.Serve(httpLis); err != nil {
+			s.l.WithError(err).Error("failed to serve clientProtocolServer(http)")
 		}
 	}()
 
@@ -132,5 +179,5 @@ func (s *clientProtocolServer) Shutdown(ctx context.Context) error {
 	// TODO: Should use `GracefulStop` until context expires, and then fall back on `Stop`.
 	s.grpcServer.Stop()
 
-	return nil
+	return s.httpServer.Shutdown(ctx)
 }

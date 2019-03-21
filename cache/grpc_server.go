@@ -26,7 +26,7 @@ func (s *grpcClientCacheServer) GetBlock(ctx context.Context, req *ccmsg.ClientC
 	case *ccmsg.ClientCacheResponse_Error:
 		return nil, errors.New(resp.Error.Message)
 	default:
-		return nil, errors.New("unexpected response type")
+		return nil, errors.New("unexpected response type (GetBlock)")
 	}
 }
 
@@ -43,7 +43,7 @@ func (s *grpcClientCacheServer) ExchangeTicketL1(ctx context.Context, req *ccmsg
 	case *ccmsg.ClientCacheResponse_Error:
 		return nil, errors.New(resp.Error.Message)
 	default:
-		return nil, errors.New("unexpected response type")
+		return nil, errors.New("unexpected response type (ExchangeTicketL1)")
 	}
 }
 
