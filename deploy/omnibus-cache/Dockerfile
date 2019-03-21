@@ -6,8 +6,9 @@ FROM docker.elastic.co/beats/filebeat:6.6.2
 # --------------------
 # Build
 # --------------------
-FROM golang:1.12.1-alpine3.9
-RUN apk update && apk add --no-cache build-base
+#FROM golang:1.12.1-alpine3.9
+FROM golang:1.12.1-stretch
+#RUN apk update && apk add --no-cache build-base
 WORKDIR $GOPATH/src/github.com/cachecashproject/go-cachecash
 COPY . .
 RUN make PREFIX=/artifacts all
@@ -18,7 +19,7 @@ RUN make PREFIX=/artifacts all
 
 FROM phusion/baseimage:0.11
 
-# RUN apt-get update && apt-get install -y --no-install-recommends jq
+RUN apt-get update && apt-get install -y --no-install-recommends logrotate
 
 # Use baseimage-docker's init system.
 CMD ["/sbin/my_init"]
@@ -35,6 +36,11 @@ RUN mkdir /etc/service/cache
 ADD ./deploy/omnibus-cache/cache.sh /etc/service/cache/run
 # # See README.md for a note about this: we require that config be bind-mounted.
 # ADD ./deploy/omnibus-cache/cache.config.json /etc/cache.config.json
+
+RUN mkdir /etc/service/logrotate
+ADD ./deploy/omnibus-cache/logrotate.sh /etc/service/logrotate/run
+# TMP: Disable rotation
+RUN touch /etc/service/logrotate/down
 
 RUN chmod +x /etc/my_init.d/*
 RUN chmod +x /etc/service/*/run

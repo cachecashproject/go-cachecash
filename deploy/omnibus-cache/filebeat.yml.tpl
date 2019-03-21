@@ -8,7 +8,7 @@
 filebeat.inputs:
 - type: log
   paths:
-    - test.log
+    - /var/log/cachecash/*.log
   json.keys_under_root: true
   json.add_error_key: true
 
