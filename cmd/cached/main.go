@@ -59,6 +59,8 @@ func mainC() error {
 	l.SetLevel(logLevel)
 	l.SetReportCaller(*logCaller)
 
+	l.SetFormatter(&logrus.JSONFormatter{})
+
 	cf, err := loadConfigFile(*configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")

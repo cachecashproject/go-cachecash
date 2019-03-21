@@ -17,5 +17,9 @@ pregenerated configuration, this will be reworked.
 # This assumes that you have started ElasticSearch with `docker-compose up -d` and that
 # you have generated configuration files with the `generate-config` utility.
 
-docker run -it --rm -v cache-0.config.json:/etc/cache.config.json -e 'ELASTICSEARCH_URL=http://172.17.0.1:9200/' cachecash/omnibus-cache
+docker run -it --rm \
+  -v cache-0.config.json:/etc/cache.config.json \
+  --network elasticsearch-kibana_default \
+  -e 'ELASTICSEARCH_URL=http://elasticsearch:9200/' \
+  cachecash/omnibus-cache
 ```
