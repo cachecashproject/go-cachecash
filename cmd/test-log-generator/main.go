@@ -15,6 +15,7 @@ import (
 var (
 	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
 	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
+	logFIle     = flag.String("logFile", "test.log", "Path where file should be logged")
 )
 
 func generateMessage() string {
