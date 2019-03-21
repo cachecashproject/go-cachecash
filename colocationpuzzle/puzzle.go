@@ -54,6 +54,7 @@ type getBlockFnT func(blockIdx, offset uint32) ([]byte, error)
 
 func init() {
 	// XXX: Is this the right place to put this?
+	// TODO: check if we need secure randomness here
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
