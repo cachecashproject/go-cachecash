@@ -55,4 +55,6 @@
 
 [[constraint]]
   name = "github.com/dgraph-io/badger"
-  version = "1.5.4"
+  # this points to 2.0.0-rc.2, but specifying that as a version doesn't work correctly
+  #version = "2.0.0-rc.2"
+  revision = "deee8c7ae70bab412e4f10cfa068e0be61a8d0eb"

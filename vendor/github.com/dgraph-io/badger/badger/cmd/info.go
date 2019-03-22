@@ -26,11 +26,29 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/options"
 	"github.com/dgraph-io/badger/table"
 	"github.com/dgraph-io/badger/y"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
 )
+
+type flagOptions struct {
+	showTables    bool
+	sizeHistogram bool
+}
+
+var (
+	opt flagOptions
+)
+
+func init() {
+	RootCmd.AddCommand(infoCmd)
+	infoCmd.Flags().BoolVarP(&opt.showTables, "show-tables", "s", false,
+		"If set to true, show tables as well.")
+	infoCmd.Flags().BoolVar(&opt.sizeHistogram, "histogram", false,
+		"Show a histogram of the key and value sizes.")
+}
 
 var infoCmd = &cobra.Command{
 	Use:   "info",
@@ -47,19 +65,36 @@ to the Dgraph team.
 			fmt.Println("Error:", err.Error())
 			os.Exit(1)
 		}
-		err = tableInfo(sstDir, vlogDir)
+		if !opt.showTables {
+			return
+		}
+		// Open DB
+		opts := badger.DefaultOptions
+		opts.TableLoadingMode = options.MemoryMap
+		opts.Dir = sstDir
+		opts.ValueDir = vlogDir
+		opts.ReadOnly = true
+
+		db, err := badger.Open(opts)
 		if err != nil {
 			fmt.Println("Error:", err.Error())
 			os.Exit(1)
 		}
+		defer db.Close()
+
+		err = tableInfo(sstDir, vlogDir, db)
+		if err != nil {
+			fmt.Println("Error:", err.Error())
+			os.Exit(1)
+		}
+		if opt.sizeHistogram {
+			// use prefix as nil since we want to list all keys
+			db.PrintHistogram(nil)
+		}
 	},
 }
 
-func init() {
-	RootCmd.AddCommand(infoCmd)
-}
-
-func bytes(sz int64) string {
+func hbytes(sz int64) string {
 	return humanize.Bytes(uint64(sz))
 }
 
@@ -67,26 +102,18 @@ func dur(src, dst time.Time) string {
 	return humanize.RelTime(dst, src, "earlier", "later")
 }
 
-func tableInfo(dir, valueDir string) error {
-	// Open DB
-	opts := badger.DefaultOptions
-	opts.Dir = sstDir
-	opts.ValueDir = vlogDir
-	opts.ReadOnly = true
-
-	db, err := badger.Open(opts)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
+func tableInfo(dir, valueDir string, db *badger.DB) error {
 	tables := db.Tables()
+	fmt.Println()
+	fmt.Println("SSTable [Li, Id, Total Keys including internal keys] [Left Key, Version -> Right Key, Version]")
 	for _, t := range tables {
-		lk, lv := y.ParseKey(t.Left), y.ParseTs(t.Left)
-		rk, rv := y.ParseKey(t.Right), y.ParseTs(t.Right)
-		fmt.Printf("SSTable [L%d, %03d] [%20X, v%-10d -> %20X, v%-10d]\n",
-			t.Level, t.ID, lk, lv, rk, rv)
+		lk, lt := y.ParseKey(t.Left), y.ParseTs(t.Left)
+		rk, rt := y.ParseKey(t.Right), y.ParseTs(t.Right)
+
+		fmt.Printf("SSTable [L%d, %03d, %07d] [%20X, v%d -> %20X, v%d]\n",
+			t.Level, t.ID, t.KeyCount, lk, lt, rk, rt)
 	}
+	fmt.Println()
 	return nil
 }
 
@@ -126,7 +153,6 @@ func printInfo(dir, valueDir string) error {
 
 	fmt.Println()
 	var baseTime time.Time
-	// fmt.Print("\n[Manifest]\n")
 	manifestTruncated := false
 	manifestInfo, ok := fileinfoByName[badger.ManifestFilename]
 	if ok {
@@ -139,7 +165,7 @@ func printInfo(dir, valueDir string) error {
 
 		baseTime = manifestInfo.ModTime()
 		fmt.Printf("[%25s] %-12s %6s MA%s\n", manifestInfo.ModTime().Format(time.RFC3339),
-			manifestInfo.Name(), bytes(manifestInfo.Size()), truncatedString)
+			manifestInfo.Name(), hbytes(manifestInfo.Size()), truncatedString)
 	} else {
 		fmt.Printf("%s [MISSING]\n", manifestInfo.Name())
 	}
@@ -160,8 +186,9 @@ func printInfo(dir, valueDir string) error {
 		})
 		for _, tableID := range tableIDs {
 			tableFile := table.IDToFilename(tableID)
-			file, ok := fileinfoByName[tableFile]
-			if ok {
+			tm, ok1 := manifest.Tables[tableID]
+			file, ok2 := fileinfoByName[tableFile]
+			if ok1 && ok2 {
 				fileinfoMarked[tableFile] = true
 				emptyString := ""
 				fileSize := file.Size()
@@ -171,8 +198,8 @@ func printInfo(dir, valueDir string) error {
 				}
 				levelSizes[level] += fileSize
 				// (Put level on every line to make easier to process with sed/perl.)
-				fmt.Printf("[%25s] %-12s %6s L%d%s\n", dur(baseTime, file.ModTime()),
-					tableFile, bytes(fileSize), level, emptyString)
+				fmt.Printf("[%25s] %-12s %6s L%d %x%s\n", dur(baseTime, file.ModTime()),
+					tableFile, hbytes(fileSize), level, tm.Checksum, emptyString)
 			} else {
 				fmt.Printf("%s [MISSING]\n", tableFile)
 				numMissing++
@@ -209,7 +236,7 @@ func printInfo(dir, valueDir string) error {
 		}
 		valueLogSize += fileSize
 		fmt.Printf("[%25s] %-12s %6s VL%s\n", dur(baseTime, file.ModTime()), file.Name(),
-			bytes(fileSize), emptyString)
+			hbytes(fileSize), emptyString)
 
 		fileinfoMarked[file.Name()] = true
 	}
@@ -223,7 +250,7 @@ func printInfo(dir, valueDir string) error {
 			fmt.Print("\n[EXTRA]\n")
 		}
 		fmt.Printf("[%s] %-12s %6s\n", file.ModTime().Format(time.RFC3339),
-			file.Name(), bytes(file.Size()))
+			file.Name(), hbytes(file.Size()))
 		numExtra++
 	}
 
@@ -233,19 +260,19 @@ func printInfo(dir, valueDir string) error {
 			fmt.Print("\n[ValueDir EXTRA]\n")
 		}
 		fmt.Printf("[%s] %-12s %6s\n", file.ModTime().Format(time.RFC3339),
-			file.Name(), bytes(file.Size()))
+			file.Name(), hbytes(file.Size()))
 		numValueDirExtra++
 	}
 
 	fmt.Print("\n[Summary]\n")
 	totalIndexSize := int64(0)
 	for i, sz := range levelSizes {
-		fmt.Printf("Level %d size: %12s\n", i, bytes(sz))
+		fmt.Printf("Level %d size: %12s\n", i, hbytes(sz))
 		totalIndexSize += sz
 	}
 
-	fmt.Printf("Total index size: %8s\n", bytes(totalIndexSize))
-	fmt.Printf("Value log size: %10s\n", bytes(valueLogSize))
+	fmt.Printf("Total index size: %8s\n", hbytes(totalIndexSize))
+	fmt.Printf("Value log size: %10s\n", hbytes(valueLogSize))
 	fmt.Println()
 	totalExtra := numExtra + numValueDirExtra
 	if totalExtra == 0 && numMissing == 0 && numEmpty == 0 && !manifestTruncated {

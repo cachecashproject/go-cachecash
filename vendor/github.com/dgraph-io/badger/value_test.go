@@ -21,9 +21,12 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"sync"
 	"testing"
 
+	"github.com/dgraph-io/badger/options"
 	"github.com/dgraph-io/badger/y"
+	humanize "github.com/dustin/go-humanize"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/trace"
 )
@@ -84,6 +87,65 @@ func TestValueBasic(t *testing.T) {
 
 }
 
+func TestValueGCManaged(t *testing.T) {
+	dir, err := ioutil.TempDir("", "badger")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	N := 10000
+	opt := getTestOptions(dir)
+	opt.ValueLogMaxEntries = uint32(N / 10)
+	opt.managedTxns = true
+	db, err := Open(opt)
+	require.NoError(t, err)
+	defer db.Close()
+
+	var ts uint64
+	newTs := func() uint64 {
+		ts++
+		return ts
+	}
+
+	sz := 64 << 10
+	var wg sync.WaitGroup
+	for i := 0; i < N; i++ {
+		v := make([]byte, sz)
+		rand.Read(v[:rand.Intn(sz)])
+
+		wg.Add(1)
+		txn := db.NewTransactionAt(newTs(), true)
+		require.NoError(t, txn.Set([]byte(fmt.Sprintf("key%d", i)), v))
+		require.NoError(t, txn.CommitAt(newTs(), func(err error) {
+			wg.Done()
+			require.NoError(t, err)
+		}))
+	}
+
+	for i := 0; i < N; i++ {
+		wg.Add(1)
+		txn := db.NewTransactionAt(newTs(), true)
+		require.NoError(t, txn.Delete([]byte(fmt.Sprintf("key%d", i))))
+		require.NoError(t, txn.CommitAt(newTs(), func(err error) {
+			wg.Done()
+			require.NoError(t, err)
+		}))
+	}
+	wg.Wait()
+	files, err := ioutil.ReadDir(dir)
+	require.NoError(t, err)
+	for _, fi := range files {
+		t.Logf("File: %s. Size: %s\n", fi.Name(), humanize.Bytes(uint64(fi.Size())))
+	}
+
+	for i := 0; i < 100; i++ {
+		// Try at max 100 times to GC even a single value log file.
+		if err := db.RunValueLogGC(0.0001); err == nil {
+			return // Done
+		}
+	}
+	require.Fail(t, "Unable to GC even a single value log file.")
+}
+
 func TestValueGC(t *testing.T) {
 	dir, err := ioutil.TempDir("", "badger")
 	require.NoError(t, err)
@@ -101,11 +163,11 @@ func TestValueGC(t *testing.T) {
 		rand.Read(v[:rand.Intn(sz)])
 		require.NoError(t, txn.Set([]byte(fmt.Sprintf("key%d", i)), v))
 		if i%20 == 0 {
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 			txn = kv.NewTransaction(true)
 		}
 	}
-	require.NoError(t, txn.Commit(nil))
+	require.NoError(t, txn.Commit())
 
 	for i := 0; i < 45; i++ {
 		txnDelete(t, kv, []byte(fmt.Sprintf("key%d", i)))
@@ -154,11 +216,11 @@ func TestValueGC2(t *testing.T) {
 		rand.Read(v[:rand.Intn(sz)])
 		require.NoError(t, txn.Set([]byte(fmt.Sprintf("key%d", i)), v))
 		if i%20 == 0 {
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 			txn = kv.NewTransaction(true)
 		}
 	}
-	require.NoError(t, txn.Commit(nil))
+	require.NoError(t, txn.Commit())
 
 	for i := 0; i < 5; i++ {
 		txnDelete(t, kv, []byte(fmt.Sprintf("key%d", i)))
@@ -239,11 +301,11 @@ func TestValueGC3(t *testing.T) {
 		// Keys key000, key001, key002, such that sorted order matches insertion order
 		require.NoError(t, txn.Set([]byte(fmt.Sprintf("key%03d", i)), v))
 		if i%20 == 0 {
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 			txn = kv.NewTransaction(true)
 		}
 	}
-	require.NoError(t, txn.Commit(nil))
+	require.NoError(t, txn.Commit())
 
 	// Start an iterator to keys in the first value log file
 	itOpt := IteratorOptions{
@@ -283,7 +345,7 @@ func TestValueGC3(t *testing.T) {
 	item = it.Item()
 	require.Equal(t, []byte("key003"), item.Key())
 
-	v3, err := item.Value()
+	v3, err := item.ValueCopy(nil)
 	require.NoError(t, err)
 	require.Equal(t, value3, v3)
 }
@@ -294,8 +356,10 @@ func TestValueGC4(t *testing.T) {
 	defer os.RemoveAll(dir)
 	opt := getTestOptions(dir)
 	opt.ValueLogFileSize = 1 << 20
+	opt.Truncate = true
 
-	kv, _ := Open(opt)
+	kv, err := Open(opt)
+	require.NoError(t, err)
 	defer kv.Close()
 
 	sz := 128 << 10 // 5 entries per value log file.
@@ -305,11 +369,11 @@ func TestValueGC4(t *testing.T) {
 		rand.Read(v[:rand.Intn(sz)])
 		require.NoError(t, txn.Set([]byte(fmt.Sprintf("key%d", i)), v))
 		if i%3 == 0 {
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 			txn = kv.NewTransaction(true)
 		}
 	}
-	require.NoError(t, txn.Commit(nil))
+	require.NoError(t, txn.Commit())
 
 	for i := 0; i < 8; i++ {
 		txnDelete(t, kv, []byte(fmt.Sprintf("key%d", i)))
@@ -335,8 +399,11 @@ func TestValueGC4(t *testing.T) {
 	kv.vlog.rewrite(lf0, tr)
 	kv.vlog.rewrite(lf1, tr)
 
-	// Replay value log
-	kv.vlog.Replay(valuePointer{Fid: 2}, replayFunction(kv))
+	err = kv.vlog.Close()
+	require.NoError(t, err)
+
+	err = kv.vlog.open(kv, valuePointer{Fid: 2}, kv.replayFunction())
+	require.NoError(t, err)
 
 	for i := 0; i < 8; i++ {
 		key := []byte(fmt.Sprintf("key%d", i))
@@ -497,12 +564,14 @@ func TestPartialAppendToValueLog(t *testing.T) {
 	// When K3 is set, it should be persisted after a restart.
 	txnSet(t, kv, k3, v3, 0)
 	require.NoError(t, kv.Close())
-	kv, err = Open(getTestOptions(dir))
+	kv, err = Open(opts)
 	require.NoError(t, err)
 	checkKeys(t, kv, [][]byte{k3})
 
 	// Replay value log from beginning, badger head is past k2.
-	kv.vlog.Replay(valuePointer{Fid: 0}, replayFunction(kv))
+	require.NoError(t, kv.vlog.Close())
+	require.NoError(t,
+		kv.vlog.open(kv, valuePointer{Fid: 0}, kv.replayFunction()))
 	require.NoError(t, kv.Close())
 }
 
@@ -563,11 +632,11 @@ func TestValueLogTrigger(t *testing.T) {
 		rand.Read(v[:rand.Intn(sz)])
 		require.NoError(t, txn.Set([]byte(fmt.Sprintf("key%d", i)), v))
 		if i%20 == 0 {
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 			txn = kv.NewTransaction(true)
 		}
 	}
-	require.NoError(t, txn.Commit(nil))
+	require.NoError(t, txn.Commit())
 
 	for i := 0; i < 45; i++ {
 		txnDelete(t, kv, []byte(fmt.Sprintf("key%d", i)))
@@ -596,13 +665,62 @@ func createVlog(t *testing.T, entries []*Entry) []byte {
 	for _, entry := range entries {
 		require.NoError(t, txn.SetWithMeta(entry.Key, entry.Value, entry.meta))
 	}
-	require.NoError(t, txn.Commit(nil))
+	require.NoError(t, txn.Commit())
 	require.NoError(t, kv.Close())
 
 	filename := vlogFilePath(dir, 0)
 	buf, err := ioutil.ReadFile(filename)
 	require.NoError(t, err)
 	return buf
+}
+
+func TestPenultimateLogCorruption(t *testing.T) {
+	dir, err := ioutil.TempDir("", "badger")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+	opt := getTestOptions(dir)
+	opt.ValueLogLoadingMode = options.FileIO
+	// Each txn generates at least two entries. 3 txns will fit each file.
+	opt.ValueLogMaxEntries = 5
+
+	db0, err := Open(opt)
+	require.NoError(t, err)
+
+	h := testHelper{db: db0, t: t}
+	h.writeRange(0, 7)
+	h.readRange(0, 7)
+
+	for i := 2; i >= 0; i-- {
+		fpath := vlogFilePath(dir, uint32(i))
+		fi, err := os.Stat(fpath)
+		require.NoError(t, err)
+		require.True(t, fi.Size() > 0, "Empty file at log=%d", i)
+		if i == 0 {
+			err := os.Truncate(fpath, fi.Size()-1)
+			require.NoError(t, err)
+		}
+	}
+	// Simulate a crash by not closing db0, but releasing the locks.
+	if db0.dirLockGuard != nil {
+		require.NoError(t, db0.dirLockGuard.release())
+	}
+	if db0.valueDirGuard != nil {
+		require.NoError(t, db0.valueDirGuard.release())
+	}
+
+	opt.Truncate = true
+	db1, err := Open(opt)
+	require.NoError(t, err)
+	h.db = db1
+	h.readRange(0, 1) // Only 2 should be gone, because it is at the end of logfile 0.
+	h.readRange(3, 7)
+	err = db1.View(func(txn *Txn) error {
+		_, err := txn.Get(h.key(2)) // Verify that 2 is gone.
+		require.Equal(t, ErrKeyNotFound, err)
+		return nil
+	})
+	require.NoError(t, err)
+	require.NoError(t, db1.Close())
 }
 
 func checkKeys(t *testing.T, kv *DB, keys [][]byte) {
@@ -616,6 +734,87 @@ func checkKeys(t *testing.T, kv *DB, keys [][]byte) {
 	require.Equal(t, i, len(keys))
 }
 
+type testHelper struct {
+	db  *DB
+	t   *testing.T
+	val []byte
+}
+
+func (th *testHelper) key(i int) []byte {
+	return []byte(fmt.Sprintf("%010d", i))
+}
+func (th *testHelper) value() []byte {
+	if len(th.val) > 0 {
+		return th.val
+	}
+	th.val = make([]byte, 100)
+	y.Check2(rand.Read(th.val))
+	return th.val
+}
+
+// writeRange [from, to].
+func (th *testHelper) writeRange(from, to int) {
+	for i := from; i <= to; i++ {
+		err := th.db.Update(func(txn *Txn) error {
+			return txn.Set(th.key(i), th.value())
+		})
+		require.NoError(th.t, err)
+	}
+}
+
+func (th *testHelper) readRange(from, to int) {
+	for i := from; i <= to; i++ {
+		err := th.db.View(func(txn *Txn) error {
+			item, err := txn.Get(th.key(i))
+			if err != nil {
+				return err
+			}
+			return item.Value(func(val []byte) error {
+				require.Equal(th.t, val, th.value(), "key=%q", th.key(i))
+				return nil
+
+			})
+		})
+		require.NoError(th.t, err, "key=%q", th.key(i))
+	}
+}
+
+// Test Bug #578, which showed that if a value is moved during value log GC, an
+// older version can end up at a higher level in the LSM tree than a newer
+// version, causing the data to not be returned.
+func TestBug578(t *testing.T) {
+	dir, err := ioutil.TempDir("", "badger")
+	y.Check(err)
+	defer os.RemoveAll(dir)
+
+	opts := DefaultOptions
+	opts.Dir = dir
+	opts.ValueDir = dir
+	opts.ValueLogMaxEntries = 64
+	opts.MaxTableSize = 1 << 13
+
+	db, err := Open(opts)
+	require.NoError(t, err)
+
+	h := testHelper{db: db, t: t}
+
+	// Let's run this whole thing a few times.
+	for j := 0; j < 10; j++ {
+		t.Logf("Cycle: %d\n", j)
+		h.writeRange(0, 32)
+		h.writeRange(0, 10)
+		h.writeRange(50, 72)
+		h.writeRange(40, 72)
+		h.writeRange(40, 72)
+
+		// Run value log GC a few times.
+		for i := 0; i < 5; i++ {
+			db.RunValueLogGC(0.5)
+		}
+		h.readRange(0, 10)
+	}
+}
+
 func BenchmarkReadWrite(b *testing.B) {
 	rwRatio := []float32{
 		0.1, 0.2, 0.5, 1.0,
@@ -627,13 +826,14 @@ func BenchmarkReadWrite(b *testing.B) {
 	for _, vsz := range valueSize {
 		for _, rw := range rwRatio {
 			b.Run(fmt.Sprintf("%3.1f,%04d", rw, vsz), func(b *testing.B) {
-				var vl valueLog
-				dir, err := ioutil.TempDir("", "vlog")
+				dir, err := ioutil.TempDir("", "vlog-benchmark")
 				y.Check(err)
 				defer os.RemoveAll(dir)
-				err = vl.Open(nil, getTestOptions(dir))
+
+				db, err := Open(getTestOptions(dir))
 				y.Check(err)
-				defer vl.Close()
+
+				vl := &db.vlog
 				b.ResetTimer()
 
 				for i := 0; i < b.N; i++ {
