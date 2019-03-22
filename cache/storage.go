@@ -18,6 +18,9 @@ func NewCacheStorage(l *logrus.Logger, badgerDirectory string) (*CacheStorage, e
 	opts := badger.DefaultOptions
 	opts.Dir = badgerDirectory
 	opts.ValueDir = badgerDirectory
+	opts.Logger = l.WithFields(logrus.Fields{
+		"badger": badgerDirectory,
+	})
 	kv, err := badger.Open(opts)
 
 	if err != nil {

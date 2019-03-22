@@ -28,7 +28,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
+	"runtime"
 	"sort"
 	"sync"
 	"testing"
@@ -56,9 +56,22 @@ func getTestOptions(dir string) Options {
 }
 
 func getItemValue(t *testing.T, item *Item) (val []byte) {
-	v, err := item.Value()
+	t.Helper()
+	var v []byte
+	size := item.ValueSize()
+	err := item.Value(func(val []byte) error {
+		if val == nil {
+			v = nil
+		} else {
+			v = append([]byte{}, val...)
+		}
+		return nil
+	})
 	if err != nil {
 		t.Error(err)
+	}
+	if int64(len(v)) != size {
+		t.Errorf("incorrect size: expected %d, got %d", len(v), size)
 	}
 	if v == nil {
 		return nil
@@ -72,23 +85,26 @@ func getItemValue(t *testing.T, item *Item) (val []byte) {
 func txnSet(t *testing.T, kv *DB, key []byte, val []byte, meta byte) {
 	txn := kv.NewTransaction(true)
 	require.NoError(t, txn.SetWithMeta(key, val, meta))
-	require.NoError(t, txn.Commit(nil))
+	require.NoError(t, txn.Commit())
 }
 
 func txnDelete(t *testing.T, kv *DB, key []byte) {
 	txn := kv.NewTransaction(true)
 	require.NoError(t, txn.Delete(key))
-	require.NoError(t, txn.Commit(nil))
+	require.NoError(t, txn.Commit())
 }
 
 // Opens a badger db and runs a a test on it.
 func runBadgerTest(t *testing.T, opts *Options, test func(t *testing.T, db *DB)) {
-	dir, err := ioutil.TempDir("", "badger")
+	dir, err := ioutil.TempDir(".", "badger-test")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	if opts == nil {
 		opts = new(Options)
 		*opts = getTestOptions(dir)
+	} else {
+		opts.Dir = dir
+		opts.ValueDir = dir
 	}
 	db, err := Open(*opts)
 	require.NoError(t, err)
@@ -124,14 +140,15 @@ func TestUpdateAndView(t *testing.T) {
 					return err
 				}
 
-				val, err := item.Value()
-				if err != nil {
+				expected := []byte(fmt.Sprintf("val%d", i))
+				if err := item.Value(func(val []byte) error {
+					require.Equal(t, expected, val,
+						"Invalid value for key %q. expected: %q, actual: %q",
+						item.Key(), expected, val)
+					return nil
+				}); err != nil {
 					return err
 				}
-				expected := []byte(fmt.Sprintf("val%d", i))
-				require.Equal(t, expected, val,
-					"Invalid value for key %q. expected: %q, actual: %q",
-					item.Key(), expected, val)
 			}
 			return nil
 		})
@@ -262,24 +279,24 @@ func TestTxnTooBig(t *testing.T) {
 		txn := db.NewTransaction(true)
 		for i := 0; i < n; {
 			if err := txn.Set(data(i), data(i)); err != nil {
-				require.NoError(t, txn.Commit(nil))
+				require.NoError(t, txn.Commit())
 				txn = db.NewTransaction(true)
 			} else {
 				i++
 			}
 		}
-		require.NoError(t, txn.Commit(nil))
+		require.NoError(t, txn.Commit())
 
 		txn = db.NewTransaction(true)
 		for i := 0; i < n; {
 			if err := txn.Delete(data(i)); err != nil {
-				require.NoError(t, txn.Commit(nil))
+				require.NoError(t, txn.Commit())
 				txn = db.NewTransaction(true)
 			} else {
 				i++
 			}
 		}
-		require.NoError(t, txn.Commit(nil))
+		require.NoError(t, txn.Commit())
 	})
 }
 
@@ -290,7 +307,8 @@ func TestForceCompactL0(t *testing.T) {
 
 	opts := getTestOptions(dir)
 	opts.ValueLogFileSize = 15 << 20
-	db, err := OpenManaged(opts)
+	opts.managedTxns = true
+	db, err := Open(opts)
 	require.NoError(t, err)
 
 	data := func(i int) []byte {
@@ -310,9 +328,11 @@ func TestForceCompactL0(t *testing.T) {
 	}
 	db.Close()
 
-	db, err = OpenManaged(opts)
-	defer db.Close()
+	opts.managedTxns = true
+	db, err = Open(opts)
+	require.NoError(t, err)
 	require.Equal(t, len(db.lc.levels[0].tables), 0)
+	require.NoError(t, db.Close())
 }
 
 // Put a lot of data to move some data to disk.
@@ -331,7 +351,7 @@ func TestGetMore(t *testing.T) {
 			for j := i; j < i+m && j < n; j++ {
 				require.NoError(t, txn.Set(data(j), data(j)))
 			}
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 		}
 		require.NoError(t, db.validate())
 
@@ -353,7 +373,7 @@ func TestGetMore(t *testing.T) {
 					// Use a long value that will certainly exceed value threshold.
 					[]byte(fmt.Sprintf("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz%9d", j))))
 			}
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 		}
 		require.NoError(t, db.validate())
 
@@ -398,7 +418,7 @@ func TestGetMore(t *testing.T) {
 			for j := i; j < i+m && j < n; j++ {
 				require.NoError(t, txn.Delete(data(j)))
 			}
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 		}
 		db.validate()
 		for i := 0; i < n; i++ {
@@ -431,7 +451,7 @@ func TestExistsMore(t *testing.T) {
 				require.NoError(t, txn.Set([]byte(fmt.Sprintf("%09d", j)),
 					[]byte(fmt.Sprintf("%09d", j))))
 			}
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 		}
 		db.validate()
 
@@ -461,7 +481,7 @@ func TestExistsMore(t *testing.T) {
 			for j := i; j < i+m && j < n; j++ {
 				require.NoError(t, txn.Delete([]byte(fmt.Sprintf("%09d", j))))
 			}
-			require.NoError(t, txn.Commit(nil))
+			require.NoError(t, txn.Commit())
 		}
 		db.validate()
 		for i := 0; i < n; i++ {
@@ -546,12 +566,12 @@ func TestIterate2Basic(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	dir, err := ioutil.TempDir("", "badger")
-	fmt.Printf("Writing to dir %s\n", dir)
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	n := 10000
 	{
-		kv, _ := Open(getTestOptions(dir))
+		kv, err := Open(getTestOptions(dir))
+		require.NoError(t, err)
 		for i := 0; i < n; i++ {
 			if (i % 10000) == 0 {
 				fmt.Printf("Putting i=%d\n", i)
@@ -565,6 +585,7 @@ func TestLoad(t *testing.T) {
 	kv, err := Open(getTestOptions(dir))
 	require.NoError(t, err)
 	require.Equal(t, uint64(10001), kv.orc.readTs())
+
 	for i := 0; i < n; i++ {
 		if (i % 10000) == 0 {
 			fmt.Printf("Testing i=%d\n", i)
@@ -576,7 +597,6 @@ func TestLoad(t *testing.T) {
 			require.EqualValues(t, k, string(getItemValue(t, item)))
 			return nil
 		}))
-
 	}
 	kv.Close()
 	summary := kv.lc.getSummary()
@@ -619,7 +639,7 @@ func TestIterateDeleted(t *testing.T) {
 			require.NoError(t, txn2.Delete(newKey))
 		}
 		require.Equal(t, 2, count)
-		require.NoError(t, txn2.Commit(nil))
+		require.NoError(t, txn2.Commit())
 
 		for _, prefetch := range [...]bool{true, false} {
 			t.Run(fmt.Sprintf("Prefetch=%t", prefetch), func(t *testing.T) {
@@ -644,6 +664,74 @@ func TestIterateDeleted(t *testing.T) {
 				require.Equal(t, int64(0), estSize)
 			})
 		}
+	})
+}
+
+func TestIterateParallel(t *testing.T) {
+	key := func(account int) []byte {
+		var b [4]byte
+		binary.BigEndian.PutUint32(b[:], uint32(account))
+		return append([]byte("account-"), b[:]...)
+	}
+
+	N := 100000
+	iterate := func(txn *Txn, wg *sync.WaitGroup) {
+		defer wg.Done()
+		itr := txn.NewIterator(DefaultIteratorOptions)
+		defer itr.Close()
+
+		var count int
+		for itr.Rewind(); itr.Valid(); itr.Next() {
+			count++
+			item := itr.Item()
+			require.Equal(t, "account-", string(item.Key()[0:8]))
+			err := item.Value(func(val []byte) error {
+				require.Equal(t, "1000", string(val))
+				return nil
+			})
+			require.NoError(t, err)
+		}
+		require.Equal(t, N, count)
+		itr.Close() // Double close.
+	}
+
+	opt := DefaultOptions
+	runBadgerTest(t, &opt, func(t *testing.T, db *DB) {
+		var wg sync.WaitGroup
+		var txns []*Txn
+		for i := 0; i < N; i++ {
+			wg.Add(1)
+			txn := db.NewTransaction(true)
+			require.NoError(t, txn.Set(key(i), []byte("1000")))
+			txns = append(txns, txn)
+		}
+		for _, txn := range txns {
+			txn.CommitWith(func(err error) {
+				y.Check(err)
+				wg.Done()
+			})
+		}
+
+		wg.Wait()
+
+		// Check that a RW txn can't run multiple iterators.
+		txn := db.NewTransaction(true)
+		itr := txn.NewIterator(DefaultIteratorOptions)
+		require.Panics(t, func() {
+			txn.NewIterator(DefaultIteratorOptions)
+		})
+		require.Panics(t, txn.Discard)
+		itr.Close()
+		txn.Discard()
+
+		// Run multiple iterators for a RO txn.
+		txn = db.NewTransaction(false)
+		defer txn.Discard()
+		wg.Add(3)
+		go iterate(txn, &wg)
+		go iterate(txn, &wg)
+		go iterate(txn, &wg)
+		wg.Wait()
 	})
 }
 
@@ -690,22 +778,30 @@ func TestPidFile(t *testing.T) {
 	})
 }
 
-func TestBigKeyValuePairs(t *testing.T) {
+func TestInvalidKey(t *testing.T) {
 	runBadgerTest(t, nil, func(t *testing.T, db *DB) {
-		bigK := make([]byte, maxKeySize+1)
-		bigV := make([]byte, db.opt.ValueLogFileSize+1)
-		small := make([]byte, 10)
+		err := db.Update(func(txn *Txn) error {
+			err := txn.Set([]byte("!badger!head"), nil)
+			require.Equal(t, ErrInvalidKey, err)
 
-		txn := db.NewTransaction(true)
-		require.Regexp(t, regexp.MustCompile("Key.*exceeded"), txn.Set(bigK, small))
-		require.Regexp(t, regexp.MustCompile("Value.*exceeded"), txn.Set(small, bigV))
+			err = txn.Set([]byte("!badger!"), nil)
+			require.Equal(t, ErrInvalidKey, err)
 
-		require.NoError(t, txn.Set(small, small))
-		require.Regexp(t, regexp.MustCompile("Key.*exceeded"), txn.Set(bigK, bigV))
+			err = txn.Set([]byte("!badger"), []byte("BadgerDB"))
+			require.NoError(t, err)
+			return err
+		})
+		require.NoError(t, err)
 
 		require.NoError(t, db.View(func(txn *Txn) error {
-			_, err := txn.Get(small)
-			require.Equal(t, ErrKeyNotFound, err)
+			item, err := txn.Get([]byte("!badger"))
+			if err != nil {
+				return err
+			}
+			require.NoError(t, item.Value(func(val []byte) error {
+				require.Equal(t, []byte("BadgerDB"), val)
+				return nil
+			}))
 			return nil
 		}))
 	})
@@ -776,7 +872,7 @@ func TestSetIfAbsentAsync(t *testing.T) {
 		_, err = txn.Get(bkey(i))
 		require.Equal(t, ErrKeyNotFound, err)
 		require.NoError(t, txn.SetWithMeta(bkey(i), nil, byte(i%127)))
-		require.NoError(t, txn.Commit(f))
+		txn.CommitWith(f)
 	}
 
 	require.NoError(t, kv.Close())
@@ -835,7 +931,7 @@ func TestGetSetRace(t *testing.T) {
 				require.NoError(t, db.View(func(txn *Txn) error {
 					item, err := txn.Get([]byte(key))
 					require.NoError(t, err)
-					_, err = item.Value()
+					err = item.Value(nil)
 					require.NoError(t, err)
 					return nil
 				}))
@@ -996,7 +1092,7 @@ func TestLargeKeys(t *testing.T) {
 				// Skip over this record.
 			}
 		}
-		if err := tx.Commit(nil); err != nil {
+		if err := tx.Commit(); err != nil {
 			t.Fatalf("#%d: batchSet err: %v", i, err)
 		}
 	}
@@ -1046,7 +1142,7 @@ func TestGetSetDeadlock(t *testing.T) {
 		db.Update(func(txn *Txn) error {
 			item, err := txn.Get(key)
 			require.NoError(t, err)
-			_, err = item.Value() // This take a RLock on file
+			err = item.Value(nil) // This take a RLock on file
 			require.NoError(t, err)
 
 			rand.Read(val)
@@ -1147,22 +1243,26 @@ func TestSequence(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			val, err := item.Value()
-			if err != nil {
+			var num0 uint64
+			if err := item.Value(func(val []byte) error {
+				num0 = binary.BigEndian.Uint64(val)
+				return nil
+			}); err != nil {
 				return err
 			}
-			num0 := binary.BigEndian.Uint64(val)
 			require.Equal(t, uint64(110), num0)
 
 			item, err = txn.Get(key1)
 			if err != nil {
 				return err
 			}
-			val, err = item.Value()
-			if err != nil {
+			var num1 uint64
+			if err := item.Value(func(val []byte) error {
+				num1 = binary.BigEndian.Uint64(val)
+				return nil
+			}); err != nil {
 				return err
 			}
-			num1 := binary.BigEndian.Uint64(val)
 			require.Equal(t, uint64(200), num1)
 			return nil
 		})
@@ -1187,7 +1287,7 @@ func TestSequence_Release(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			val, err := item.Value()
+			val, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
@@ -1205,7 +1305,7 @@ func TestSequence_Release(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			val, err := item.Value()
+			val, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
@@ -1356,20 +1456,20 @@ func TestReadOnly(t *testing.T) {
 	txn1 := kv1.NewTransaction(true)
 	v1, err := txn1.Get([]byte("key1"))
 	require.NoError(t, err)
-	b1, err := v1.Value()
+	b1, err := v1.ValueCopy(nil)
 	require.NoError(t, err)
 	require.Equal(t, b1, []byte("value1"))
-	err = txn1.Commit(nil)
+	err = txn1.Commit()
 	require.NoError(t, err)
 
 	// Get a thing from the DB via the other connection
 	txn2 := kv2.NewTransaction(true)
 	v2, err := txn2.Get([]byte("key2000"))
 	require.NoError(t, err)
-	b2, err := v2.Value()
+	b2, err := v2.ValueCopy(nil)
 	require.NoError(t, err)
 	require.Equal(t, b2, []byte("value2000"))
-	err = txn2.Commit(nil)
+	err = txn2.Commit()
 	require.NoError(t, err)
 
 	// Attempt to set a value on a read-only connection
@@ -1377,7 +1477,7 @@ func TestReadOnly(t *testing.T) {
 	err = txn.SetWithMeta([]byte("key"), []byte("value"), 0x00)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "No sets or deletes are allowed in a read-only transaction")
-	err = txn.Commit(nil)
+	err = txn.Commit()
 	require.NoError(t, err)
 }
 
@@ -1392,8 +1492,6 @@ func TestLSMOnly(t *testing.T) {
 
 	dopts := DefaultOptions
 	require.NotEqual(t, dopts.ValueThreshold, opts.ValueThreshold)
-	require.NotEqual(t, dopts.ValueLogLoadingMode, opts.ValueLogLoadingMode)
-	require.NotEqual(t, dopts.ValueLogFileSize, opts.ValueLogFileSize)
 
 	dopts.ValueThreshold = 1 << 16
 	_, err = Open(dopts)
@@ -1423,6 +1521,7 @@ func TestLSMOnly(t *testing.T) {
 	require.NoError(t, db.RunValueLogGC(0.2))
 }
 
+// This test function is doing some intricate sorcery.
 func TestMinReadTs(t *testing.T) {
 	runBadgerTest(t, nil, func(t *testing.T, db *DB) {
 		for i := 0; i < 10; i++ {
@@ -1431,8 +1530,11 @@ func TestMinReadTs(t *testing.T) {
 			}))
 		}
 		time.Sleep(time.Millisecond)
-		require.Equal(t, uint64(10), db.orc.readTs())
-		min := db.orc.readMark.MinReadTs()
+
+		readTxn0 := db.NewTransaction(false)
+		require.Equal(t, uint64(10), readTxn0.readTs)
+
+		min := db.orc.readMark.DoneUntil()
 		require.Equal(t, uint64(9), min)
 
 		readTxn := db.NewTransaction(false)
@@ -1442,11 +1544,15 @@ func TestMinReadTs(t *testing.T) {
 			}))
 		}
 		require.Equal(t, uint64(20), db.orc.readTs())
+
 		time.Sleep(time.Millisecond)
-		require.Equal(t, min, db.orc.readMark.MinReadTs())
+		require.Equal(t, min, db.orc.readMark.DoneUntil())
+
+		readTxn0.Discard()
 		readTxn.Discard()
 		time.Sleep(time.Millisecond)
-		require.Equal(t, uint64(19), db.orc.readMark.MinReadTs())
+		require.Equal(t, uint64(19), db.orc.readMark.DoneUntil())
+		db.orc.readMark.Done(uint64(20)) // Because we called readTs.
 
 		for i := 0; i < 10; i++ {
 			db.View(func(txn *Txn) error {
@@ -1454,8 +1560,22 @@ func TestMinReadTs(t *testing.T) {
 			})
 		}
 		time.Sleep(time.Millisecond)
-		require.Equal(t, uint64(20), db.orc.readMark.MinReadTs())
+		require.Equal(t, uint64(20), db.orc.readMark.DoneUntil())
 	})
+}
+
+func TestGoroutineLeak(t *testing.T) {
+	before := runtime.NumGoroutine()
+	t.Logf("Num go: %d", before)
+	for i := 0; i < 12; i++ {
+		runBadgerTest(t, nil, func(t *testing.T, db *DB) {
+			err := db.Update(func(txn *Txn) error {
+				return txn.Set([]byte("key"), []byte("value"))
+			})
+			require.NoError(t, err)
+		})
+	}
+	require.Equal(t, before, runtime.NumGoroutine())
 }
 
 func ExampleOpen() {
@@ -1489,7 +1609,7 @@ func ExampleOpen() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = txn.Commit(nil)
+	err = txn.Commit()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1499,7 +1619,7 @@ func ExampleOpen() {
 		if err != nil {
 			return err
 		}
-		val, err := item.Value()
+		val, err := item.ValueCopy(nil)
 		if err != nil {
 			return err
 		}
@@ -1551,7 +1671,7 @@ func ExampleTxn_NewIterator() {
 		}
 	}
 
-	err = txn.Commit(nil)
+	err = txn.Commit()
 	if err != nil {
 		log.Fatal(err)
 	}
