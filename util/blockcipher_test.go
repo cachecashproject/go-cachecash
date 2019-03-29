@@ -74,3 +74,18 @@ func (suite *BlockCipherTestSuite) TestSingleBlockEncryption() {
 		}
 	}
 }
+
+// keep this function in sync with typescript-cachecash
+func (suite *BlockCipherTestSuite) TestSingleStaticBlockEncryption() {
+	t := suite.T()
+
+	plaintext := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	key := []byte{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
+	iv := []byte{8, 7, 6, 5, 4, 3, 2, 1, 16, 15, 14, 13, 12, 11, 10, 9}
+	counter := uint32(23)
+
+	ciphertext, err := EncryptBlock(plaintext, key, iv, counter)
+
+	assert.Nil(t, err)
+	assert.Equal(t, []byte{7, 231, 85, 127, 217, 165, 18, 114, 59, 80, 215, 36, 96, 107, 189, 87}, ciphertext)
+}
