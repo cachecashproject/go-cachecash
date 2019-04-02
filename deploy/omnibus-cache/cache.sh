@@ -1,7 +1,8 @@
 #!/bin/sh
 
-# exec /usr/local/bin/cached -config /etc/cache.config.json
+# # If testing the log rotation and collection mechanism, this may be useful.
+# exec /usr/local/bin/test-log-generator -logFile='-'
 
-mkdir -p /var/log/cachecash
-exec /usr/local/bin/test-log-generator -logFile='-'
-#/usr/local/bin/test-log-generator -logFile /var/log/cachecash/cache.log 2>/var/log/cachecash/cache.log
+# Output logs to stdout where svlogd can collect them.
+exec /usr/local/bin/cached -config /etc/cache.config.json  -logFile='-'
+

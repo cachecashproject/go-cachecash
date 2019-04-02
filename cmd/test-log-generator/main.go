@@ -5,14 +5,13 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/client9/reopen"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cachecashproject/go-cachecash/common"
 )
 
 var (
@@ -47,38 +46,13 @@ func mainC() error {
 	log.SetFlags(0)
 
 	l := logrus.New()
-	logLevel, err := logrus.ParseLevel(*logLevelStr)
-	if err != nil {
-		return errors.Wrap(err, "failed to parse log level")
+	if err := common.ConfigureLogger(l, &common.LoggerConfig{
+		LogLevelStr: *logLevelStr,
+		LogCaller:   *logCaller,
+		LogFile:     *logFile,
+	}); err != nil {
+		return errors.Wrap(err, "failed to configure logger")
 	}
-	l.SetLevel(logLevel)
-	l.SetReportCaller(*logCaller)
-
-	l.SetFormatter(&logrus.JSONFormatter{})
-
-	if *logFile != "" {
-		if *logFile == "-" {
-			l.SetOutput(os.Stdout)
-		} else {
-			f, err := reopen.NewFileWriter(*logFile)
-			if err != nil {
-				return errors.Wrap(err, "unable to open log file")
-			}
-			l.SetOutput(f)
-
-			sighupCh := make(chan os.Signal, 1)
-			signal.Notify(sighupCh, syscall.SIGHUP)
-			go func() {
-				for {
-					<-sighupCh
-					if err := f.Reopen(); err != nil {
-						l.WithError(err).Error("failed to reopen log file on SIGHUP")
-					}
-				}
-			}()
-		}
-	}
-
 	l.Info("ready to spew test log messages")
 
 	// XXX: No way to trigger this right now; if we need a graceful shutdown we could hook this up.
