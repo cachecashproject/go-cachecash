@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends logrotate
 CMD ["/sbin/my_init"]
 
 COPY --from=0 /usr/share/filebeat/filebeat /usr/local/bin/
-COPY --from=1 /artifacts/bin/* /usr/local/bin/
+COPY --from=1 /usr/local/bin/* /usr/local/bin/
 
 RUN mkdir /etc/service/filebeat
 ADD ./deploy/omnibus-cache/filebeat.sh /etc/service/filebeat/run
