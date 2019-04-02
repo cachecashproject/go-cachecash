@@ -2,16 +2,7 @@
 # Depends
 # --------------------
 FROM docker.elastic.co/beats/filebeat:6.6.2
-
-# --------------------
-# Build
-# --------------------
-#FROM golang:1.12.1-alpine3.9
-FROM golang:1.12.1-stretch
-#RUN apk update && apk add --no-cache build-base
-WORKDIR $GOPATH/src/github.com/cachecashproject/go-cachecash
-COPY . .
-RUN make PREFIX=/artifacts all
+FROM cachecash/go-cachecash
 
 # --------------------
 # Package
@@ -32,18 +23,16 @@ ADD ./deploy/omnibus-cache/filebeat.sh /etc/service/filebeat/run
 ADD ./deploy/omnibus-cache/filebeat.yml.tpl /etc/filebeat.yml.tpl
 ADD ./deploy/omnibus-cache/init-filebeat.sh /etc/my_init.d/filebeat.sh
 
-RUN mkdir /etc/service/cache
+RUN mkdir -p /etc/service/cache/log
 ADD ./deploy/omnibus-cache/cache.sh /etc/service/cache/run
+ADD ./deploy/omnibus-cache/cache.log.sh /etc/service/cache/log/run
+ADD ./deploy/omnibus-cache/cache.log.config /var/log/cachecash/cache/config
 # # See README.md for a note about this: we require that config be bind-mounted.
 # ADD ./deploy/omnibus-cache/cache.config.json /etc/cache.config.json
 
-RUN mkdir /etc/service/logrotate
-ADD ./deploy/omnibus-cache/logrotate.sh /etc/service/logrotate/run
-# TMP: Disable rotation
-RUN touch /etc/service/logrotate/down
-
 RUN chmod +x /etc/my_init.d/*
 RUN chmod +x /etc/service/*/run
+RUN chmod +x /etc/service/*/log/run
 
 # TODO: Still need containernet packages required on Ubuntu images.
 

@@ -8,7 +8,8 @@
 filebeat.inputs:
 - type: log
   paths:
-    - /var/log/cachecash/*.log
+    - /var/log/cachecash/cache/current
+    - /var/log/cachecash/cache/*.s
   json.keys_under_root: true
   json.add_error_key: true
 
