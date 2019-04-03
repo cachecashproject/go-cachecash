@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cachecashproject/go-cachecash/client"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -20,6 +21,7 @@ import (
 var (
 	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
 	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
+	logFile     = flag.String("logFile", "", "Path where file should be logged")
 	outputPath  = flag.String("o", "", "Path where retrieved file will be written")
 )
 
@@ -37,12 +39,13 @@ func mainC() error {
 	log.SetFlags(0)
 
 	l := logrus.New()
-	logLevel, err := logrus.ParseLevel(*logLevelStr)
-	if err != nil {
-		return errors.Wrap(err, "failed to parse log level")
+	if err := common.ConfigureLogger(l, &common.LoggerConfig{
+		LogLevelStr: *logLevelStr,
+		LogCaller:   *logCaller,
+		LogFile:     *logFile,
+	}); err != nil {
+		return errors.Wrap(err, "failed to configure logger")
 	}
-	l.SetLevel(logLevel)
-	l.SetReportCaller(*logCaller)
 
 	// e.g. "cachecash://localhost:8080/foo/bar"
 	rawURI := flag.Arg(0)
