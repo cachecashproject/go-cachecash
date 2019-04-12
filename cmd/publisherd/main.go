@@ -25,6 +25,7 @@ import (
 var (
 	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
 	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
+	logFile     = flag.String("logFile", "", "Path where file should be logged")
 	configPath  = flag.String("config", "publisher.config.json", "Path to configuration file")
 )
 
@@ -56,12 +57,13 @@ func mainC() error {
 	log.SetFlags(0)
 
 	l := logrus.New()
-	logLevel, err := logrus.ParseLevel(*logLevelStr)
-	if err != nil {
-		return errors.Wrap(err, "failed to parse log level")
+	if err := common.ConfigureLogger(l, &common.LoggerConfig{
+		LogLevelStr: *logLevelStr,
+		LogCaller:   *logCaller,
+		LogFile:     *logFile,
+	}); err != nil {
+		return errors.Wrap(err, "failed to configure logger")
 	}
-	l.SetLevel(logLevel)
-	l.SetReportCaller(*logCaller)
 
 	cf, err := loadConfigFile(*configPath)
 	if err != nil {

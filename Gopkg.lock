@@ -26,6 +26,14 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
+  digest = "1:a54fa5088b9b70ded7ae55917638793b5f6020398631abed09a4dcfd32482cf4"
+  name = "github.com/client9/reopen"
+  packages = ["."]
+  pruneopts = ""
+  revision = "1530c81a31162bebce8a37bca43d56fb2ff6d8b1"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -572,6 +580,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/DATA-DOG/go-sqlmock",
+    "github.com/client9/reopen",
     "github.com/dgraph-io/badger",
     "github.com/gobuffalo/packr",
     "github.com/gogo/protobuf/proto",
