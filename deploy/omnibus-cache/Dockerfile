@@ -10,7 +10,7 @@ FROM cachecash/go-cachecash
 
 FROM phusion/baseimage:0.11
 
-RUN apt-get update && apt-get install -y --no-install-recommends logrotate
+RUN apt-get update && apt-get install -y --no-install-recommends logrotate && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Use baseimage-docker's init system.
 CMD ["/sbin/my_init"]
@@ -35,8 +35,5 @@ RUN chmod +x /etc/service/*/run
 RUN chmod +x /etc/service/*/log/run
 
 # TODO: Still need containernet packages required on Ubuntu images.
-
-# Clean up apt when done.
-RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # --------------------
