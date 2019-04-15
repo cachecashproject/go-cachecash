@@ -1,6 +1,15 @@
 #!/bin/sh
 set -xe
 
+update_docker_compose() {
+	DOCKER_COMPOSE_VERSION=1.24.0
+
+	sudo rm /usr/local/bin/docker-compose
+	curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
+	chmod +x docker-compose
+	sudo mv docker-compose /usr/local/bin
+}
+
 case "$BUILD_MODE" in
 	test)
 		go get github.com/golangci/golangci-lint/cmd/golangci-lint
@@ -23,7 +32,11 @@ case "$BUILD_MODE" in
 		# - go get -u github.com/volatiletech/sqlboiler-sqlite3/...
 		# - go get -u github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/...
 		;;
+	docker)
+		update_docker_compose
+		;;
 	e2e)
+		update_docker_compose
 		docker-compose build
 		;;
 esac

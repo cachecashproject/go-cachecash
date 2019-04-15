@@ -3,10 +3,12 @@ package publisher
 import (
 	"context"
 	"net"
+	"net/http"
 	"time"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
@@ -119,6 +121,7 @@ type clientProtocolServer struct {
 	conf       *Config
 	publisher  *ContentPublisher
 	grpcServer *grpc.Server
+	httpServer *http.Server
 }
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
@@ -127,12 +130,28 @@ func newClientProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *Config
 	grpcServer := grpc.NewServer()
 	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcClientPublisherServer{publisher: p})
 
+	httpServer := wrapGrpc(grpcServer)
+
 	return &clientProtocolServer{
 		l:          l,
 		conf:       conf,
 		publisher:  p,
 		grpcServer: grpcServer,
+		httpServer: httpServer,
 	}, nil
+}
+
+func wrapGrpc(grpcServer *grpc.Server) *http.Server {
+	wrappedServer := grpcweb.WrapServer(grpcServer)
+
+	handler := func(resp http.ResponseWriter, req *http.Request) {
+		wrappedServer.ServeHTTP(resp, req)
+	}
+
+	return &http.Server{
+		// Addr:    fmt.Sprintf(":%d", port),
+		Handler: http.HandlerFunc(handler),
+	}
 }
 
 func (s *clientProtocolServer) Start() error {
@@ -143,10 +162,23 @@ func (s *clientProtocolServer) Start() error {
 		return errors.Wrap(err, "failed to bind listener")
 	}
 
+	// httpLis, err := net.Listen("tcp", s.conf.ClientProtocolHttpAddr)
+	httpLis, err := net.Listen("tcp", ":8043")
+	if err != nil {
+		return errors.Wrap(err, "failed to bind listener")
+	}
+
 	go func() {
 		// This will block until we call `Stop`.
 		if err := s.grpcServer.Serve(lis); err != nil {
-			s.l.WithError(err).Error("failed to serve clientProtocolServer")
+			s.l.WithError(err).Error("failed to serve clientProtocolServer(grpc)")
+		}
+	}()
+
+	go func() {
+		// This will block until we call `Stop`.
+		if err := s.httpServer.Serve(httpLis); err != nil {
+			s.l.WithError(err).Error("failed to serve clientProtocolServer(http)")
 		}
 	}()
 

@@ -2,7 +2,7 @@
 
 # ./bin/generate-config -outputPath cfg/ -upstream http://upstream:80 -publisherCacheServiceAddr publisher:8082
 
-version: '3'
+version: '3.7'
 services:
   upstream:
     image: nginx
@@ -32,6 +32,7 @@ services:
   upstream-python:
     image: python:3-alpine
     command: python -m http.server -d /var/www 80
+    init: true
     ports:
      - 8094:80
     volumes:
@@ -43,6 +44,7 @@ services:
     ports:
      - 8080:8080
      - 8082:8082
+     - 8043:8043
     volumes:
     - ./cfg/publisher.config.json:/etc/publisher.config.json
   publisher-db:
@@ -56,6 +58,7 @@ services:
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
      - 9000:9000
+     - 9443:9443
     volumes:
     - ./cfg/cache-0.config.json:/etc/cached.config.json
     - ./cache-0:/cache-0
@@ -64,6 +67,7 @@ services:
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
      - 9001:9001
+     - 9444:9444
     volumes:
     - ./cfg/cache-1.config.json:/etc/cached.config.json
     - ./cache-1:/cache-1
@@ -72,6 +76,7 @@ services:
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
      - 9002:9002
+     - 9445:9445
     volumes:
     - ./cfg/cache-2.config.json:/etc/cached.config.json
     - ./cache-2:/cache-2
@@ -80,6 +85,7 @@ services:
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
      - 9003:9003
+     - 9446:9446
     volumes:
     - ./cfg/cache-3.config.json:/etc/cached.config.json
     - ./cache-3:/cache-3
