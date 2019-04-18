@@ -226,7 +226,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		ce := &cache.Escrow{
 			InnerMasterKey:            innerMasterKeys[i],
 			OuterMasterKey:            testutil.RandBytes(16),
-			Slots:                     uint64(100 + i),
+			Slots:                     uint64(2500 + i),
 			PublisherCacheServiceAddr: params.PublisherCacheServiceAddr,
 		}
 		if params.GenerateObject {
