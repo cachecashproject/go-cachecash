@@ -10,7 +10,7 @@ all: $(BINNAMES)
 $(BINNAMES):
 	go build \
 		-gcflags="all=-trimpath=${GOPATH}" \
-		-asmflags "all=-trimpath=${GOPATH}" \
+		-asmflags="all=-trimpath=${GOPATH}" \
 		-o $(PREFIX)/bin/$@ ./cmd/$@
 
 clean:
