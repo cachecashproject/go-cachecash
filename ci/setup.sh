@@ -17,7 +17,7 @@ case "$BUILD_MODE" in
 		docker build -t cachecash-ci -f ci/Dockerfile .
 
 		# wait until the database is up
-		while ! docker run --rm --net=cachecash cachecash-ci psql 'host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable' -c 'select 1;'; do sleep 10; done
+		while ! docker run --rm --net=cachecash postgres:11 psql 'host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable' -c 'select 1;'; do sleep 10; done
 
 		# apply migrations
 		docker run --rm --net=cachecash cachecash-ci sql-migrate up -config=publisher/migrations/dbconfig.yml -env=docker-tests
