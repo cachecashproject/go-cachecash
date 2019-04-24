@@ -10,6 +10,12 @@ update_docker_compose() {
 	sudo mv docker-compose /usr/local/bin
 }
 
+make dockerfiles
+if ! git diff --quiet; then
+	echo 'ERROR: Dockerfiles need to be regenerated'
+	exit 1
+fi
+
 case "$BUILD_MODE" in
 	test)
 		docker network create cachecash || true
