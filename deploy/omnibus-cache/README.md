@@ -20,5 +20,6 @@ docker run -it --rm --init \
   -v "$PWD"/cfg/cache-0.config.json:/etc/cache.config.json \
   --network elasticsearch-kibana_default \
   -e 'ELASTICSEARCH_URL=http://elasticsearch:9200/' \
+  -e 'OMNIBUS=1' \
   cachecash/omnibus-cache
 ```

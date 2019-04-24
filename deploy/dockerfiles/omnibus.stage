@@ -24,6 +24,11 @@ COPY deploy/omnibus-cache/cache.log.config /var/log/cachecash/cache/config
 # # See README.md for a note about this: we require that config be bind-mounted.
 # COPY deploy/omnibus-cache/cache.config.json /etc/cache.config.json
 
+RUN mkdir -p /etc/service/publisher/log
+COPY deploy/omnibus-cache/publisher.sh /etc/service/publisher/run
+COPY deploy/omnibus-cache/publisher.log.sh /etc/service/publisher/log/run
+COPY deploy/omnibus-cache/publisher.log.config /var/log/publishercash/publisher/config
+
 COPY --from=filebeat /usr/share/filebeat/filebeat /usr/bin/
 COPY --from=build /artifacts/bin/* /usr/local/bin/
 
