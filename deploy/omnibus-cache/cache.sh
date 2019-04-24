@@ -5,4 +5,3 @@
 
 # Output logs to stdout where svlogd can collect them.
 exec /usr/local/bin/cached -config /etc/cache.config.json  -logFile='-'
-

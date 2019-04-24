@@ -1,7 +1,10 @@
 #!/bin/sh
 
-set -euf
+# If /var/log is writable by another user logrotate will fail
+chown root:root /var/log
+chmod 0755 /var/log
 
+# write filebeat config
 set +u
 if test "x${ELASTICSEARCH_URL-}" = "x"; then
     # Prevent filebeat from starting if we don't know where it should forward logs.
@@ -12,3 +15,6 @@ else
     sed 's#{{ELASTICSEARCH_URL}}#'"${ELASTICSEARCH_URL}"'#g' /etc/filebeat.yml.tpl > /etc/filebeat.yml
 fi
 set -u
+
+# spawn services
+exec runsvdir -P /etc/service
