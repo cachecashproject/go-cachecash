@@ -39,6 +39,7 @@ services:
     - ./testdata/content:/var/www
 
   publisher:
+    image: cachecash/go-cachecash
     build: .
     command: publisherd -logLevel debug -logCaller -config /etc/publisher.config.json
     ports:
@@ -54,6 +55,7 @@ services:
     environment:
     - POSTGRES_DB=publisher
   cache-0:
+    image: cachecash/go-cachecash
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
@@ -63,6 +65,7 @@ services:
     - ./cfg/cache-0.config.json:/etc/cached.config.json
     - ./cache-0:/cache-0
   cache-1:
+    image: cachecash/go-cachecash
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
@@ -72,6 +75,7 @@ services:
     - ./cfg/cache-1.config.json:/etc/cached.config.json
     - ./cache-1:/cache-1
   cache-2:
+    image: cachecash/go-cachecash
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
@@ -81,6 +85,7 @@ services:
     - ./cfg/cache-2.config.json:/etc/cached.config.json
     - ./cache-2:/cache-2
   cache-3:
+    image: cachecash/go-cachecash
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
