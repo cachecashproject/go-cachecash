@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/cachecashproject/go-cachecash/batchsignature"
 	"github.com/cachecashproject/go-cachecash/cache/models"
@@ -19,6 +20,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
+	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
 
@@ -45,22 +47,27 @@ type Cache struct {
 	l  *logrus.Logger
 	db *sql.DB
 
-	Escrows map[common.EscrowID]*Escrow
-
-	Storage *CacheStorage
+	PublicKey   ed25519.PublicKey
+	Escrows     map[common.EscrowID]*Escrow
+	Storage     *CacheStorage
+	StoragePath string
+	StartupTime time.Time
 }
 
-func NewCache(l *logrus.Logger, db *sql.DB, badgerDirectory string) (*Cache, error) {
-	s, err := NewCacheStorage(l, badgerDirectory)
+func NewCache(l *logrus.Logger, db *sql.DB, cf *ConfigFile) (*Cache, error) {
+	s, err := NewCacheStorage(l, cf.BadgerDirectory)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create cache storage")
 	}
 
 	return &Cache{
-		l:       l,
-		db:      db,
-		Escrows: make(map[common.EscrowID]*Escrow),
-		Storage: s,
+		l:           l,
+		db:          db,
+		PublicKey:   cf.PublicKey,
+		Escrows:     make(map[common.EscrowID]*Escrow),
+		Storage:     s,
+		StoragePath: cf.BadgerDirectory,
+		StartupTime: time.Now(),
 	}, nil
 }
 

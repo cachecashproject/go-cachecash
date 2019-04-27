@@ -4,12 +4,15 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
+	"github.com/cachecashproject/go-cachecash/bootstrap"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
 
@@ -21,6 +24,7 @@ type Application interface {
 
 type ConfigFile struct {
 	Config          *Config                     `json:"config"`
+	PublicKey       ed25519.PublicKey           `json:"public_key"`
 	Escrows         map[common.EscrowID]*Escrow `json:"escrows"`
 	BadgerDirectory string                      `json:"badger_directory"`
 	Database        string                      `json:"database"`
@@ -30,6 +34,7 @@ type Config struct {
 	ClientProtocolGrpcAddr string
 	ClientProtocolHttpAddr string
 	StatusAddr             string
+	BootstrapAddr          string
 }
 
 func (c *Config) FillDefaults() {
@@ -100,6 +105,7 @@ type clientProtocolServer struct {
 	cache      *Cache
 	grpcServer *grpc.Server
 	httpServer *http.Server
+	quitCh     chan bool
 }
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
@@ -157,6 +163,12 @@ func (s *clientProtocolServer) Start() error {
 		return errors.Wrap(err, "failed to bind listener")
 	}
 
+	// TODO: BootstrapAddr should be optional
+	bootstrapClient, err := bootstrap.NewClient(s.l, s.conf.BootstrapAddr)
+	if err != nil {
+		return errors.Wrap(err, "failed to create bootstrap client")
+	}
+
 	go func() {
 		// This will block until we call `Stop`.
 		if err := s.grpcServer.Serve(grpcLis); err != nil {
@@ -171,11 +183,34 @@ func (s *clientProtocolServer) Start() error {
 		}
 	}()
 
+	quit := make(chan bool, 1)
+	go func() {
+		for {
+			info := bootstrap.NewCacheInfo()
+			info.ReadMemoryStats()
+			info.ReadDiskStats(s.cache.StoragePath)
+			bootstrapClient.AnnounceCache(context.TODO(), s.cache.PublicKey, s.cache.StartupTime, info)
+
+			select {
+			// if a shutdown has been requested close the go channel
+			case <-quit:
+				return
+			// after we waited for a shutdown request for x minutes, announce the cache again
+			case <-time.After(1 * time.Minute):
+				continue
+			}
+		}
+	}()
+	s.quitCh = quit
+
 	s.l.Info("clientProtocolServer - Start - exit")
 	return nil
 }
 
 func (s *clientProtocolServer) Shutdown(ctx context.Context) error {
+	// stop announcing our cache
+	s.quitCh <- true
+
 	// TODO: Should use `GracefulStop` until context expires, and then fall back on `Stop`.
 	s.grpcServer.Stop()
 

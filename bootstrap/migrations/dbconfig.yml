@@ -1,0 +1,6 @@
+# This configuration file is for sql-migrate.
+bootstrapd-development:
+  dialect: sqlite3
+  datasource: "./bootstrapd.db"
+  dir: "../migrations/"
+  table: migrations
