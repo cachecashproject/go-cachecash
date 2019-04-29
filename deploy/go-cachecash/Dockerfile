@@ -2,7 +2,7 @@
 # Build
 # --------------------
 #FROM golang:1.12.1-alpine3.9
-FROM golang:1.12.1-stretch
+FROM golang:1.12.4-stretch
 #RUN apk update && apk add --no-cache build-base
 WORKDIR $GOPATH/src/github.com/cachecashproject/go-cachecash
 COPY . .

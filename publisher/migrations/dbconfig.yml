@@ -4,3 +4,9 @@ development:
   datasource: "host=127.0.0.1 port=5432 user=postgres dbname=publisher sslmode=disable"
   dir: "../migrations/"
   table: migrations
+
+docker-tests:
+  dialect: postgres
+  datasource: "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable"
+  dir: "publisher/migrations/"
+  table: migrations

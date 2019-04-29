@@ -48,7 +48,7 @@ services:
     volumes:
     - ./cfg/publisher.config.json:/etc/publisher.config.json
   publisher-db:
-    image: postgres:10
+    image: postgres:11
     ports:
     - 5432:5432
     environment:

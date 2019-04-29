@@ -1,21 +1,16 @@
 # Use the fast container-based test runner instead of the slow VM-based runner.
 sudo: false
 
-language: go
-
 # Test only on the most recent stable release.
 matrix:
   include:
   - os: linux
-    go: 1.11.x
     env:
     - BUILD_MODE=test
   - os: linux
-    go: 1.11.x
     env:
     - BUILD_MODE=docker
   - os: linux
-    go: 1.11.x
     env:
     - BUILD_MODE=e2e
 
