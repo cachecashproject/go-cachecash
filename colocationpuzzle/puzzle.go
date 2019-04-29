@@ -85,10 +85,6 @@ func Generate(params Parameters, blocks [][]byte, innerKeys [][]byte, innerIVs [
 		blockLen := len(blocks[i])
 		// XXX: This is almost certainly a problem: what do we do when we get objects that are not a multiple of the
 		// cipher block size?
-		if blockLen%aes.BlockSize != 0 {
-			// XXX: Is this actually a problem?
-			return nil, errors.New("input block size is not a multiple of cipher block size")
-		}
 		blockSize[i] = blockLen / aes.BlockSize
 	}
 
