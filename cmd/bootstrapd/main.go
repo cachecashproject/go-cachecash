@@ -6,11 +6,10 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	_ "net/http/pprof"
 	"os"
 
-	"github.com/cachecashproject/go-cachecash/cache"
-	"github.com/cachecashproject/go-cachecash/cache/migrations"
+	"github.com/cachecashproject/go-cachecash/bootstrap"
+	"github.com/cachecashproject/go-cachecash/bootstrap/migrations"
 	"github.com/cachecashproject/go-cachecash/common"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
@@ -22,16 +21,16 @@ var (
 	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
 	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
 	logFile     = flag.String("logFile", "", "Path where file should be logged")
-	configPath  = flag.String("config", "cache.config.json", "Path to configuration file")
+	configPath  = flag.String("config", "bootstrapd.config.json", "Path to configuration file")
 )
 
-func loadConfigFile(path string) (*cache.ConfigFile, error) {
+func loadConfigFile(path string) (*bootstrap.ConfigFile, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var cf cache.ConfigFile
+	var cf bootstrap.ConfigFile
 	if err := json.Unmarshal(data, &cf); err != nil {
 		return nil, err
 	}
@@ -78,15 +77,12 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	c, err := cache.NewCache(l, db, cf)
+	b, err := bootstrap.NewBootstrapd(l, db)
 	if err != nil {
 		return nil
 	}
-	defer c.Close()
 
-	c.Escrows = cf.Escrows
-
-	app, err := cache.NewApplication(l, c, cf.Config)
+	app, err := bootstrap.NewApplication(l, b, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cachecashproject/go-cachecash/bootstrap"
 	"github.com/cachecashproject/go-cachecash/cache"
 	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/testdatagen"
@@ -66,7 +67,9 @@ func mainC() error {
 				ClientProtocolGrpcAddr: fmt.Sprintf(":%v", 9000+i),
 				ClientProtocolHttpAddr: fmt.Sprintf(":%v", 9443+i),
 				StatusAddr:             fmt.Sprintf(":%v", 9100+i),
+				BootstrapAddr:          "bootstrap:7777",
 			},
+			PublicKey:       scen.CacheConfigs[i].PublicKey,
 			Escrows:         c.Escrows,
 			BadgerDirectory: fmt.Sprintf("./cache-%d/", i),
 			Database:        fmt.Sprintf("./cache-%d.db", i),
@@ -91,7 +94,9 @@ func mainC() error {
 
 	// Generate publisher-side configuration file.
 	cf := &publisher.ConfigFile{
-		Config: &publisher.Config{},
+		Config: &publisher.Config{
+			BootstrapAddr: "bootstrap:7777",
+		},
 		Escrows: []*publisher.Escrow{
 			scen.Escrow,
 		},
@@ -107,6 +112,22 @@ func mainC() error {
 
 	path := filepath.Join(*outputPath, "publisher.config.json")
 	l.Debugf("writing publisher configuration: %v", path)
+	if err := ioutil.WriteFile(path, buf, 0644); err != nil {
+		return err
+	}
+
+	// Generate bootstrapd configuration file
+	cf2 := &bootstrap.ConfigFile{
+		GrpcAddr: ":7777",
+		Database: "./bootstrapd.db",
+	}
+	buf, err = json.MarshalIndent(cf2, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	path = filepath.Join(*outputPath, "bootstrapd.config.json")
+	l.Debugf("writing bootstrapd configuration: %v", path)
 	if err := ioutil.WriteFile(path, buf, 0644); err != nil {
 		return err
 	}

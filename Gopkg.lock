@@ -26,6 +26,13 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
+  digest = "1:869521d1ba69d7c733b8c18aacdb415a4791b7beb90031b121ae820677ed0da6"
+  name = "github.com/capnm/sysinfo"
+  packages = ["."]
+  pruneopts = ""
+  revision = "5909a53897f32d198d9c81e3417f6d25ecfd2229"
+
+[[projects]]
   digest = "1:a54fa5088b9b70ded7ae55917638793b5f6020398631abed09a4dcfd32482cf4"
   name = "github.com/client9/reopen"
   packages = ["."]
@@ -630,6 +637,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/DATA-DOG/go-sqlmock",
+    "github.com/capnm/sysinfo",
     "github.com/client9/reopen",
     "github.com/dgraph-io/badger",
     "github.com/gobuffalo/packr",
@@ -648,6 +656,7 @@
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/suite",
+    "github.com/volatiletech/null",
     "github.com/volatiletech/sqlboiler/boil",
     "github.com/volatiletech/sqlboiler/drivers",
     "github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/driver",

@@ -49,10 +49,11 @@ type TestScenario struct {
 	Escrow              *publisher.Escrow
 	EscrowID            common.EscrowID
 
-	Params     *TestScenarioParams
-	DataBlocks [][]byte
-	ObjectID   common.ObjectID
-	Caches     []*cache.Cache
+	Params       *TestScenarioParams
+	DataBlocks   [][]byte
+	ObjectID     common.ObjectID
+	Caches       []*cache.Cache
+	CacheConfigs []*cache.ConfigFile
 }
 
 func (ts *TestScenario) BlockCount() uint64 {
@@ -213,8 +214,12 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			},
 		})
 
-		badgerDirectory := fmt.Sprintf("./cache-%d/", i)
-		c, err := cache.NewCache(ts.L, nil, badgerDirectory)
+		cacheConfig := &cache.ConfigFile{}
+		cacheConfig.PublicKey = cachePublicKeys[i]
+		cacheConfig.BadgerDirectory = fmt.Sprintf("./cache-%d/", i)
+		ts.CacheConfigs = append(ts.CacheConfigs, cacheConfig)
+
+		c, err := cache.NewCache(ts.L, nil, cacheConfig)
 		if err != nil {
 			return nil, err
 		}

@@ -1,0 +1,56 @@
+[sqlite3]
+  dbname = "./bootstrapd.db"
+  blacklist = ["migrations"]
+
+[aliases.tables.caches]
+    up_plural     = "Caches"
+    up_singular   = "Cache"
+    down_plural   = "caches"
+    down_singular = "cache"
+
+[[types]]
+  [types.match]
+    name = "public_key"
+  [types.replace]
+    type = "ed25519.PublicKey"
+  [types.imports]
+	third_party = ['"golang.org/x/crypto/ed25519"']
+
+
+[[types]]
+  [types.match]
+    name = "free_memory"
+  [types.replace]
+    type = "uint64"
+
+[[types]]
+  [types.match]
+    name = "total_memory"
+  [types.replace]
+    type = "uint64"
+
+[[types]]
+  [types.match]
+    name = "free_disk"
+  [types.replace]
+    type = "uint64"
+
+[[types]]
+  [types.match]
+    name = "total_disk"
+  [types.replace]
+    type = "uint64"
+
+[[types]]
+  [types.match]
+    name = "startup_time"
+  [types.replace]
+    type = "time.Time"
+
+[[types]]
+  [types.match]
+    name = "external_ip"
+  [types.replace]
+    type = "net.IP"
+  [types.imports]
+	third_party = ['"net"']
