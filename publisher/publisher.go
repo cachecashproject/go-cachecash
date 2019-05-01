@@ -15,6 +15,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
 )
@@ -37,6 +38,8 @@ type ContentPublisher struct {
 
 	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
 	// caches map[cachecash.PublicKey]*ParticipatingCache
+
+	PublisherCacheServiceAddr string
 }
 
 type CacheInfo struct {
@@ -47,13 +50,14 @@ type reverseMappingEntry struct {
 	path string
 }
 
-func NewContentPublisher(l *logrus.Logger, db *sql.DB, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
+func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherCacheServiceAddr string, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
 	p := &ContentPublisher{
-		l:              l,
-		db:             db,
-		signer:         signer,
-		catalog:        catalog,
-		reverseMapping: make(map[common.ObjectID]reverseMappingEntry),
+		l:                         l,
+		db:                        db,
+		signer:                    signer,
+		catalog:                   catalog,
+		reverseMapping:            make(map[common.ObjectID]reverseMappingEntry),
+		PublisherCacheServiceAddr: publisherCacheServiceAddr,
 	}
 
 	return p, nil
@@ -385,6 +389,35 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 	}
 
 	return &resp, nil
+}
+
+func (p *ContentPublisher) AddEscrowToDatabase(ctx context.Context, escrow *Escrow) error {
+	if err := p.AddEscrow(escrow); err != nil {
+		return errors.Wrap(err, "failed to add escrow to publisher")
+	}
+	if err := escrow.Inner.Insert(ctx, p.db, boil.Infer()); err != nil {
+		return errors.Wrap(err, "failed to add escrow to database")
+	}
+
+	for _, c := range escrow.Caches {
+		p.l.Info("Adding cache to database: ", c)
+		err := c.Cache.Upsert(ctx, p.db, true, []string{"public_key"}, boil.Whitelist("inetaddr", "port"), boil.Infer())
+		if err != nil {
+			return errors.Wrap(err, "failed to add cache to database")
+		}
+
+		ec := models.EscrowCache{
+			EscrowID:       escrow.Inner.ID,
+			CacheID:        c.Cache.ID,
+			InnerMasterKey: c.InnerMasterKey,
+		}
+		err = ec.Upsert(ctx, p.db, false, []string{"escrow_id", "cache_id"}, boil.Whitelist("inner_master_key"), boil.Infer())
+		if err != nil {
+			return errors.Wrap(err, "failed to link cache to escrow")
+		}
+	}
+
+	return nil
 }
 
 // XXX: This is, obviously, temporary.  We should be using object IDs that are larger than 64 bits, among other

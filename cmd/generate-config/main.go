@@ -59,7 +59,7 @@ func mainC() error {
 	}
 
 	// Generate cache-side configuration files.
-	for i, c := range scen.Caches {
+	for i, _ := range scen.Caches {
 		cf := cache.ConfigFile{
 			Config: &cache.Config{
 				// XXX: This must match what is set up in the Escrow struct on the publisher side so that the publisher
@@ -67,10 +67,9 @@ func mainC() error {
 				ClientProtocolGrpcAddr: fmt.Sprintf(":%v", 9000+i),
 				ClientProtocolHttpAddr: fmt.Sprintf(":%v", 9443+i),
 				StatusAddr:             fmt.Sprintf(":%v", 9100+i),
-				BootstrapAddr:          "bootstrap:7777",
+				BootstrapAddr:          "bootstrapd:7777",
 			},
 			PublicKey:       scen.CacheConfigs[i].PublicKey,
-			Escrows:         c.Escrows,
 			BadgerDirectory: fmt.Sprintf("./cache-%d/", i),
 			Database:        fmt.Sprintf("./cache-%d.db", i),
 		}
@@ -95,10 +94,8 @@ func mainC() error {
 	// Generate publisher-side configuration file.
 	cf := &publisher.ConfigFile{
 		Config: &publisher.Config{
-			BootstrapAddr: "bootstrap:7777",
-		},
-		Escrows: []*publisher.Escrow{
-			scen.Escrow,
+			CacheProtocolAddr: scen.Params.PublisherCacheServiceAddr,
+			BootstrapAddr:     "bootstrapd:7777",
 		},
 		UpstreamURL: *upstream,
 		PrivateKey:  scen.PublisherPrivateKey,

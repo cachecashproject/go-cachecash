@@ -20,7 +20,7 @@ type Escrow struct {
 
 	Publisher *ContentPublisher
 	Inner     models.Escrow
-	Caches    []ParticipatingCache
+	Caches    []*ParticipatingCache
 }
 
 // The info object does not need to have its keys populated.

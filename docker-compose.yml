@@ -44,7 +44,7 @@ services:
   publisher:
     image: cachecash/go-cachecash
     build: .
-    command: publisherd -logLevel debug -logCaller -config /etc/publisher.config.json
+    command: publisherd -logLevel debug -config /etc/publisher.config.json
     ports:
      - 8080:8080
      - 8082:8082
@@ -61,7 +61,7 @@ services:
 
   bootstrapd:
     build: .
-    command: bootstrapd -logLevel debug -logCaller -config /etc/bootstrapd.config.json
+    command: bootstrapd -logLevel debug -config /etc/bootstrapd.config.json
     ports:
      - 7777:7777
     volumes:

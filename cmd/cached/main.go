@@ -84,8 +84,6 @@ func mainC() error {
 	}
 	defer c.Close()
 
-	c.Escrows = cf.Escrows
-
 	app, err := cache.NewApplication(l, c, cf.Config)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")

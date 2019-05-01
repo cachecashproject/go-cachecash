@@ -55,6 +55,7 @@ func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.
 		TotalDisk:   req.TotalDisk,
 		StartupTime: startupTime,
 		ExternalIP:  srcIP,
+		Port:        req.Port,
 		ContactURL:  req.ContactUrl,
 		LastPing:    time.Now(),
 	}
@@ -107,6 +108,7 @@ func (b *Bootstrapd) HandleCacheFetchRequest(ctx context.Context, req *ccmsg.Cac
 			StartupTime: c.StartupTime.Unix(),
 			ContactUrl:  c.ContactURL,
 			ExternalIp:  c.ExternalIP.String(),
+			Port:        c.Port,
 		})
 	}
 

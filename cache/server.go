@@ -4,6 +4,8 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cachecashproject/go-cachecash/bootstrap"
@@ -23,11 +25,10 @@ type Application interface {
 }
 
 type ConfigFile struct {
-	Config          *Config                     `json:"config"`
-	PublicKey       ed25519.PublicKey           `json:"public_key"`
-	Escrows         map[common.EscrowID]*Escrow `json:"escrows"`
-	BadgerDirectory string                      `json:"badger_directory"`
-	Database        string                      `json:"database"`
+	Config          *Config           `json:"config"`
+	PublicKey       ed25519.PublicKey `json:"public_key"`
+	BadgerDirectory string            `json:"badger_directory"`
+	Database        string            `json:"database"`
 }
 
 type Config struct {
@@ -113,6 +114,7 @@ var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 func newClientProtocolServer(l *logrus.Logger, c *Cache, conf *Config) (*clientProtocolServer, error) {
 	grpcServer := grpc.NewServer()
 	ccmsg.RegisterClientCacheServer(grpcServer, &grpcClientCacheServer{cache: c})
+	ccmsg.RegisterPublisherCacheServer(grpcServer, &grpcPublisherCacheServer{cache: c})
 
 	httpServer := wrapGrpc(grpcServer)
 
@@ -153,6 +155,13 @@ func wrapGrpc(grpcServer *grpc.Server) *http.Server {
 func (s *clientProtocolServer) Start() error {
 	s.l.Info("clientProtocolServer - Start - enter")
 
+	addrParts := strings.Split(s.conf.ClientProtocolGrpcAddr, ":")
+	portStr := addrParts[len(addrParts)-1]
+	port, err := strconv.ParseUint(portStr, 10, 32)
+	if err != nil {
+		return errors.Wrap(err, "failed to get port from client protocol grpc addr")
+	}
+
 	grpcLis, err := net.Listen("tcp", s.conf.ClientProtocolGrpcAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to bind listener")
@@ -189,7 +198,7 @@ func (s *clientProtocolServer) Start() error {
 			info := bootstrap.NewCacheInfo()
 			info.ReadMemoryStats()
 			info.ReadDiskStats(s.cache.StoragePath)
-			bootstrapClient.AnnounceCache(context.TODO(), s.cache.PublicKey, s.cache.StartupTime, info)
+			bootstrapClient.AnnounceCache(context.TODO(), s.cache.PublicKey, uint32(port), s.cache.StartupTime, info)
 
 			select {
 			// if a shutdown has been requested close the go channel

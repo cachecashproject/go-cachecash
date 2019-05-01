@@ -21,6 +21,7 @@ CREATE TABLE caches (
     -- TODO: we need explicit endpoints
     -- interfaces VARCHAR,
     external_ip VARCHAR NOT NULL,
+    port INTEGER NOT NULL,
 
     -- a URI where interested publishers can contact them
     contact_url VARCHAR NOT NULL,

@@ -62,3 +62,13 @@ func (s *grpcClientCacheServer) ExchangeTicketL2(ctx context.Context, req *ccmsg
 		return &ccmsg.ClientCacheResponseL2{}, nil
 	}
 }
+
+type grpcPublisherCacheServer struct {
+	cache *Cache
+}
+
+var _ ccmsg.PublisherCacheServer = (*grpcPublisherCacheServer)(nil)
+
+func (s *grpcPublisherCacheServer) OfferEscrow(ctx context.Context, req *ccmsg.EscrowOfferRequest) (*ccmsg.EscrowOfferResponse, error) {
+	return s.cache.OfferEscrow(ctx, req)
+}

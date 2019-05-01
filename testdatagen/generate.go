@@ -179,7 +179,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		WithArgs(123, 124, 125, 126).
 		WillReturnRows(rows)
 
-	prov, err := publisher.NewContentPublisher(ts.L, db, cat, publisherPrivateKey) // TODO: this one causes panic
+	prov, err := publisher.NewContentPublisher(ts.L, db, "", cat, publisherPrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 
 	// Create caches that are participating in this escrow.
 	for i := 0; i < 4; i++ {
-		ts.Escrow.Caches = append(ts.Escrow.Caches, publisher.ParticipatingCache{
+		ts.Escrow.Caches = append(ts.Escrow.Caches, &publisher.ParticipatingCache{
 			InnerMasterKey: innerMasterKeys[i],
 			Cache: models.Cache{
 				PublicKey: cachePublicKeys[i],

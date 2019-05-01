@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -15,11 +14,9 @@ import (
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/publisher/migrations"
-	"github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/pkg/errors"
 	"github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
-	"github.com/volatiletech/sqlboiler/boil"
 )
 
 var (
@@ -110,39 +107,41 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	p, err := publisher.NewContentPublisher(l, db, cat, cf.PrivateKey)
+	p, err := publisher.NewContentPublisher(l, db, cf.Config.CacheProtocolAddr, cat, cf.PrivateKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher")
 	}
 
-	for _, e := range cf.Escrows {
-		l.Infof("Adding escrow from config to database: %v", e)
-		if err = p.AddEscrow(e); err != nil {
-			return errors.Wrap(err, "failed to add escrow to publisher")
-		}
-		err = e.Inner.Insert(context.TODO(), db, boil.Infer())
-		if err != nil {
-			return errors.Wrap(err, "failed to add escrow to database")
-		}
-
-		for _, c := range e.Caches {
-			l.Infof("Adding cache from config to database: %v", c)
-			err = c.Cache.Upsert(context.TODO(), db, true, []string{"public_key"}, boil.Whitelist("inetaddr", "port"), boil.Infer())
+	/*
+		for _, e := range cf.Escrows {
+			l.Infof("Adding escrow from config to database: %v", e)
+			if err = p.AddEscrow(e); err != nil {
+				return errors.Wrap(err, "failed to add escrow to publisher")
+			}
+			err = e.Inner.Insert(context.TODO(), db, boil.Infer())
 			if err != nil {
-				return errors.Wrap(err, "failed to add cache to database")
+				return errors.Wrap(err, "failed to add escrow to database")
 			}
 
-			ec := models.EscrowCache{
-				EscrowID:       e.Inner.ID,
-				CacheID:        c.Cache.ID,
-				InnerMasterKey: c.InnerMasterKey,
-			}
-			err = ec.Upsert(context.TODO(), db, false, []string{"escrow_id", "cache_id"}, boil.Whitelist("inner_master_key"), boil.Infer())
-			if err != nil {
-				return errors.Wrap(err, "failed to link cache to escrow")
+			for _, c := range e.Caches {
+				l.Infof("Adding cache from config to database: %v", c)
+				err = c.Cache.Upsert(context.TODO(), db, true, []string{"public_key"}, boil.Whitelist("inetaddr", "port"), boil.Infer())
+				if err != nil {
+					return errors.Wrap(err, "failed to add cache to database")
+				}
+
+				ec := models.EscrowCache{
+					EscrowID:       e.Inner.ID,
+					CacheID:        c.Cache.ID,
+					InnerMasterKey: c.InnerMasterKey,
+				}
+				err = ec.Upsert(context.TODO(), db, false, []string{"escrow_id", "cache_id"}, boil.Whitelist("inner_master_key"), boil.Infer())
+				if err != nil {
+					return errors.Wrap(err, "failed to link cache to escrow")
+				}
 			}
 		}
-	}
+	*/
 
 	app, err := publisher.NewApplication(l, p, cf.Config)
 	if err != nil {

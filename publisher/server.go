@@ -24,7 +24,6 @@ type Application interface {
 
 type ConfigFile struct {
 	Config      *Config            `json:"config"`
-	Escrows     []*Escrow          `json:"escrows"`
 	UpstreamURL string             `json:"upstreamURL"`
 	PrivateKey  ed25519.PrivateKey `json:"privateKey"`
 	Database    string             `json:"database"`
@@ -243,9 +242,12 @@ func (s *cacheProtocolServer) Start() error {
 		for {
 			caches, err := bootstrapClient.FetchCaches(context.TODO())
 			if err != nil {
-				s.l.Error("Failed to fetch caches:", err)
+				s.l.Error("Failed to fetch caches: ", err)
 			} else {
-				s.l.Info("Caches:", caches)
+				s.l.Info("Caches: ", caches)
+				if err := InitEscrows(s, caches); err != nil {
+					s.l.Error("failed to init escrows: ", err)
+				}
 			}
 
 			select {

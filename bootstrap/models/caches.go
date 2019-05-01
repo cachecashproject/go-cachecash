@@ -32,6 +32,7 @@ type Cache struct {
 	TotalDisk   uint64            `boil:"total_disk" json:"total_disk" toml:"total_disk" yaml:"total_disk"`
 	StartupTime time.Time         `boil:"startup_time" json:"startup_time" toml:"startup_time" yaml:"startup_time"`
 	ExternalIP  net.IP            `boil:"external_ip" json:"external_ip" toml:"external_ip" yaml:"external_ip"`
+	Port        uint32            `boil:"port" json:"port" toml:"port" yaml:"port"`
 	ContactURL  string            `boil:"contact_url" json:"contact_url" toml:"contact_url" yaml:"contact_url"`
 	LastPing    time.Time         `boil:"last_ping" json:"last_ping" toml:"last_ping" yaml:"last_ping"`
 
@@ -48,6 +49,7 @@ var CacheColumns = struct {
 	TotalDisk   string
 	StartupTime string
 	ExternalIP  string
+	Port        string
 	ContactURL  string
 	LastPing    string
 }{
@@ -59,6 +61,7 @@ var CacheColumns = struct {
 	TotalDisk:   "total_disk",
 	StartupTime: "startup_time",
 	ExternalIP:  "external_ip",
+	Port:        "port",
 	ContactURL:  "contact_url",
 	LastPing:    "last_ping",
 }
@@ -134,6 +137,15 @@ func (w whereHelpernet_IP) LTE(x net.IP) qm.QueryMod { return qmhelper.Where(w.f
 func (w whereHelpernet_IP) GT(x net.IP) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
 func (w whereHelpernet_IP) GTE(x net.IP) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
+type whereHelperuint32 struct{ field string }
+
+func (w whereHelperuint32) EQ(x uint32) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperuint32) NEQ(x uint32) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperuint32) LT(x uint32) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperuint32) LTE(x uint32) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperuint32) GT(x uint32) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperuint32) GTE(x uint32) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+
 var CacheWhere = struct {
 	PublicKey   whereHelpered25519_PublicKey
 	Version     whereHelperstring
@@ -143,6 +155,7 @@ var CacheWhere = struct {
 	TotalDisk   whereHelperuint64
 	StartupTime whereHelpertime_Time
 	ExternalIP  whereHelpernet_IP
+	Port        whereHelperuint32
 	ContactURL  whereHelperstring
 	LastPing    whereHelpertime_Time
 }{
@@ -154,6 +167,7 @@ var CacheWhere = struct {
 	TotalDisk:   whereHelperuint64{field: `total_disk`},
 	StartupTime: whereHelpertime_Time{field: `startup_time`},
 	ExternalIP:  whereHelpernet_IP{field: `external_ip`},
+	Port:        whereHelperuint32{field: `port`},
 	ContactURL:  whereHelperstring{field: `contact_url`},
 	LastPing:    whereHelpertime_Time{field: `last_ping`},
 }
@@ -175,8 +189,8 @@ func (*cacheR) NewStruct() *cacheR {
 type cacheL struct{}
 
 var (
-	cacheColumns               = []string{"public_key", "version", "free_memory", "total_memory", "free_disk", "total_disk", "startup_time", "external_ip", "contact_url", "last_ping"}
-	cacheColumnsWithoutDefault = []string{"public_key", "version", "free_memory", "total_memory", "free_disk", "total_disk", "startup_time", "external_ip", "contact_url", "last_ping"}
+	cacheColumns               = []string{"public_key", "version", "free_memory", "total_memory", "free_disk", "total_disk", "startup_time", "external_ip", "port", "contact_url", "last_ping"}
+	cacheColumnsWithoutDefault = []string{"public_key", "version", "free_memory", "total_memory", "free_disk", "total_disk", "startup_time", "external_ip", "port", "contact_url", "last_ping"}
 	cacheColumnsWithDefault    = []string{}
 	cachePrimaryKeyColumns     = []string{"public_key"}
 )

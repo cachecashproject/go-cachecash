@@ -54,3 +54,9 @@
     type = "net.IP"
   [types.imports]
 	third_party = ['"net"']
+
+[[types]]
+  [types.match]
+    name = "port"
+  [types.replace]
+    type = "uint32"

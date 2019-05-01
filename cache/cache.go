@@ -8,7 +8,10 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cachecashproject/go-cachecash/batchsignature"
@@ -22,6 +25,7 @@ import (
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 )
 
 /*
@@ -92,7 +96,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 
 		// XXX: No transport security!
 		// XXX: Should not create a new connection for each attempt.
-		c.l.Info("dialing publisher's cache-facing service")
+		c.l.Info("dialing publisher's cache-facing service: ", escrow.PublisherCacheServiceAddr)
 		conn, err := grpc.Dial(escrow.PublisherCacheServiceAddr, grpc.WithInsecure())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to dial")
@@ -435,4 +439,57 @@ func VerifyRequest(m *ccmsg.ClientCacheRequest) error {
 	}
 
 	return nil
+}
+
+func getPublisherAddr(ctx context.Context, publisherCacheServiceAddr string) (string, error) {
+	// XXX. if an ip/hostname is set, try to use that. This could be an address in a private ip range though
+	if !strings.HasPrefix(publisherCacheServiceAddr, ":") {
+		return publisherCacheServiceAddr, nil
+	}
+
+	peer, ok := peer.FromContext(ctx)
+	if !ok {
+		return "", errors.New("failed to get grpc peer from ctx")
+	}
+
+	var srcIP net.IP
+	switch addr := peer.Addr.(type) {
+	case *net.UDPAddr:
+		srcIP = addr.IP
+	case *net.TCPAddr:
+		srcIP = addr.IP
+	}
+
+	publisherAddr := strings.Split(publisherCacheServiceAddr, ":")
+	portStr := publisherAddr[len(publisherAddr)-1]
+	port, err := strconv.ParseUint(portStr, 10, 32)
+	if err != nil {
+		return "", errors.Wrap(err, "invalid port")
+	}
+
+	return fmt.Sprintf("%s:%d", srcIP, port), nil
+}
+
+func (c *Cache) OfferEscrow(ctx context.Context, req *ccmsg.EscrowOfferRequest) (*ccmsg.EscrowOfferResponse, error) {
+	// TODO: ensure we have enough resources
+
+	escrowID, err := common.BytesToEscrowID(req.EscrowId)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid escrow id")
+	}
+
+	publisherAddr, err := getPublisherAddr(ctx, req.PublisherCacheServiceAddr)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get PublisherCacheAddr")
+	}
+
+	c.Escrows[escrowID] = &Escrow{
+		InnerMasterKey:            req.InnerMasterKey,
+		OuterMasterKey:            req.OuterMasterKey,
+		Slots:                     req.Slots,
+		PublisherCacheServiceAddr: publisherAddr,
+	}
+	// TODO: write to database
+
+	return &ccmsg.EscrowOfferResponse{}, nil
 }
