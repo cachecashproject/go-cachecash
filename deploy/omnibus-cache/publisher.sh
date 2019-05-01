@@ -4,4 +4,4 @@
 # exec /usr/local/bin/test-log-generator -logFile='-'
 
 # Output logs to stdout where svlogd can collect them.
-exec /usr/local/bin/cached -config /etc/cache.config.json  -logFile='-'
+exec /usr/local/bin/publisherd -config /etc/publisher.config.json  -logFile='-'

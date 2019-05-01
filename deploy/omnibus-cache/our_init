@@ -1,0 +1,47 @@
+#!/bin/sh
+
+# If /var/log is writable by another user logrotate will fail
+chown root:root /var/log
+chmod 0755 /var/log
+
+# if omnibus isn't enabled, exec directly
+if [ -z "${OMNIBUS}" ]; then
+    exec "$@"
+fi
+
+# write filebeat config
+if [ -z "${ELASTICSEARCH_URL}" ]; then
+    # Prevent filebeat from starting if we don't know where it should forward logs.
+    echo >&2 'No ELASTICSEARCH_URL set; will not forward logs.'
+    touch /etc/service/filebeat/down
+else
+    echo >&2 "Forwarding logs to: ${ELASTICSEARCH_URL}"
+    sed 's#{{ELASTICSEARCH_URL}}#'"${ELASTICSEARCH_URL}"'#g' /etc/filebeat.yml.tpl > /etc/filebeat.yml
+fi
+
+if [ $# -ne 1 ]; then
+    echo 'ERROR: when starting the omnibus service, only a single argument is expected'
+    exit 1
+fi
+
+# disable all services
+for x in cache publisher; do
+    touch "/etc/service/${x}/down"
+done
+
+# re-enable the one we want
+case "$1" in
+    cache)
+        rm "/etc/service/cache/down"
+        ;;
+    publisher)
+        rm "/etc/service/publisher/down"
+        ;;
+    *)
+        echo "ERROR: unknown service: $1"
+        exit 1
+        ;;
+esac
+
+# spawn services
+exec runsvdir -P /etc/service
