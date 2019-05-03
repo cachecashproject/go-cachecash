@@ -7,28 +7,28 @@ services:
   upstream:
     image: nginx
     ports:
-     - 8081:80
+    - 8081:80
     volumes:
     - ./testdata/content:/usr/share/nginx/html
 
   upstream-apache:
     image: httpd
     ports:
-     - 8091:80
+    - 8091:80
     volumes:
     - ./testdata/content:/usr/local/apache2/htdocs
 
   upstream-lighttpd:
     build: deploy/httpds/lighttpd
     ports:
-     - 8092:80
+    - 8092:80
     volumes:
     - ./testdata/content:/var/www/localhost/htdocs
 
   upstream-caddy:
     build: deploy/httpds/caddy
     ports:
-     - 8093:80
+    - 8093:80
     volumes:
     - ./testdata/content:/var/www
 
@@ -37,7 +37,7 @@ services:
     command: python -m http.server -d /var/www 80
     init: true
     ports:
-     - 8094:80
+    - 8094:80
     volumes:
     - ./testdata/content:/var/www
 
@@ -46,9 +46,9 @@ services:
     build: .
     command: publisherd -logLevel debug -config /etc/publisher.config.json
     ports:
-     - 8080:8080
-     - 8082:8082
-     - 8043:8043
+    - 8080:8080
+    - 8082:8082
+    - 8043:8043
     volumes:
     - ./cfg/publisher.config.json:/etc/publisher.config.json
 
@@ -63,7 +63,7 @@ services:
     build: .
     command: bootstrapd -logLevel debug -config /etc/bootstrapd.config.json
     ports:
-     - 7777:7777
+    - 7777:7777
     volumes:
     - ./cfg/bootstrapd.config.json:/etc/bootstrapd.config.json
 
@@ -72,8 +72,9 @@ services:
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
-     - 9000:9000
-     - 9443:9443
+    - 9000:9000
+    - 9443:9443
+    - 7100:9100
     volumes:
     - ./cfg/cache-0.config.json:/etc/cached.config.json
     - ./cache-0:/cache-0
@@ -83,8 +84,9 @@ services:
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
-     - 9001:9001
-     - 9444:9444
+    - 9001:9001
+    - 9444:9444
+    - 7101:9100
     volumes:
     - ./cfg/cache-1.config.json:/etc/cached.config.json
     - ./cache-1:/cache-1
@@ -94,8 +96,9 @@ services:
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
-     - 9002:9002
-     - 9445:9445
+    - 9002:9002
+    - 9445:9445
+    - 7102:9100
     volumes:
     - ./cfg/cache-2.config.json:/etc/cached.config.json
     - ./cache-2:/cache-2
@@ -105,8 +108,9 @@ services:
     build: .
     command: cached -logLevel debug -config /etc/cached.config.json
     ports:
-     - 9003:9003
-     - 9446:9446
+    - 9003:9003
+    - 9446:9446
+    - 7103:9100
     volumes:
     - ./cfg/cache-3.config.json:/etc/cached.config.json
     - ./cache-3:/cache-3

@@ -10,8 +10,8 @@ for x in upstream{,-apache,-lighttpd,-caddy,-python}; do
 	echo "[*] Starting network..."
 	docker-compose up -d
 
-	echo "[*] Waiting for network to become healthy..."
-	while ! docker run --rm --net=host postgres:11 psql 'host=127.0.0.1 port=5432 user=postgres dbname=publisher sslmode=disable' -c 'select 1;'; do sleep 10; done
+	echo "[*] Waiting until escrow is setup..."
+	while ! curl -v 'http://127.0.0.1:7100/info' | jq -e '.Escrows|length==1'; do sleep 10; done
 
 	echo "[*] Fetching from $x..."
 	rm -f output.bin
