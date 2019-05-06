@@ -23,22 +23,18 @@ type Application interface {
 }
 
 type ConfigFile struct {
-	Config      *Config            `json:"config"`
-	UpstreamURL string             `json:"upstreamURL"`
-	PrivateKey  ed25519.PrivateKey `json:"privateKey"`
-	Database    string             `json:"database"`
-}
-
-// XXX: Right now, this is shared between the client- and cache-facing servers.
-type Config struct {
 	ClientProtocolAddr   string
 	CacheProtocolAddr    string
 	StatusAddr           string
 	BootstrapAddr        string
 	DefaultCacheDuration time.Duration
+
+	UpstreamURL string             `json:"upstreamURL"`
+	PrivateKey  ed25519.PrivateKey `json:"privateKey"`
+	Database    string             `json:"database"`
 }
 
-func (c *Config) FillDefaults() {
+func (c *ConfigFile) FillDefaults() {
 	if c.ClientProtocolAddr == "" {
 		c.ClientProtocolAddr = ":8080"
 	}
@@ -65,7 +61,7 @@ type application struct {
 var _ Application = (*application)(nil)
 
 // XXX: Should this take p as an argument, or be responsible for setting it up?
-func NewApplication(l *logrus.Logger, p *ContentPublisher, conf *Config) (Application, error) {
+func NewApplication(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (Application, error) {
 	conf.FillDefaults()
 
 	clientProtocolServer, err := newClientProtocolServer(l, p, conf)
@@ -119,7 +115,7 @@ func (a *application) Shutdown(ctx context.Context) error {
 
 type clientProtocolServer struct {
 	l          *logrus.Logger
-	conf       *Config
+	conf       *ConfigFile
 	publisher  *ContentPublisher
 	grpcServer *grpc.Server
 	httpServer *http.Server
@@ -127,7 +123,7 @@ type clientProtocolServer struct {
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 
-func newClientProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *Config) (*clientProtocolServer, error) {
+func newClientProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (*clientProtocolServer, error) {
 	grpcServer := grpc.NewServer()
 	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcClientPublisherServer{publisher: p})
 
@@ -196,7 +192,7 @@ func (s *clientProtocolServer) Shutdown(ctx context.Context) error {
 
 type cacheProtocolServer struct {
 	l          *logrus.Logger
-	conf       *Config
+	conf       *ConfigFile
 	publisher  *ContentPublisher
 	grpcServer *grpc.Server
 	quitCh     chan bool
@@ -204,7 +200,7 @@ type cacheProtocolServer struct {
 
 var _ common.StarterShutdowner = (*cacheProtocolServer)(nil)
 
-func newCacheProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *Config) (*cacheProtocolServer, error) {
+func newCacheProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (*cacheProtocolServer, error) {
 	grpcServer := grpc.NewServer()
 	ccmsg.RegisterCachePublisherServer(grpcServer, &grpcCachePublisherServer{publisher: p})
 

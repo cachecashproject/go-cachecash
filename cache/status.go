@@ -11,12 +11,12 @@ import (
 
 type statusServer struct {
 	l          *logrus.Logger
-	conf       *Config
+	conf       *ConfigFile
 	cache      *Cache
 	httpServer *http.Server
 }
 
-func newStatusServer(l *logrus.Logger, c *Cache, conf *Config) (*statusServer, error) {
+func newStatusServer(l *logrus.Logger, c *Cache, conf *ConfigFile) (*statusServer, error) {
 	mux := http.NewServeMux()
 
 	httpServer := &http.Server{

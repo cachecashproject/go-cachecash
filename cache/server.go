@@ -25,20 +25,17 @@ type Application interface {
 }
 
 type ConfigFile struct {
-	Config          *Config           `json:"config"`
+	ClientProtocolGrpcAddr string
+	ClientProtocolHttpAddr string
+	StatusAddr             string
+	BootstrapAddr          string
+
 	PublicKey       ed25519.PublicKey `json:"public_key"`
 	BadgerDirectory string            `json:"badger_directory"`
 	Database        string            `json:"database"`
 }
 
-type Config struct {
-	ClientProtocolGrpcAddr string
-	ClientProtocolHttpAddr string
-	StatusAddr             string
-	BootstrapAddr          string
-}
-
-func (c *Config) FillDefaults() {
+func (c *ConfigFile) FillDefaults() {
 	if c.ClientProtocolGrpcAddr == "" {
 		c.ClientProtocolGrpcAddr = ":9000"
 	}
@@ -60,7 +57,7 @@ type application struct {
 
 var _ Application = (*application)(nil)
 
-func NewApplication(l *logrus.Logger, c *Cache, conf *Config) (Application, error) {
+func NewApplication(l *logrus.Logger, c *Cache, conf *ConfigFile) (Application, error) {
 	conf.FillDefaults()
 
 	clientProtocolServer, err := newClientProtocolServer(l, c, conf)
@@ -102,7 +99,7 @@ func (a *application) Shutdown(ctx context.Context) error {
 
 type clientProtocolServer struct {
 	l          *logrus.Logger
-	conf       *Config
+	conf       *ConfigFile
 	cache      *Cache
 	grpcServer *grpc.Server
 	httpServer *http.Server
@@ -111,7 +108,7 @@ type clientProtocolServer struct {
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 
-func newClientProtocolServer(l *logrus.Logger, c *Cache, conf *Config) (*clientProtocolServer, error) {
+func newClientProtocolServer(l *logrus.Logger, c *Cache, conf *ConfigFile) (*clientProtocolServer, error) {
 	grpcServer := grpc.NewServer()
 	ccmsg.RegisterClientCacheServer(grpcServer, &grpcClientCacheServer{cache: c})
 	ccmsg.RegisterPublisherCacheServer(grpcServer, &grpcPublisherCacheServer{cache: c})

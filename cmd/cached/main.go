@@ -57,12 +57,11 @@ func generateConfigFile(path string) error {
 	publicKey, _, err := ed25519.GenerateKey(nil)
 
 	cf := cache.ConfigFile{
-		Config: &cache.Config{
-			ClientProtocolGrpcAddr: grpcAddr,
-			ClientProtocolHttpAddr: httpAddr,
-			StatusAddr:             statusAddr,
-			BootstrapAddr:          "bootstrapd:7777",
-		},
+		ClientProtocolGrpcAddr: grpcAddr,
+		ClientProtocolHttpAddr: httpAddr,
+		StatusAddr:             statusAddr,
+		BootstrapAddr:          "bootstrapd:7777",
+
 		PublicKey:       publicKey,
 		BadgerDirectory: "/data/chunks/",
 		Database:        "/data/cache.db",
@@ -133,7 +132,7 @@ func mainC() error {
 	}
 	defer c.Close()
 
-	app, err := cache.NewApplication(l, c, cf.Config)
+	app, err := cache.NewApplication(l, c, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}

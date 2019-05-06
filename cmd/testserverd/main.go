@@ -96,7 +96,7 @@ func (ts *TestServer) Start() error {
 	}()
 
 	// Start publisher.
-	ps, err := publisher.NewApplication(ts.l, ts.publisher, &publisher.Config{})
+	ps, err := publisher.NewApplication(ts.l, ts.publisher, &publisher.ConfigFile{})
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher application")
 	}
@@ -107,7 +107,7 @@ func (ts *TestServer) Start() error {
 
 	// Start caches.
 	for i, c := range ts.caches {
-		cs, err := cache.NewApplication(ts.l, c, &cache.Config{
+		cs, err := cache.NewApplication(ts.l, c, &cache.ConfigFile{
 			// XXX: This must match what is set up in the Escrow struct on the publisher side so that the publisher sends
 			// clients to the right place.
 			ClientProtocolGrpcAddr: fmt.Sprintf(":%v", 9000+i),

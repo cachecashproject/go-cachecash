@@ -61,14 +61,13 @@ func mainC() error {
 	// Generate cache-side configuration files.
 	for i, _ := range scen.Caches {
 		cf := cache.ConfigFile{
-			Config: &cache.Config{
-				// XXX: This must match what is set up in the Escrow struct on the publisher side so that the publisher
-				// sends clients to the right place.
-				ClientProtocolGrpcAddr: fmt.Sprintf(":%v", 9000+i),
-				ClientProtocolHttpAddr: fmt.Sprintf(":%v", 9443+i),
-				StatusAddr:             fmt.Sprintf(":%v", 9100+i),
-				BootstrapAddr:          "bootstrapd:7777",
-			},
+			// XXX: This must match what is set up in the Escrow struct on the publisher side so that the publisher
+			// sends clients to the right place.
+			ClientProtocolGrpcAddr: fmt.Sprintf(":%v", 9000+i),
+			ClientProtocolHttpAddr: fmt.Sprintf(":%v", 9443+i),
+			StatusAddr:             fmt.Sprintf(":%v", 9100+i),
+			BootstrapAddr:          "bootstrapd:7777",
+
 			PublicKey:       scen.CacheConfigs[i].PublicKey,
 			BadgerDirectory: fmt.Sprintf("./cache-%d/", i),
 			Database:        fmt.Sprintf("./cache-%d.db", i),
@@ -93,10 +92,9 @@ func mainC() error {
 
 	// Generate publisher-side configuration file.
 	cf := &publisher.ConfigFile{
-		Config: &publisher.Config{
-			CacheProtocolAddr: scen.Params.PublisherCacheServiceAddr,
-			BootstrapAddr:     "bootstrapd:7777",
-		},
+		CacheProtocolAddr: scen.Params.PublisherCacheServiceAddr,
+		BootstrapAddr:     "bootstrapd:7777",
+
 		UpstreamURL: *upstream,
 		PrivateKey:  scen.PublisherPrivateKey,
 		Database:    "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable",
