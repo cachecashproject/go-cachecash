@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ed25519"
 )
 
 var (
@@ -40,6 +41,35 @@ func loadConfigFile(path string) (*publisher.ConfigFile, error) {
 	return &cf, nil
 }
 
+func generateConfigFile(path string) error {
+	publisherCacheServiceAddr := os.Getenv("PUBLISHER_CACHE_ADDR")
+	upstream := os.Getenv("PUBLISHER_UPSTREAM")
+
+	_, privateKey, err := ed25519.GenerateKey(nil)
+
+	cf := &publisher.ConfigFile{
+		Config: &publisher.Config{
+			CacheProtocolAddr: publisherCacheServiceAddr,
+			BootstrapAddr:     "bootstrapd:7777",
+		},
+		UpstreamURL: upstream,
+		PrivateKey:  privateKey,
+		Database:    "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable",
+	}
+
+	buf, err := json.MarshalIndent(cf, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal config")
+	}
+
+	err = ioutil.WriteFile(path, buf, 0600)
+	if err != nil {
+		return errors.Wrap(err, "failed to write config")
+	}
+
+	return nil
+}
+
 func main() {
 	if err := mainC(); err != nil {
 		if _, err := os.Stderr.WriteString(err.Error() + "\n"); err != nil {
@@ -60,6 +90,13 @@ func mainC() error {
 		LogFile:     *logFile,
 	}); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
+	}
+
+	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
+		l.Info("config doesn't exist, generating")
+		if err := generateConfigFile(*configPath); err != nil {
+			return err
+		}
 	}
 
 	cf, err := loadConfigFile(*configPath)
