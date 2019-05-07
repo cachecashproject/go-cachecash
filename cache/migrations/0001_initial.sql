@@ -10,6 +10,15 @@ CREATE TABLE logical_cache_mapping (
     CONSTRAINT pk_escrow_slot PRIMARY KEY (escrow_id, slot_idx)
 );
 
+CREATE TABLE escrow (
+    id                     int PRIMARY KEY NOT NULL,
+    escrow_id              bytea NOT NULL,
+    inner_master_key       varchar NOT NULL,
+    outer_master_key       varchar NOT NULL,
+    slots                  int NOT NULL,
+    publisher_cache_addr   varchar NOT NULL
+);
+
 -- -- QQ: Do we want ticket numbers to be per-escrow or per-escrow-per-block?
 -- CREATE TABLE ticket_l1 (id int) (
 --     escrow_id          bytea NOT NULL,
@@ -30,6 +39,8 @@ CREATE TABLE logical_cache_mapping (
 -- DROP TABLE escrow;
 
 DROP TABLE logical_cache_mapping;
+
+DROP TABLE escrow;
 
 -- DROP TABLE request;
 

@@ -4,7 +4,9 @@
 package models
 
 var TableNames = struct {
+	Escrow              string
 	LogicalCacheMapping string
 }{
+	Escrow:              "escrow",
 	LogicalCacheMapping: "logical_cache_mapping",
 }

@@ -24,5 +24,5 @@ dockerfiles:
 		deploy/dockerfiles/Dockerfile.build
 
 clean:
-	sudo rm -vrf ./cache-*
+	sudo rm -vrf ./data/
 	docker-compose rm -f publisher-db

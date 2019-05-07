@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -131,6 +132,12 @@ func mainC() error {
 		return nil
 	}
 	defer c.Close()
+
+	num, err := c.LoadFromDatabase(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "failed to load state from database")
+	}
+	l.Infof("loaded %d escrows from database", num)
 
 	app, err := cache.NewApplication(l, c, cf)
 	if err != nil {

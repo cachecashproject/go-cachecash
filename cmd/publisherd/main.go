@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -42,13 +43,13 @@ func loadConfigFile(path string) (*publisher.ConfigFile, error) {
 }
 
 func generateConfigFile(path string) error {
-	publisherCacheServiceAddr := os.Getenv("PUBLISHER_CACHE_ADDR")
+	publisherCacheAddr := os.Getenv("PUBLISHER_CACHE_ADDR")
 	upstream := os.Getenv("PUBLISHER_UPSTREAM")
 
 	_, privateKey, err := ed25519.GenerateKey(nil)
 
 	cf := &publisher.ConfigFile{
-		CacheProtocolAddr: publisherCacheServiceAddr,
+		CacheProtocolAddr: publisherCacheAddr,
 		BootstrapAddr:     "bootstrapd:7777",
 
 		UpstreamURL: upstream,
@@ -147,6 +148,12 @@ func mainC() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher")
 	}
+
+	num, err := p.LoadFromDatabase(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "failed to load state from database")
+	}
+	l.Infof("loaded %d escrows from database", num)
 
 	app, err := publisher.NewApplication(l, p, cf)
 	if err != nil {

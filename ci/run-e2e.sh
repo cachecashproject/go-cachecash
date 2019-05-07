@@ -5,7 +5,7 @@ for x in upstream{,-apache,-lighttpd,-caddy,-python}; do
 	make clean
 
 	echo "[*] Generate config for $x..."
-	docker run --rm -v $PWD/cfg:/cfg cachecash/go-cachecash generate-config -outputPath /cfg/ -upstream "http://$x:80" -publisherCacheServiceAddr publisher:8082
+	docker run --rm -v $PWD/cfg:/cfg cachecash/go-cachecash generate-config -outputPath /cfg/ -upstream "http://$x:80" -publisherCacheAddr publisher:8082
 
 	echo "[*] Starting network..."
 	docker-compose up -d

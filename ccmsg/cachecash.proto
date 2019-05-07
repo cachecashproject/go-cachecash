@@ -427,7 +427,7 @@ message EscrowOfferRequest {
     bytes outer_master_key = 3;
 
     uint64 slots = 4;
-    string publisher_cache_service_addr = 5;
+    string publisher_cache_addr = 5;
 
     uint64 start_block = 6;
     uint64 end_block = 7;

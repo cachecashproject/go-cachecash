@@ -36,15 +36,27 @@ Notes & TODOs:
 */
 
 type Escrow struct {
-	InnerMasterKey []byte // XXX: Shared with publisher?
-	OuterMasterKey []byte
-
-	Slots                     uint64
-	PublisherCacheServiceAddr string
+	Inner models.Escrow
 }
 
 func (e *Escrow) Active() bool {
 	return true
+}
+
+func (e *Escrow) InnerMasterKey() []byte {
+	return e.Inner.InnerMasterKey
+}
+
+func (e *Escrow) OuterMasterKey() []byte {
+	return e.Inner.OuterMasterKey
+}
+
+func (e *Escrow) Slots() uint64 {
+	return e.Inner.Slots
+}
+
+func (e *Escrow) PublisherCacheAddr() string {
+	return e.Inner.PublisherCacheAddr
 }
 
 type Cache struct {
@@ -79,6 +91,22 @@ func (c *Cache) Close() error {
 	return c.Storage.Close()
 }
 
+func (c *Cache) LoadFromDatabase(ctx context.Context) (int, error) {
+	escrows, err := models.Escrows().All(ctx, c.db)
+
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to query Escrows")
+	}
+
+	for _, e := range escrows {
+		c.Escrows[e.EscrowID] = &Escrow{
+			Inner: *e,
+		}
+	}
+
+	return len(escrows), nil
+}
+
 func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, objectID common.ObjectID, blockIdx uint64,
 	blockID common.BlockID) ([]byte, error) {
 
@@ -96,8 +124,8 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 
 		// XXX: No transport security!
 		// XXX: Should not create a new connection for each attempt.
-		c.l.Info("dialing publisher's cache-facing service: ", escrow.PublisherCacheServiceAddr)
-		conn, err := grpc.Dial(escrow.PublisherCacheServiceAddr, grpc.WithInsecure())
+		c.l.Info("dialing publisher's cache-facing service: ", escrow.PublisherCacheAddr())
+		conn, err := grpc.Dial(escrow.PublisherCacheAddr(), grpc.WithInsecure())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to dial")
 		}
@@ -122,7 +150,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 				"block_size":  resp.Metadata.BlockSize,
 			}).Debug("cache-miss response")
 
-			if chunk.SlotIdx >= escrow.Slots {
+			if chunk.SlotIdx >= escrow.Slots() {
 				return nil, errors.New("slot number out of range")
 			}
 
@@ -330,7 +358,7 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 		return nil, errors.Wrap(err, "failed to get data block")
 	}
 
-	for _, masterKey := range [][]byte{escrow.InnerMasterKey, escrow.OuterMasterKey} {
+	for _, masterKey := range [][]byte{escrow.InnerMasterKey(), escrow.OuterMasterKey()} {
 		// XXX: Fix typing.
 		seqNo := uint32(req.BundleRemainder.RequestSequenceNo)
 
@@ -378,7 +406,7 @@ func (c *Cache) handleTicketL1Request(ctx context.Context, escrow *Escrow, req *
 	// XXX: Fix typing.
 	seqNo := uint32(req.BundleRemainder.RequestSequenceNo)
 
-	outerSessionKey, err := util.KeyedPRF(req.BundleRemainder.ClientPublicKey.PublicKey, seqNo, escrow.OuterMasterKey)
+	outerSessionKey, err := util.KeyedPRF(req.BundleRemainder.ClientPublicKey.PublicKey, seqNo, escrow.OuterMasterKey())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate key")
 	}
@@ -441,10 +469,10 @@ func VerifyRequest(m *ccmsg.ClientCacheRequest) error {
 	return nil
 }
 
-func getPublisherAddr(ctx context.Context, publisherCacheServiceAddr string) (string, error) {
+func getPublisherAddr(ctx context.Context, publisherCacheAddr string) (string, error) {
 	// XXX. if an ip/hostname is set, try to use that. This could be an address in a private ip range though
-	if !strings.HasPrefix(publisherCacheServiceAddr, ":") {
-		return publisherCacheServiceAddr, nil
+	if !strings.HasPrefix(publisherCacheAddr, ":") {
+		return publisherCacheAddr, nil
 	}
 
 	peer, ok := peer.FromContext(ctx)
@@ -460,7 +488,7 @@ func getPublisherAddr(ctx context.Context, publisherCacheServiceAddr string) (st
 		srcIP = addr.IP
 	}
 
-	publisherAddr := strings.Split(publisherCacheServiceAddr, ":")
+	publisherAddr := strings.Split(publisherCacheAddr, ":")
 	portStr := publisherAddr[len(publisherAddr)-1]
 	port, err := strconv.ParseUint(portStr, 10, 32)
 	if err != nil {
@@ -478,16 +506,19 @@ func (c *Cache) OfferEscrow(ctx context.Context, req *ccmsg.EscrowOfferRequest) 
 		return nil, errors.Wrap(err, "invalid escrow id")
 	}
 
-	publisherAddr, err := getPublisherAddr(ctx, req.PublisherCacheServiceAddr)
+	publisherAddr, err := getPublisherAddr(ctx, req.PublisherCacheAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PublisherCacheAddr")
 	}
 
 	c.Escrows[escrowID] = &Escrow{
-		InnerMasterKey:            req.InnerMasterKey,
-		OuterMasterKey:            req.OuterMasterKey,
-		Slots:                     req.Slots,
-		PublisherCacheServiceAddr: publisherAddr,
+		Inner: models.Escrow{
+			EscrowID:           escrowID,
+			InnerMasterKey:     req.InnerMasterKey,
+			OuterMasterKey:     req.OuterMasterKey,
+			Slots:              req.Slots,
+			PublisherCacheAddr: publisherAddr,
+		},
 	}
 	// TODO: write to database
 

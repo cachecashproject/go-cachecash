@@ -39,7 +39,7 @@ type ContentPublisher struct {
 	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
 	// caches map[cachecash.PublicKey]*ParticipatingCache
 
-	PublisherCacheServiceAddr string
+	PublisherCacheAddr string
 }
 
 type CacheInfo struct {
@@ -50,17 +50,55 @@ type reverseMappingEntry struct {
 	path string
 }
 
-func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherCacheServiceAddr string, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
+func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherCacheAddr string, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
 	p := &ContentPublisher{
-		l:                         l,
-		db:                        db,
-		signer:                    signer,
-		catalog:                   catalog,
-		reverseMapping:            make(map[common.ObjectID]reverseMappingEntry),
-		PublisherCacheServiceAddr: publisherCacheServiceAddr,
+		l:                  l,
+		db:                 db,
+		signer:             signer,
+		catalog:            catalog,
+		reverseMapping:     make(map[common.ObjectID]reverseMappingEntry),
+		PublisherCacheAddr: publisherCacheAddr,
 	}
 
 	return p, nil
+}
+
+func (p *ContentPublisher) LoadFromDatabase(ctx context.Context) (int, error) {
+	escrows, err := models.Escrows().All(ctx, p.db)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to query Escrows")
+	}
+
+	for _, e := range escrows {
+		escrow := &Escrow{
+			Inner:  *e,
+			Caches: []*ParticipatingCache{},
+		}
+
+		ecs, err := e.EscrowCaches().All(ctx, p.db)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to query EscrowsCaches")
+		}
+
+		for _, ec := range ecs {
+			c, err := ec.Cache().One(ctx, p.db)
+			if err != nil {
+				return 0, errors.Wrap(err, "failed to query Cache")
+			}
+
+			escrow.Caches = append(escrow.Caches, &ParticipatingCache{
+				Cache:          *c,
+				InnerMasterKey: ec.InnerMasterKey,
+			})
+		}
+
+		err = p.AddEscrow(escrow)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to query Cache")
+		}
+	}
+
+	return len(escrows), nil
 }
 
 // XXX: Temporary

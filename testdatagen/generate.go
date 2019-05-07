@@ -9,11 +9,12 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/cachecashproject/go-cachecash/cache"
+	cacheModels "github.com/cachecashproject/go-cachecash/cache/models"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/publisher"
-	"github.com/cachecashproject/go-cachecash/publisher/models"
+	publisherModels "github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -35,7 +36,7 @@ type TestScenarioParams struct {
 	L        *logrus.Logger
 	Upstream catalog.Upstream
 
-	PublisherCacheServiceAddr string
+	PublisherCacheAddr string
 }
 
 type TestScenario struct {
@@ -207,7 +208,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	for i := 0; i < 4; i++ {
 		ts.Escrow.Caches = append(ts.Escrow.Caches, &publisher.ParticipatingCache{
 			InnerMasterKey: innerMasterKeys[i],
-			Cache: models.Cache{
+			Cache: publisherModels.Cache{
 				PublicKey: cachePublicKeys[i],
 				Inetaddr:  net.ParseIP("127.0.0.1"),
 				Port:      uint32(9000 + i),
@@ -224,15 +225,17 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			return nil, err
 		}
 
-		if params.PublisherCacheServiceAddr == "" {
-			params.PublisherCacheServiceAddr = "localhost:8082"
+		if params.PublisherCacheAddr == "" {
+			params.PublisherCacheAddr = "localhost:8082"
 		}
 
 		ce := &cache.Escrow{
-			InnerMasterKey:            innerMasterKeys[i],
-			OuterMasterKey:            testutil.RandBytes(16),
-			Slots:                     uint64(2500 + i),
-			PublisherCacheServiceAddr: params.PublisherCacheServiceAddr,
+			Inner: cacheModels.Escrow{
+				InnerMasterKey:     innerMasterKeys[i],
+				OuterMasterKey:     testutil.RandBytes(16),
+				Slots:              uint64(2500 + i),
+				PublisherCacheAddr: params.PublisherCacheAddr,
+			},
 		}
 		if params.GenerateObject {
 			if err := c.Storage.PutMetadata(ts.EscrowID, ts.ObjectID, &ccmsg.ObjectMetadata{

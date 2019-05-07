@@ -74,11 +74,11 @@ func CreateEscrow(publisher *ContentPublisher, cacheDescriptions []*ccmsg.CacheD
 	}
 
 	offerRequest := &ccmsg.EscrowOfferRequest{
-		EscrowId:                  escrowID[:],
-		InnerMasterKey:            innerMasterKey,
-		OuterMasterKey:            outerMasterKey,
-		Slots:                     2500,
-		PublisherCacheServiceAddr: publisher.PublisherCacheServiceAddr,
+		EscrowId:           escrowID[:],
+		InnerMasterKey:     innerMasterKey,
+		OuterMasterKey:     outerMasterKey,
+		Slots:              2500,
+		PublisherCacheAddr: publisher.PublisherCacheAddr,
 	}
 
 	num := len(cacheDescriptions)
