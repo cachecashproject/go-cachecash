@@ -236,12 +236,19 @@ func (s *cacheProtocolServer) Start() error {
 	quit := make(chan bool, 1)
 	go func() {
 		for {
-			caches, err := bootstrapClient.FetchCaches(context.TODO())
+			ctx := context.Background()
+
+			caches, err := bootstrapClient.FetchCaches(ctx)
 			if err != nil {
 				s.l.Error("Failed to fetch caches: ", err)
 			} else {
 				s.l.Info("Caches: ", caches)
-				if err := InitEscrows(s, caches); err != nil {
+
+				if err := UpdateKnownCaches(ctx, s, caches); err != nil {
+					s.l.Error("failed to update known caches: ", err)
+				}
+
+				if err := InitEscrows(ctx, s, caches); err != nil {
 					s.l.Error("failed to init escrows: ", err)
 				}
 			}

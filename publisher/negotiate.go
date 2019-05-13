@@ -12,6 +12,8 @@ import (
 	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/volatiletech/sqlboiler/boil"
+	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
@@ -25,7 +27,7 @@ func addrFromCacheDescription(cache *ccmsg.CacheDescription) string {
 	return fmt.Sprintf("%s:%d", cache.ExternalIp, cache.Port)
 }
 
-func InitEscrows(s *cacheProtocolServer, caches []*ccmsg.CacheDescription) error {
+func InitEscrows(ctx context.Context, s *cacheProtocolServer, caches []*ccmsg.CacheDescription) error {
 	if len(s.publisher.escrows) > 0 {
 		// escrow already exists
 		return nil
@@ -36,13 +38,13 @@ func InitEscrows(s *cacheProtocolServer, caches []*ccmsg.CacheDescription) error
 	}
 
 	s.l.Info("no existing escrow, creating one")
-	escrow, err := CreateEscrow(s.publisher, caches)
+	escrow, err := CreateEscrow(ctx, s.publisher, caches)
 	if err != nil {
 		return errors.Wrap(err, "failed to create escrow")
 	}
 
 	s.l.Info("successfully created an escrow")
-	err = s.publisher.AddEscrowToDatabase(context.Background(), escrow)
+	err = s.publisher.AddEscrowToDatabase(ctx, escrow)
 	if err != nil {
 		return errors.Wrap(err, "failed to add escrow to database")
 	}
@@ -51,7 +53,7 @@ func InitEscrows(s *cacheProtocolServer, caches []*ccmsg.CacheDescription) error
 	return nil
 }
 
-func CreateEscrow(publisher *ContentPublisher, cacheDescriptions []*ccmsg.CacheDescription) (*Escrow, error) {
+func CreateEscrow(ctx context.Context, publisher *ContentPublisher, cacheDescriptions []*ccmsg.CacheDescription) (*Escrow, error) {
 	// TODO: remove testutil
 	escrowID, err := common.BytesToEscrowID(testutil.RandBytes(common.EscrowIDSize))
 	if err != nil {
@@ -83,8 +85,6 @@ func CreateEscrow(publisher *ContentPublisher, cacheDescriptions []*ccmsg.CacheD
 
 	num := len(cacheDescriptions)
 	ch := make(chan agreement, num)
-
-	ctx := context.Background()
 
 	for i, descr := range cacheDescriptions {
 		go func(i int, descr *ccmsg.CacheDescription) {
@@ -152,4 +152,37 @@ func OfferEscrow(ctx context.Context, l *logrus.Logger, offerRequest *ccmsg.Escr
 		},
 		InnerMasterKey: offerRequest.InnerMasterKey,
 	}, nil
+}
+
+func UpdateKnownCaches(ctx context.Context, s *cacheProtocolServer, caches []*ccmsg.CacheDescription) error {
+	for _, cache := range caches {
+		model, err := models.Caches(qm.Where("public_key = ?", cache.PublicKey)).One(ctx, s.publisher.db)
+		if err != nil {
+			continue
+		}
+
+		inetAddr := net.ParseIP(cache.ExternalIp)
+		port := cache.Port
+
+		if !model.Inetaddr.Equal(inetAddr) || model.Port != port {
+			s.l.Infof("Updating address of cache that is part of an escrow from %s to %s", model.Inetaddr, inetAddr)
+
+			model.Inetaddr = inetAddr
+			model.Port = port
+
+			// update escrows in memory too
+			c, ok := s.publisher.caches[string(cache.PublicKey)]
+			if ok {
+				c.Cache.Inetaddr = inetAddr
+				c.Cache.Port = port
+			}
+
+			_, err = model.Update(ctx, s.publisher.db, boil.Infer())
+			if err != nil {
+				return errors.Wrap(err, "failed to update known cache")
+			}
+		}
+	}
+
+	return nil
 }

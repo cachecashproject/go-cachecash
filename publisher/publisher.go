@@ -31,6 +31,7 @@ type ContentPublisher struct {
 	catalog catalog.ContentCatalog
 
 	escrows []*Escrow
+	caches  map[string]*ParticipatingCache
 
 	// XXX: It's obviously not great that this is necessary.
 	// Maps object IDs to metadata; necessary to allow the publisher to generate cache-miss responses.
@@ -56,6 +57,7 @@ func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherCacheAddr string
 		db:                 db,
 		signer:             signer,
 		catalog:            catalog,
+		caches:             make(map[string]*ParticipatingCache),
 		reverseMapping:     make(map[common.ObjectID]reverseMappingEntry),
 		PublisherCacheAddr: publisherCacheAddr,
 	}
@@ -104,6 +106,12 @@ func (p *ContentPublisher) LoadFromDatabase(ctx context.Context) (int, error) {
 // XXX: Temporary
 func (p *ContentPublisher) AddEscrow(escrow *Escrow) error {
 	p.escrows = append(p.escrows, escrow)
+
+	// setup a map from pubkey -> *cache
+	for _, cache := range escrow.Caches {
+		p.caches[string(cache.PublicKey())] = cache
+	}
+
 	return nil
 }
 
