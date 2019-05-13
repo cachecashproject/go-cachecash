@@ -99,12 +99,16 @@ func (c *Cache) LoadFromDatabase(ctx context.Context) (int, error) {
 	}
 
 	for _, e := range escrows {
-		c.Escrows[e.EscrowID] = &Escrow{
+		c.Escrows[e.Txid] = &Escrow{
 			Inner: *e,
 		}
 	}
 
 	return len(escrows), nil
+}
+
+func (c *Cache) AddEscrowToDatabase(ctx context.Context, escrow *Escrow) error {
+	return escrow.Inner.Insert(ctx, c.db, boil.Infer())
 }
 
 func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, objectID common.ObjectID, blockIdx uint64,
@@ -245,9 +249,9 @@ func (c *Cache) getDataBlockHTTP(source *ccmsg.Chunk_Http) ([]byte, error) {
 	return data, nil
 }
 
-func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chunk, escrowID common.EscrowID, blockID common.BlockID) error {
+func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chunk, txid common.EscrowID, blockID common.BlockID) error {
 	// test if slot is getting re-assigned
-	slot, err := models.LogicalCacheMappings(qm.Where("escrow_id=? and slot_idx=?", escrowID, chunk.SlotIdx)).One(ctx, c.db)
+	slot, err := models.LogicalCacheMappings(qm.Where("txid=? and slot_idx=?", txid, chunk.SlotIdx)).One(ctx, c.db)
 	if err != nil {
 		// missing row is fine, fall through in that case
 		if err != sql.ErrNoRows {
@@ -255,7 +259,7 @@ func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chun
 		}
 	} else {
 		// slot is already in use, removing old data
-		if err = c.Storage.DeleteData(slot.EscrowID, slot.BlockID); err != nil {
+		if err = c.Storage.DeleteData(slot.Txid, slot.BlockID); err != nil {
 			return errors.Wrap(err, "failed to remove old key from badger")
 		}
 
@@ -266,7 +270,7 @@ func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chun
 
 	// add the slot to the database
 	lcm := &models.LogicalCacheMapping{
-		EscrowID:      escrowID,
+		Txid:          txid,
 		SlotIdx:       chunk.SlotIdx,
 		BlockEscrowID: "TODO",
 		BlockID:       blockID,
@@ -279,12 +283,24 @@ func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chun
 	return nil
 }
 
-func (c *Cache) getEscrow(escrowID common.EscrowID) (*Escrow, error) {
-	escrow, ok := c.Escrows[escrowID]
-	if !ok {
-		return nil, errors.New("no such escrow")
+func (c *Cache) getEscrow(txid common.EscrowID) (*Escrow, error) {
+	c.l.Debug("getting escrow reference ", txid)
+
+	// try to pick an escrow from memory and fall back to the database
+	e, ok := c.Escrows[txid]
+	if ok {
+		return e, nil
 	}
-	return escrow, nil
+
+	c.l.Debug("not found in memory, selecting from database")
+	escrow, err := models.Escrows(qm.Where("txid=?", txid)).One(context.TODO(), c.db)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query Escrow")
+	}
+
+	return &Escrow{
+		Inner: *escrow,
+	}, nil
 }
 
 func (c *Cache) storeTicketL1(req *ccmsg.ClientCacheRequest) error {
@@ -501,7 +517,7 @@ func getPublisherAddr(ctx context.Context, publisherCacheAddr string) (string, e
 func (c *Cache) OfferEscrow(ctx context.Context, req *ccmsg.EscrowOfferRequest) (*ccmsg.EscrowOfferResponse, error) {
 	// TODO: ensure we have enough resources
 
-	escrowID, err := common.BytesToEscrowID(req.EscrowId)
+	txid, err := common.BytesToEscrowID(req.EscrowId)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid escrow id")
 	}
@@ -511,16 +527,20 @@ func (c *Cache) OfferEscrow(ctx context.Context, req *ccmsg.EscrowOfferRequest) 
 		return nil, errors.Wrap(err, "failed to get PublisherCacheAddr")
 	}
 
-	c.Escrows[escrowID] = &Escrow{
+	escrow := &Escrow{
 		Inner: models.Escrow{
-			EscrowID:           escrowID,
+			Txid:               txid,
 			InnerMasterKey:     req.InnerMasterKey,
 			OuterMasterKey:     req.OuterMasterKey,
 			Slots:              req.Slots,
 			PublisherCacheAddr: publisherAddr,
 		},
 	}
-	// TODO: write to database
+	c.Escrows[txid] = escrow
+
+	if err = c.AddEscrowToDatabase(ctx, escrow); err != nil {
+		return nil, errors.Wrap(err, "failed to add escrow to database")
+	}
 
 	return &ccmsg.EscrowOfferResponse{}, nil
 }

@@ -877,7 +877,7 @@ func testEscrowsSelect(t *testing.T) {
 }
 
 var (
-	escrowDBTypes = map[string]string{`ID`: `integer`, `StartBlock`: `integer`, `EndBlock`: `integer`, `State`: `enum.escrow_state('ok','aborted')`, `PublicKey`: `bytea`, `PrivateKey`: `bytea`, `Raw`: `bytea`}
+	escrowDBTypes = map[string]string{`ID`: `integer`, `Txid`: `bytea`, `StartBlock`: `integer`, `EndBlock`: `integer`, `State`: `enum.escrow_state('ok','aborted')`, `PublicKey`: `bytea`, `PrivateKey`: `bytea`, `Raw`: `bytea`}
 	_             = bytes.MinRead
 )
 

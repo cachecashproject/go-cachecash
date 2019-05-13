@@ -185,7 +185,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 		return nil, errors.Wrap(err, "failed to request bundle from publisher")
 	}
 	bundle := resp.Bundle
-	cl.l.Info("got ticket bundle from publisher")
+	cl.l.Info("got ticket bundle from publisher for escrow: ", bundle.GetRemainder().GetEscrowId())
 	// cl.l.Debugf("got ticket bundle from publisher: %v", proto.MarshalTextString(bundle))
 
 	cacheQty := len(bundle.CacheInfo)

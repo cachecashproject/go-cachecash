@@ -14,7 +14,7 @@
 # everything, otherwise every field winds up as a string.
 [[types]]
   [types.match]
-    name = "escrow_id"
+    name = "txid"
   [types.replace]
     type = "common.EscrowID"
   [types.imports]

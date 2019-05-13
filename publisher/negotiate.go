@@ -109,9 +109,9 @@ func CreateEscrow(ctx context.Context, publisher *ContentPublisher, cacheDescrip
 	publisher.l.Debug("Participating caches: ", caches)
 
 	return &Escrow{
-		ID:        escrowID,
 		Publisher: publisher,
 		Inner: models.Escrow{
+			Txid:       escrowID,
 			StartBlock: 0,
 			EndBlock:   0,
 			State:      "ok",

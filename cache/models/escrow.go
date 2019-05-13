@@ -24,7 +24,7 @@ import (
 // Escrow is an object representing the database table.
 type Escrow struct {
 	ID                 int64           `boil:"id" json:"id" toml:"id" yaml:"id"`
-	EscrowID           common.EscrowID `boil:"escrow_id" json:"escrow_id" toml:"escrow_id" yaml:"escrow_id"`
+	Txid               common.EscrowID `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
 	InnerMasterKey     []byte          `boil:"inner_master_key" json:"inner_master_key" toml:"inner_master_key" yaml:"inner_master_key"`
 	OuterMasterKey     []byte          `boil:"outer_master_key" json:"outer_master_key" toml:"outer_master_key" yaml:"outer_master_key"`
 	Slots              uint64          `boil:"slots" json:"slots" toml:"slots" yaml:"slots"`
@@ -36,14 +36,14 @@ type Escrow struct {
 
 var EscrowColumns = struct {
 	ID                 string
-	EscrowID           string
+	Txid               string
 	InnerMasterKey     string
 	OuterMasterKey     string
 	Slots              string
 	PublisherCacheAddr string
 }{
 	ID:                 "id",
-	EscrowID:           "escrow_id",
+	Txid:               "txid",
 	InnerMasterKey:     "inner_master_key",
 	OuterMasterKey:     "outer_master_key",
 	Slots:              "slots",
@@ -111,14 +111,14 @@ func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.f
 
 var EscrowWhere = struct {
 	ID                 whereHelperint64
-	EscrowID           whereHelpercommon_EscrowID
+	Txid               whereHelpercommon_EscrowID
 	InnerMasterKey     whereHelper__byte
 	OuterMasterKey     whereHelper__byte
 	Slots              whereHelperuint64
 	PublisherCacheAddr whereHelperstring
 }{
 	ID:                 whereHelperint64{field: `id`},
-	EscrowID:           whereHelpercommon_EscrowID{field: `escrow_id`},
+	Txid:               whereHelpercommon_EscrowID{field: `txid`},
 	InnerMasterKey:     whereHelper__byte{field: `inner_master_key`},
 	OuterMasterKey:     whereHelper__byte{field: `outer_master_key`},
 	Slots:              whereHelperuint64{field: `slots`},
@@ -142,8 +142,8 @@ func (*escrowR) NewStruct() *escrowR {
 type escrowL struct{}
 
 var (
-	escrowColumns               = []string{"id", "escrow_id", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
-	escrowColumnsWithoutDefault = []string{"id", "escrow_id", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
+	escrowColumns               = []string{"id", "txid", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
+	escrowColumnsWithoutDefault = []string{"id", "txid", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
 	escrowColumnsWithDefault    = []string{}
 	escrowPrimaryKeyColumns     = []string{"id"}
 )

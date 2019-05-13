@@ -252,7 +252,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 				}
 			}
 		}
-		c.Escrows[escrow.ID] = ce
+		c.Escrows[escrow.Inner.Txid] = ce
 		ts.Caches = append(ts.Caches, c)
 	}
 

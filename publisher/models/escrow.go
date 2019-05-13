@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"
@@ -25,6 +26,7 @@ import (
 // Escrow is an object representing the database table.
 type Escrow struct {
 	ID         int                `boil:"id" json:"id" toml:"id" yaml:"id"`
+	Txid       common.EscrowID    `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
 	StartBlock int                `boil:"start_block" json:"start_block" toml:"start_block" yaml:"start_block"`
 	EndBlock   int                `boil:"end_block" json:"end_block" toml:"end_block" yaml:"end_block"`
 	State      string             `boil:"state" json:"state" toml:"state" yaml:"state"`
@@ -38,6 +40,7 @@ type Escrow struct {
 
 var EscrowColumns = struct {
 	ID         string
+	Txid       string
 	StartBlock string
 	EndBlock   string
 	State      string
@@ -46,6 +49,7 @@ var EscrowColumns = struct {
 	Raw        string
 }{
 	ID:         "id",
+	Txid:       "txid",
 	StartBlock: "start_block",
 	EndBlock:   "end_block",
 	State:      "state",
@@ -55,6 +59,27 @@ var EscrowColumns = struct {
 }
 
 // Generated where
+
+type whereHelpercommon_EscrowID struct{ field string }
+
+func (w whereHelpercommon_EscrowID) EQ(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.EQ, x)
+}
+func (w whereHelpercommon_EscrowID) NEQ(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.NEQ, x)
+}
+func (w whereHelpercommon_EscrowID) LT(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpercommon_EscrowID) LTE(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpercommon_EscrowID) GT(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpercommon_EscrowID) GTE(x common.EscrowID) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
 
 type whereHelpered25519_PrivateKey struct{ field string }
 
@@ -79,6 +104,7 @@ func (w whereHelpered25519_PrivateKey) GTE(x ed25519.PrivateKey) qm.QueryMod {
 
 var EscrowWhere = struct {
 	ID         whereHelperint
+	Txid       whereHelpercommon_EscrowID
 	StartBlock whereHelperint
 	EndBlock   whereHelperint
 	State      whereHelperstring
@@ -87,6 +113,7 @@ var EscrowWhere = struct {
 	Raw        whereHelper__byte
 }{
 	ID:         whereHelperint{field: `id`},
+	Txid:       whereHelpercommon_EscrowID{field: `txid`},
 	StartBlock: whereHelperint{field: `start_block`},
 	EndBlock:   whereHelperint{field: `end_block`},
 	State:      whereHelperstring{field: `state`},
@@ -119,8 +146,8 @@ func (*escrowR) NewStruct() *escrowR {
 type escrowL struct{}
 
 var (
-	escrowColumns               = []string{"id", "start_block", "end_block", "state", "public_key", "private_key", "raw"}
-	escrowColumnsWithoutDefault = []string{"state", "public_key", "private_key", "raw"}
+	escrowColumns               = []string{"id", "txid", "start_block", "end_block", "state", "public_key", "private_key", "raw"}
+	escrowColumnsWithoutDefault = []string{"txid", "state", "public_key", "private_key", "raw"}
 	escrowColumnsWithDefault    = []string{"id", "start_block", "end_block"}
 	escrowPrimaryKeyColumns     = []string{"id"}
 )

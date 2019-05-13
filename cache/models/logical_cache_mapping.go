@@ -23,7 +23,7 @@ import (
 
 // LogicalCacheMapping is an object representing the database table.
 type LogicalCacheMapping struct {
-	EscrowID      common.EscrowID `boil:"escrow_id" json:"escrow_id" toml:"escrow_id" yaml:"escrow_id"`
+	Txid          common.EscrowID `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
 	SlotIdx       uint64          `boil:"slot_idx" json:"slot_idx" toml:"slot_idx" yaml:"slot_idx"`
 	BlockEscrowID string          `boil:"block_escrow_id" json:"block_escrow_id" toml:"block_escrow_id" yaml:"block_escrow_id"`
 	BlockID       common.BlockID  `boil:"block_id" json:"block_id" toml:"block_id" yaml:"block_id"`
@@ -33,12 +33,12 @@ type LogicalCacheMapping struct {
 }
 
 var LogicalCacheMappingColumns = struct {
-	EscrowID      string
+	Txid          string
 	SlotIdx       string
 	BlockEscrowID string
 	BlockID       string
 }{
-	EscrowID:      "escrow_id",
+	Txid:          "txid",
 	SlotIdx:       "slot_idx",
 	BlockEscrowID: "block_escrow_id",
 	BlockID:       "block_id",
@@ -68,12 +68,12 @@ func (w whereHelpercommon_BlockID) GTE(x common.BlockID) qm.QueryMod {
 }
 
 var LogicalCacheMappingWhere = struct {
-	EscrowID      whereHelpercommon_EscrowID
+	Txid          whereHelpercommon_EscrowID
 	SlotIdx       whereHelperuint64
 	BlockEscrowID whereHelperstring
 	BlockID       whereHelpercommon_BlockID
 }{
-	EscrowID:      whereHelpercommon_EscrowID{field: `escrow_id`},
+	Txid:          whereHelpercommon_EscrowID{field: `txid`},
 	SlotIdx:       whereHelperuint64{field: `slot_idx`},
 	BlockEscrowID: whereHelperstring{field: `block_escrow_id`},
 	BlockID:       whereHelpercommon_BlockID{field: `block_id`},
@@ -96,10 +96,10 @@ func (*logicalCacheMappingR) NewStruct() *logicalCacheMappingR {
 type logicalCacheMappingL struct{}
 
 var (
-	logicalCacheMappingColumns               = []string{"escrow_id", "slot_idx", "block_escrow_id", "block_id"}
-	logicalCacheMappingColumnsWithoutDefault = []string{"escrow_id", "slot_idx", "block_escrow_id", "block_id"}
+	logicalCacheMappingColumns               = []string{"txid", "slot_idx", "block_escrow_id", "block_id"}
+	logicalCacheMappingColumnsWithoutDefault = []string{"txid", "slot_idx", "block_escrow_id", "block_id"}
 	logicalCacheMappingColumnsWithDefault    = []string{}
-	logicalCacheMappingPrimaryKeyColumns     = []string{"escrow_id", "slot_idx"}
+	logicalCacheMappingPrimaryKeyColumns     = []string{"txid", "slot_idx"}
 )
 
 type (
@@ -385,7 +385,7 @@ func LogicalCacheMappings(mods ...qm.QueryMod) logicalCacheMappingQuery {
 
 // FindLogicalCacheMapping retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindLogicalCacheMapping(ctx context.Context, exec boil.ContextExecutor, escrowID common.EscrowID, slotIdx uint64, selectCols ...string) (*LogicalCacheMapping, error) {
+func FindLogicalCacheMapping(ctx context.Context, exec boil.ContextExecutor, txid common.EscrowID, slotIdx uint64, selectCols ...string) (*LogicalCacheMapping, error) {
 	logicalCacheMappingObj := &LogicalCacheMapping{}
 
 	sel := "*"
@@ -393,10 +393,10 @@ func FindLogicalCacheMapping(ctx context.Context, exec boil.ContextExecutor, esc
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"logical_cache_mapping\" where \"escrow_id\"=? AND \"slot_idx\"=?", sel,
+		"select %s from \"logical_cache_mapping\" where \"txid\"=? AND \"slot_idx\"=?", sel,
 	)
 
-	q := queries.Raw(query, escrowID, slotIdx)
+	q := queries.Raw(query, txid, slotIdx)
 
 	err := q.Bind(ctx, exec, logicalCacheMappingObj)
 	if err != nil {
@@ -481,7 +481,7 @@ func (o *LogicalCacheMapping) Insert(ctx context.Context, exec boil.ContextExecu
 	}
 
 	identifierCols = []interface{}{
-		o.EscrowID,
+		o.Txid,
 		o.SlotIdx,
 	}
 
@@ -645,7 +645,7 @@ func (o *LogicalCacheMapping) Delete(ctx context.Context, exec boil.ContextExecu
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), logicalCacheMappingPrimaryKeyMapping)
-	sql := "DELETE FROM \"logical_cache_mapping\" WHERE \"escrow_id\"=? AND \"slot_idx\"=?"
+	sql := "DELETE FROM \"logical_cache_mapping\" WHERE \"txid\"=? AND \"slot_idx\"=?"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -746,7 +746,7 @@ func (o LogicalCacheMappingSlice) DeleteAll(ctx context.Context, exec boil.Conte
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *LogicalCacheMapping) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindLogicalCacheMapping(ctx, exec, o.EscrowID, o.SlotIdx)
+	ret, err := FindLogicalCacheMapping(ctx, exec, o.Txid, o.SlotIdx)
 	if err != nil {
 		return err
 	}
@@ -785,16 +785,16 @@ func (o *LogicalCacheMappingSlice) ReloadAll(ctx context.Context, exec boil.Cont
 }
 
 // LogicalCacheMappingExists checks if the LogicalCacheMapping row exists.
-func LogicalCacheMappingExists(ctx context.Context, exec boil.ContextExecutor, escrowID common.EscrowID, slotIdx uint64) (bool, error) {
+func LogicalCacheMappingExists(ctx context.Context, exec boil.ContextExecutor, txid common.EscrowID, slotIdx uint64) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"logical_cache_mapping\" where \"escrow_id\"=? AND \"slot_idx\"=? limit 1)"
+	sql := "select exists(select 1 from \"logical_cache_mapping\" where \"txid\"=? AND \"slot_idx\"=? limit 1)"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
-		fmt.Fprintln(boil.DebugWriter, escrowID, slotIdx)
+		fmt.Fprintln(boil.DebugWriter, txid, slotIdx)
 	}
 
-	row := exec.QueryRowContext(ctx, sql, escrowID, slotIdx)
+	row := exec.QueryRowContext(ctx, sql, txid, slotIdx)
 
 	err := row.Scan(&exists)
 	if err != nil {
