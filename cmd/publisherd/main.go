@@ -22,10 +22,11 @@ import (
 )
 
 var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile     = flag.String("logFile", "", "Path where file should be logged")
-	configPath  = flag.String("config", "publisher.config.json", "Path to configuration file")
+	logLevelStr   = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller     = flag.Bool("logCaller", false, "Enable method name logging")
+	logFile       = flag.String("logFile", "", "Path where file should be logged")
+	configPath    = flag.String("config", "publisher.config.json", "Path to configuration file")
+	bootstrapAddr = flag.String("bootstrapd", "bootstrapd:7777", "Bootstrap service to use")
 )
 
 func loadConfigFile(path string) (*publisher.ConfigFile, error) {
@@ -42,15 +43,25 @@ func loadConfigFile(path string) (*publisher.ConfigFile, error) {
 	return &cf, nil
 }
 
+func GetenvDefault(key string, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if exists {
+		return value
+	} else {
+		return defaultValue
+	}
+}
+
 func generateConfigFile(path string) error {
 	publisherCacheAddr := os.Getenv("PUBLISHER_CACHE_ADDR")
 	upstream := os.Getenv("PUBLISHER_UPSTREAM")
+	bootstrapAddr := GetenvDefault("BOOTSTRAP_ADDR", *bootstrapAddr)
 
 	_, privateKey, err := ed25519.GenerateKey(nil)
 
 	cf := &publisher.ConfigFile{
 		CacheProtocolAddr: publisherCacheAddr,
-		BootstrapAddr:     "bootstrapd:7777",
+		BootstrapAddr:     bootstrapAddr,
 
 		UpstreamURL: upstream,
 		PrivateKey:  privateKey,

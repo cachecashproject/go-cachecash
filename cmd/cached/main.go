@@ -21,10 +21,11 @@ import (
 )
 
 var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile     = flag.String("logFile", "", "Path where file should be logged")
-	configPath  = flag.String("config", "cache.config.json", "Path to configuration file")
+	logLevelStr   = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller     = flag.Bool("logCaller", false, "Enable method name logging")
+	logFile       = flag.String("logFile", "", "Path where file should be logged")
+	configPath    = flag.String("config", "cache.config.json", "Path to configuration file")
+	bootstrapAddr = flag.String("bootstrapd", "bootstrapd:7777", "Bootstrap service to use")
 )
 
 func loadConfigFile(path string) (*cache.ConfigFile, error) {
@@ -54,6 +55,7 @@ func generateConfigFile(path string) error {
 	grpcAddr := GetenvDefault("CACHE_GRPC_ADDR", ":9000")
 	httpAddr := GetenvDefault("CACHE_HTTP_ADDR", ":9443")
 	statusAddr := GetenvDefault("CACHE_STATUS_ADDR", ":9100")
+	bootstrapAddr := GetenvDefault("BOOTSTRAP_ADDR", *bootstrapAddr)
 
 	publicKey, _, err := ed25519.GenerateKey(nil)
 
@@ -61,7 +63,7 @@ func generateConfigFile(path string) error {
 		ClientProtocolGrpcAddr: grpcAddr,
 		ClientProtocolHttpAddr: httpAddr,
 		StatusAddr:             statusAddr,
-		BootstrapAddr:          "bootstrapd:7777",
+		BootstrapAddr:          bootstrapAddr,
 
 		PublicKey:       publicKey,
 		BadgerDirectory: "/data/chunks/",

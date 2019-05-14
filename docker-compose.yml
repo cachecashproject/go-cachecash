@@ -49,6 +49,7 @@ services:
     environment:
     - PUBLISHER_CACHE_ADDR=publisher:8082
     - PUBLISHER_UPSTREAM=http://upstream:80
+    - BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/publisher:/data
 
@@ -76,6 +77,8 @@ services:
     - 9000:9000
     - 9443:9443
     - 7100:9100
+    environment:
+    - BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/cache-0:/data
 
@@ -87,6 +90,8 @@ services:
     - 9001:9000
     - 9444:9443
     - 7101:9100
+    environment:
+    - BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/cache-1:/data
 
@@ -98,6 +103,8 @@ services:
     - 9002:9000
     - 9445:9443
     - 7102:9100
+    environment:
+    - BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/cache-2:/data
 
@@ -109,6 +116,8 @@ services:
     - 9003:9000
     - 9446:9443
     - 7103:9100
+    environment:
+    - BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/cache-3:/data
 ...
