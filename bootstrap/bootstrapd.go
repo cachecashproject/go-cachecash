@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 )
 
@@ -26,6 +28,23 @@ func NewBootstrapd(l *logrus.Logger, db *sql.DB) (*Bootstrapd, error) {
 		l:  l,
 		db: db,
 	}, nil
+}
+
+func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, port uint32) error {
+	addr := fmt.Sprintf("%s:%d", srcIP.String(), port)
+	b.l.Info("dialing cache back: ", addr)
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	if err != nil {
+		return errors.Wrap(err, "failed to dial cache address")
+	}
+	grpcClient := ccmsg.NewPublisherCacheClient(conn)
+	_, err = grpcClient.PingCache(ctx, &ccmsg.PingCacheRequest{})
+	if err != nil {
+		// this should never happen
+		return errors.Wrap(err, "ping failed")
+	}
+	b.l.Info("cache dailed successfully")
+	return nil
 }
 
 func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.CacheAnnounceRequest) (*ccmsg.CacheAnnounceResponse, error) {
@@ -44,7 +63,10 @@ func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.
 		srcIP = addr.IP
 	}
 
-	// TODO: last_ping column
+	err := b.verifyCacheIsReachable(ctx, srcIP, req.Port)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to connect back to cache")
+	}
 
 	cache := models.Cache{
 		PublicKey:   ed25519.PublicKey(req.PublicKey),
