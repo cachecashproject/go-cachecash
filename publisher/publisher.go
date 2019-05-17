@@ -194,6 +194,9 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get metadata for requested object")
 	}
+	p.l.WithFields(logrus.Fields{
+		"size": obj.ObjectSize(),
+	}).Debug("received metadata and blocks")
 
 	// - The _byte range_ is translated to a _block range_ depending on how the publisher would like to chunk the object.
 	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The publisher may also choose how

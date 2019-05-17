@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -20,6 +21,10 @@ type httpUpstream struct {
 var _ Upstream = (*httpUpstream)(nil)
 
 func NewHTTPUpstream(l *logrus.Logger, baseURL string, defaultCacheDuration time.Duration) (Upstream, error) {
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL += "/"
+	}
+
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse upstream URL")
@@ -32,16 +37,24 @@ func NewHTTPUpstream(l *logrus.Logger, baseURL string, defaultCacheDuration time
 }
 
 func (up *httpUpstream) upstreamURL(path string) (string, error) {
+	if path[:1] != "/" {
+		return "", errors.New("path is supposed to start with a slash")
+	}
+	path = path[1:]
 
-	// XXX: Need to ensure that `pathURL` is not an absolute URL; that could be used to make the publisher fetch
-	// arbitrary data.
 	pathURL, err := url.Parse(path)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to parse object path")
 	}
-	u := up.baseURL.ResolveReference(pathURL)
 
-	return u.String(), nil
+	u := up.baseURL.ResolveReference(pathURL)
+	// ensure the final url is inside our base url so we don't act as an open proxy
+	new := u.String()
+	if !strings.HasPrefix(new, up.baseURL.String()) {
+		return "", errors.New("todo")
+	}
+
+	return new, nil
 }
 
 // XXX: What is the difference between an error returned from this function and an error stored in the FetchResult

@@ -18,7 +18,7 @@ FROM docker.elastic.co/beats/filebeat:6.6.2 as filebeat
 FROM debian:stretch
 
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends logrotate cron runit sqlite3 \
+	&& apt-get install -y --no-install-recommends logrotate cron runit sqlite3 ca-certificates \
 	&& apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY deploy/omnibus-cache/our_init /sbin/
