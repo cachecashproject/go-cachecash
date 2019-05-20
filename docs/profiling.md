@@ -17,3 +17,6 @@ This should produce output that looks like
 {"msg":"exchangeTicketL2","when":["2019-04-03T08:50:48.858912964-07:00","2019-04-03T08:50:48.859282353-07:00"]}
 {"msg":"decryptData","when":["2019-04-03T08:50:48.859305972-07:00","2019-04-03T08:50:48.859496154-07:00"]}
 ```
+
+You will need to pipe it through `jq -cs` to convert it into a single list before the visualizer will be able to load
+it.
