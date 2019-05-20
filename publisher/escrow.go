@@ -16,11 +16,9 @@ import (
 )
 
 type Escrow struct {
-	ID common.EscrowID
-
 	Publisher *ContentPublisher
 	Inner     models.Escrow
-	Caches    []ParticipatingCache
+	Caches    []*ParticipatingCache
 }
 
 // The info object does not need to have its keys populated.
@@ -50,10 +48,9 @@ func (p *ContentPublisher) NewEscrow(info *ccmsg.EscrowInfo) (*Escrow, error) {
 
 	// TODO: Should we set info.PublicKey and info.PublisherPublicKey?
 	return &Escrow{
-		ID: id,
-
 		Publisher: p,
 		Inner: models.Escrow{
+			Txid:       id,
 			PublicKey:  pub,
 			PrivateKey: priv,
 			State:      models.EscrowStateOk,
@@ -129,7 +126,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 		// EscrowPublicKey:   cachecash.PublicKeyMessage(e.PublicKey),
 		Remainder: &ccmsg.TicketBundleRemainder{
 			RequestSequenceNo: bp.RequestSequenceNo,
-			EscrowId:          bp.Escrow.ID[:],
+			EscrowId:          bp.Escrow.Inner.Txid[:],
 			ObjectId:          bp.ObjectID[:],
 			// PuzzleInfo is filled in later
 			ClientPublicKey: cachecash.PublicKeyMessage(bp.ClientPublicKey),

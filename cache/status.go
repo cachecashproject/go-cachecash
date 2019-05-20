@@ -11,12 +11,12 @@ import (
 
 type statusServer struct {
 	l          *logrus.Logger
-	conf       *Config
+	conf       *ConfigFile
 	cache      *Cache
 	httpServer *http.Server
 }
 
-func newStatusServer(l *logrus.Logger, c *Cache, conf *Config) (*statusServer, error) {
+func newStatusServer(l *logrus.Logger, c *Cache, conf *ConfigFile) (*statusServer, error) {
 	mux := http.NewServeMux()
 
 	httpServer := &http.Server{
@@ -43,14 +43,19 @@ func newStatusServer(l *logrus.Logger, c *Cache, conf *Config) (*statusServer, e
 }
 
 type infoResponse struct {
-	Hello string
+	Escrows [][]byte
 }
 
 func (s *statusServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	escrows := [][]byte{}
+	for escrowID, _ := range s.cache.Escrows {
+		escrows = append(escrows, escrowID[:])
+	}
+
 	resp := &infoResponse{
-		Hello: "world",
+		Escrows: escrows,
 	}
 
 	d, err := json.Marshal(resp)
@@ -61,7 +66,7 @@ func (s *statusServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write(d); d != nil {
+	if _, err := w.Write(d); err != nil {
 		s.l.WithError(err).Error("failed to write response")
 	}
 }

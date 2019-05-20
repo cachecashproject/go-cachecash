@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -eu -o pipefail
-shopt -s failglob
+#shopt -s failglob
 
 packr -v
 

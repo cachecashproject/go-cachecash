@@ -97,7 +97,7 @@ func (suite *PublisherTestSuite) SetupTest() {
 		WillReturnRows(rows)
 
 	// XXX: Once we start using the catalog, passing nil is going to cause runtime panics.
-	suite.publisher, err = NewContentPublisher(l, db, cat, priv)
+	suite.publisher, err = NewContentPublisher(l, db, "", cat, priv)
 	if err != nil {
 		t.Fatalf("failed to construct publisher: %v", err)
 	}

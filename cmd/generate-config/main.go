@@ -19,11 +19,11 @@ import (
 )
 
 var (
-	logLevelStr               = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller                 = flag.Bool("logCaller", false, "Enable method name logging")
-	outputPath                = flag.String("outputPath", ".", "Directory where configuration files will be written")
-	upstream                  = flag.String("upstream", "http://localhost:8081", "Upstream url")
-	publisherCacheServiceAddr = flag.String("publisherCacheServiceAddr", "", "Publisher cache service address")
+	logLevelStr        = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller          = flag.Bool("logCaller", false, "Enable method name logging")
+	outputPath         = flag.String("outputPath", ".", "Directory where configuration files will be written")
+	upstream           = flag.String("upstream", "http://localhost:8081", "Upstream url")
+	publisherCacheAddr = flag.String("publisherCacheAddr", "", "Publisher cache service address")
 )
 
 func main() {
@@ -49,28 +49,26 @@ func mainC() error {
 	l.SetReportCaller(*logCaller)
 
 	scen, err := testdatagen.GenerateTestScenario(l, &testdatagen.TestScenarioParams{
-		L:                         l,
-		BlockSize:                 128 * 1024,
-		ObjectSize:                128 * 1024 * 16,
-		PublisherCacheServiceAddr: *publisherCacheServiceAddr,
+		L:                  l,
+		BlockSize:          128 * 1024,
+		ObjectSize:         128 * 1024 * 16,
+		PublisherCacheAddr: *publisherCacheAddr,
 	})
 	if err != nil {
 		return err
 	}
 
 	// Generate cache-side configuration files.
-	for i, c := range scen.Caches {
+	for i, _ := range scen.Caches {
 		cf := cache.ConfigFile{
-			Config: &cache.Config{
-				// XXX: This must match what is set up in the Escrow struct on the publisher side so that the publisher
-				// sends clients to the right place.
-				ClientProtocolGrpcAddr: fmt.Sprintf(":%v", 9000+i),
-				ClientProtocolHttpAddr: fmt.Sprintf(":%v", 9443+i),
-				StatusAddr:             fmt.Sprintf(":%v", 9100+i),
-				BootstrapAddr:          "bootstrap:7777",
-			},
+			// XXX: This must match what is set up in the Escrow struct on the publisher side so that the publisher
+			// sends clients to the right place.
+			ClientProtocolGrpcAddr: fmt.Sprintf(":%v", 9000+i),
+			ClientProtocolHttpAddr: fmt.Sprintf(":%v", 9443+i),
+			StatusAddr:             fmt.Sprintf(":%v", 9100+i),
+			BootstrapAddr:          "bootstrapd:7777",
+
 			PublicKey:       scen.CacheConfigs[i].PublicKey,
-			Escrows:         c.Escrows,
 			BadgerDirectory: fmt.Sprintf("./cache-%d/", i),
 			Database:        fmt.Sprintf("./cache-%d.db", i),
 		}
@@ -94,12 +92,9 @@ func mainC() error {
 
 	// Generate publisher-side configuration file.
 	cf := &publisher.ConfigFile{
-		Config: &publisher.Config{
-			BootstrapAddr: "bootstrap:7777",
-		},
-		Escrows: []*publisher.Escrow{
-			scen.Escrow,
-		},
+		CacheProtocolAddr: scen.Params.PublisherCacheAddr,
+		BootstrapAddr:     "bootstrapd:7777",
+
 		UpstreamURL: *upstream,
 		PrivateKey:  scen.PublisherPrivateKey,
 		Database:    "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable",

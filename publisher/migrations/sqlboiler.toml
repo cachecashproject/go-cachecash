@@ -8,6 +8,14 @@
 
 [[types]]
   [types.match]
+    name = "txid"
+  [types.replace]
+    type = "common.EscrowID"
+  [types.imports]
+    third_party = ['"github.com/cachecashproject/go-cachecash/common"']
+
+[[types]]
+  [types.match]
     name = "public_key"
   [types.replace]
     type = "ed25519.PublicKey"

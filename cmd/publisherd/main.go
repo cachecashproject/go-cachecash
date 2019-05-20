@@ -15,18 +15,18 @@ import (
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/publisher/migrations"
-	"github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/pkg/errors"
 	"github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
-	"github.com/volatiletech/sqlboiler/boil"
+	"golang.org/x/crypto/ed25519"
 )
 
 var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile     = flag.String("logFile", "", "Path where file should be logged")
-	configPath  = flag.String("config", "publisher.config.json", "Path to configuration file")
+	logLevelStr   = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller     = flag.Bool("logCaller", false, "Enable method name logging")
+	logFile       = flag.String("logFile", "", "Path where file should be logged")
+	configPath    = flag.String("config", "publisher.config.json", "Path to configuration file")
+	bootstrapAddr = flag.String("bootstrapd", "bootstrapd:7777", "Bootstrap service to use")
 )
 
 func loadConfigFile(path string) (*publisher.ConfigFile, error) {
@@ -41,6 +41,44 @@ func loadConfigFile(path string) (*publisher.ConfigFile, error) {
 	}
 
 	return &cf, nil
+}
+
+func GetenvDefault(key string, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if exists {
+		return value
+	} else {
+		return defaultValue
+	}
+}
+
+func generateConfigFile(path string) error {
+	publisherCacheAddr := os.Getenv("PUBLISHER_CACHE_ADDR")
+	upstream := os.Getenv("PUBLISHER_UPSTREAM")
+	bootstrapAddr := GetenvDefault("BOOTSTRAP_ADDR", *bootstrapAddr)
+
+	_, privateKey, err := ed25519.GenerateKey(nil)
+
+	cf := &publisher.ConfigFile{
+		CacheProtocolAddr: publisherCacheAddr,
+		BootstrapAddr:     bootstrapAddr,
+
+		UpstreamURL: upstream,
+		PrivateKey:  privateKey,
+		Database:    "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable",
+	}
+
+	buf, err := json.MarshalIndent(cf, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal config")
+	}
+
+	err = ioutil.WriteFile(path, buf, 0600)
+	if err != nil {
+		return errors.Wrap(err, "failed to write config")
+	}
+
+	return nil
 }
 
 func main() {
@@ -65,12 +103,19 @@ func mainC() error {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 
+	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
+		l.Info("config doesn't exist, generating")
+		if err := generateConfigFile(*configPath); err != nil {
+			return err
+		}
+	}
+
 	cf, err := loadConfigFile(*configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
 
-	upstream, err := catalog.NewHTTPUpstream(l, cf.UpstreamURL, cf.Config.DefaultCacheDuration)
+	upstream, err := catalog.NewHTTPUpstream(l, cf.UpstreamURL, cf.DefaultCacheDuration)
 	if err != nil {
 		return errors.Wrap(err, "failed to create HTTP upstream")
 	}
@@ -110,41 +155,18 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	p, err := publisher.NewContentPublisher(l, db, cat, cf.PrivateKey)
+	p, err := publisher.NewContentPublisher(l, db, cf.CacheProtocolAddr, cat, cf.PrivateKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher")
 	}
 
-	for _, e := range cf.Escrows {
-		l.Infof("Adding escrow from config to database: %v", e)
-		if err = p.AddEscrow(e); err != nil {
-			return errors.Wrap(err, "failed to add escrow to publisher")
-		}
-		err = e.Inner.Insert(context.TODO(), db, boil.Infer())
-		if err != nil {
-			return errors.Wrap(err, "failed to add escrow to database")
-		}
-
-		for _, c := range e.Caches {
-			l.Infof("Adding cache from config to database: %v", c)
-			err = c.Cache.Upsert(context.TODO(), db, true, []string{"public_key"}, boil.Whitelist("inetaddr", "port"), boil.Infer())
-			if err != nil {
-				return errors.Wrap(err, "failed to add cache to database")
-			}
-
-			ec := models.EscrowCache{
-				EscrowID:       e.Inner.ID,
-				CacheID:        c.Cache.ID,
-				InnerMasterKey: c.InnerMasterKey,
-			}
-			err = ec.Upsert(context.TODO(), db, false, []string{"escrow_id", "cache_id"}, boil.Whitelist("inner_master_key"), boil.Infer())
-			if err != nil {
-				return errors.Wrap(err, "failed to link cache to escrow")
-			}
-		}
+	num, err := p.LoadFromDatabase(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "failed to load state from database")
 	}
+	l.Infof("loaded %d escrows from database", num)
 
-	app, err := publisher.NewApplication(l, p, cf.Config)
+	app, err := publisher.NewApplication(l, p, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}

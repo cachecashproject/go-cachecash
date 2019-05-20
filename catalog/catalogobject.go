@@ -256,6 +256,12 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 		m.metadata = &ccmsg.ObjectMetadata{}
 	}
 
+	if r == nil {
+		log.Debug("FetchData returned nil")
+		doneCh <- errors.Wrap(err, "request response is nil")
+		return
+	}
+
 	// XXX: don't expose the status, this is handled in here
 	log.Debugf("fetchData - r.status=%v", r.status)
 	m.Status = r.status

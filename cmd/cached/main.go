@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -16,13 +17,15 @@ import (
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ed25519"
 )
 
 var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile     = flag.String("logFile", "", "Path where file should be logged")
-	configPath  = flag.String("config", "cache.config.json", "Path to configuration file")
+	logLevelStr   = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller     = flag.Bool("logCaller", false, "Enable method name logging")
+	logFile       = flag.String("logFile", "", "Path where file should be logged")
+	configPath    = flag.String("config", "cache.config.json", "Path to configuration file")
+	bootstrapAddr = flag.String("bootstrapd", "bootstrapd:7777", "Bootstrap service to use")
 )
 
 func loadConfigFile(path string) (*cache.ConfigFile, error) {
@@ -37,6 +40,47 @@ func loadConfigFile(path string) (*cache.ConfigFile, error) {
 	}
 
 	return &cf, nil
+}
+
+func GetenvDefault(key string, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if exists {
+		return value
+	} else {
+		return defaultValue
+	}
+}
+
+func generateConfigFile(path string) error {
+	grpcAddr := GetenvDefault("CACHE_GRPC_ADDR", ":9000")
+	httpAddr := GetenvDefault("CACHE_HTTP_ADDR", ":9443")
+	statusAddr := GetenvDefault("CACHE_STATUS_ADDR", ":9100")
+	bootstrapAddr := GetenvDefault("BOOTSTRAP_ADDR", *bootstrapAddr)
+
+	publicKey, _, err := ed25519.GenerateKey(nil)
+
+	cf := cache.ConfigFile{
+		ClientProtocolGrpcAddr: grpcAddr,
+		ClientProtocolHttpAddr: httpAddr,
+		StatusAddr:             statusAddr,
+		BootstrapAddr:          bootstrapAddr,
+
+		PublicKey:       publicKey,
+		BadgerDirectory: "/data/chunks/",
+		Database:        "/data/cache.db",
+	}
+
+	buf, err := json.MarshalIndent(cf, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal config")
+	}
+
+	err = ioutil.WriteFile(path, buf, 0600)
+	if err != nil {
+		return errors.Wrap(err, "failed to write config")
+	}
+
+	return nil
 }
 
 func main() {
@@ -59,6 +103,13 @@ func mainC() error {
 		LogFile:     *logFile,
 	}); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
+	}
+
+	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
+		l.Info("config doesn't exist, generating")
+		if err := generateConfigFile(*configPath); err != nil {
+			return err
+		}
 	}
 
 	cf, err := loadConfigFile(*configPath)
@@ -84,9 +135,13 @@ func mainC() error {
 	}
 	defer c.Close()
 
-	c.Escrows = cf.Escrows
+	num, err := c.LoadFromDatabase(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "failed to load state from database")
+	}
+	l.Infof("loaded %d escrows from database", num)
 
-	app, err := cache.NewApplication(l, c, cf.Config)
+	app, err := cache.NewApplication(l, c, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}

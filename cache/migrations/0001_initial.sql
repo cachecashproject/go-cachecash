@@ -3,11 +3,20 @@
 
 -- N.B.: The field sizes here need to match the `common.*Size` constants.
 CREATE TABLE logical_cache_mapping (
-    escrow_id          bytea NOT NULL,
+    txid               bytea NOT NULL,
     slot_idx           bigint NOT NULL, -- XXX: int64, not uint64
     block_escrow_id    bytea NOT NULL,
     block_id           bytea NOT NULL,
-    CONSTRAINT pk_escrow_slot PRIMARY KEY (escrow_id, slot_idx)
+    CONSTRAINT pk_escrow_slot PRIMARY KEY (txid, slot_idx)
+);
+
+CREATE TABLE escrow (
+    id                     int PRIMARY KEY NOT NULL,
+    txid                   bytea NOT NULL,
+    inner_master_key       varchar NOT NULL,
+    outer_master_key       varchar NOT NULL,
+    slots                  int NOT NULL,
+    publisher_cache_addr   varchar NOT NULL
 );
 
 -- -- QQ: Do we want ticket numbers to be per-escrow or per-escrow-per-block?
@@ -30,6 +39,8 @@ CREATE TABLE logical_cache_mapping (
 -- DROP TABLE escrow;
 
 DROP TABLE logical_cache_mapping;
+
+DROP TABLE escrow;
 
 -- DROP TABLE request;
 

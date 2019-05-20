@@ -151,7 +151,7 @@ func testLogicalCacheMappingsExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := LogicalCacheMappingExists(ctx, tx, o.EscrowID, o.SlotIdx)
+	e, err := LogicalCacheMappingExists(ctx, tx, o.Txid, o.SlotIdx)
 	if err != nil {
 		t.Errorf("Unable to check if LogicalCacheMapping exists: %s", err)
 	}
@@ -177,7 +177,7 @@ func testLogicalCacheMappingsFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	logicalCacheMappingFound, err := FindLogicalCacheMapping(ctx, tx, o.EscrowID, o.SlotIdx)
+	logicalCacheMappingFound, err := FindLogicalCacheMapping(ctx, tx, o.Txid, o.SlotIdx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -570,7 +570,7 @@ func testLogicalCacheMappingsSelect(t *testing.T) {
 }
 
 var (
-	logicalCacheMappingDBTypes = map[string]string{`EscrowID`: `BYTEA`, `SlotIdx`: `BIGINT`, `BlockEscrowID`: `BYTEA`, `BlockID`: `BYTEA`}
+	logicalCacheMappingDBTypes = map[string]string{`Txid`: `BYTEA`, `SlotIdx`: `BIGINT`, `BlockEscrowID`: `BYTEA`, `BlockID`: `BYTEA`}
 	_                          = bytes.MinRead
 )
 

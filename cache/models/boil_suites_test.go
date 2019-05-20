@@ -14,50 +14,63 @@ import "testing"
 // It does NOT run each operation group in parallel.
 // Separating the tests thusly grants avoidance of Postgres deadlocks.
 func TestParent(t *testing.T) {
+	t.Run("Escrows", testEscrows)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappings)
 }
 
 func TestDelete(t *testing.T) {
+	t.Run("Escrows", testEscrowsDelete)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
+	t.Run("Escrows", testEscrowsQueryDeleteAll)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
+	t.Run("Escrows", testEscrowsSliceDeleteAll)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
+	t.Run("Escrows", testEscrowsExists)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsExists)
 }
 
 func TestFind(t *testing.T) {
+	t.Run("Escrows", testEscrowsFind)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsFind)
 }
 
 func TestBind(t *testing.T) {
+	t.Run("Escrows", testEscrowsBind)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsBind)
 }
 
 func TestOne(t *testing.T) {
+	t.Run("Escrows", testEscrowsOne)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsOne)
 }
 
 func TestAll(t *testing.T) {
+	t.Run("Escrows", testEscrowsAll)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsAll)
 }
 
 func TestCount(t *testing.T) {
+	t.Run("Escrows", testEscrowsCount)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsCount)
 }
 
 func TestHooks(t *testing.T) {
+	t.Run("Escrows", testEscrowsHooks)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsHooks)
 }
 
 func TestInsert(t *testing.T) {
+	t.Run("Escrows", testEscrowsInsert)
+	t.Run("Escrows", testEscrowsInsertWhitelist)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsInsert)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsInsertWhitelist)
 }
@@ -103,21 +116,26 @@ func TestToManySet(t *testing.T) {}
 func TestToManyRemove(t *testing.T) {}
 
 func TestReload(t *testing.T) {
+	t.Run("Escrows", testEscrowsReload)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsReload)
 }
 
 func TestReloadAll(t *testing.T) {
+	t.Run("Escrows", testEscrowsReloadAll)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
+	t.Run("Escrows", testEscrowsSelect)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsSelect)
 }
 
 func TestUpdate(t *testing.T) {
+	t.Run("Escrows", testEscrowsUpdate)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
+	t.Run("Escrows", testEscrowsSliceUpdateAll)
 	t.Run("LogicalCacheMappings", testLogicalCacheMappingsSliceUpdateAll)
 }

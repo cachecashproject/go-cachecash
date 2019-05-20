@@ -14,7 +14,7 @@
 # everything, otherwise every field winds up as a string.
 [[types]]
   [types.match]
-    name = "escrow_id"
+    name = "txid"
   [types.replace]
     type = "common.EscrowID"
   [types.imports]
@@ -42,3 +42,21 @@
     type = "common.BlockID"
   [types.imports]
     third_party = ['"github.com/cachecashproject/go-cachecash/common"']
+
+[[types]]
+  [types.match]
+    name = "inner_master_key"
+  [types.replace]
+    type = "[]byte"
+
+[[types]]
+  [types.match]
+    name = "outer_master_key"
+  [types.replace]
+    type = "[]byte"
+
+[[types]]
+  [types.match]
+    name = "slots"
+  [types.replace]
+    type = "uint64"

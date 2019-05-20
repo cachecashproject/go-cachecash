@@ -4,6 +4,7 @@ CREATE TYPE escrow_state AS ENUM ('ok', 'aborted');
 
 CREATE TABLE escrow (
     id SERIAL PRIMARY KEY,
+    txid BYTEA NOT NULL,
     start_block SERIAL NOT NULL,
     end_block SERIAL NOT NULL,
     state escrow_state NOT NULL,

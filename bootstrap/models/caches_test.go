@@ -570,7 +570,7 @@ func testCachesSelect(t *testing.T) {
 }
 
 var (
-	cacheDBTypes = map[string]string{`PublicKey`: `BYTEA`, `Version`: `VARCHAR`, `FreeMemory`: `BIGINT`, `TotalMemory`: `BIGINT`, `FreeDisk`: `BIGINT`, `TotalDisk`: `BIGINT`, `StartupTime`: `DATETIME`, `ExternalIP`: `VARCHAR`, `ContactURL`: `VARCHAR`, `LastPing`: `DATETIME`}
+	cacheDBTypes = map[string]string{`PublicKey`: `BYTEA`, `Version`: `VARCHAR`, `FreeMemory`: `BIGINT`, `TotalMemory`: `BIGINT`, `FreeDisk`: `BIGINT`, `TotalDisk`: `BIGINT`, `StartupTime`: `DATETIME`, `ExternalIP`: `VARCHAR`, `Port`: `INTEGER`, `ContactURL`: `VARCHAR`, `LastPing`: `DATETIME`}
 	_            = bytes.MinRead
 )
 

@@ -34,13 +34,13 @@ func main() {
 		log.Printf("%v: %v\n", i, lcm)
 	}
 
-	escrowID, err := common.BytesToEscrowID(testutil.RandBytes(common.EscrowIDSize))
+	txid, err := common.BytesToEscrowID(testutil.RandBytes(common.EscrowIDSize))
 	if err != nil {
 		panic(err)
 	}
 	ne := models.LogicalCacheMapping{
-		EscrowID: escrowID,
-		SlotIdx:  uint64(len(lcms)),
+		Txid:    txid,
+		SlotIdx: uint64(len(lcms)),
 	}
 	if err := ne.Insert(ctx, tx, boil.Infer()); err != nil {
 		log.Fatal(err)

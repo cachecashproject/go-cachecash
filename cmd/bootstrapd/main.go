@@ -38,6 +38,24 @@ func loadConfigFile(path string) (*bootstrap.ConfigFile, error) {
 	return &cf, nil
 }
 
+func generateConfigFile(path string) error {
+	cf := &bootstrap.ConfigFile{
+		GrpcAddr: ":7777",
+		Database: "./bootstrapd.db",
+	}
+	buf, err := json.MarshalIndent(cf, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal config")
+	}
+
+	err = ioutil.WriteFile(path, buf, 0600)
+	if err != nil {
+		return errors.Wrap(err, "failed to write config")
+	}
+
+	return nil
+}
+
 func main() {
 	if err := mainC(); err != nil {
 		if _, err := os.Stderr.WriteString(err.Error() + "\n"); err != nil {
@@ -58,6 +76,13 @@ func mainC() error {
 		LogFile:     *logFile,
 	}); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
+	}
+
+	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
+		l.Info("config doesn't exist, generating")
+		if err := generateConfigFile(*configPath); err != nil {
+			return err
+		}
 	}
 
 	cf, err := loadConfigFile(*configPath)

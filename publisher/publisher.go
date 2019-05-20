@@ -15,6 +15,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
 )
@@ -30,6 +31,7 @@ type ContentPublisher struct {
 	catalog catalog.ContentCatalog
 
 	escrows []*Escrow
+	caches  map[string]*ParticipatingCache
 
 	// XXX: It's obviously not great that this is necessary.
 	// Maps object IDs to metadata; necessary to allow the publisher to generate cache-miss responses.
@@ -37,6 +39,8 @@ type ContentPublisher struct {
 
 	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
 	// caches map[cachecash.PublicKey]*ParticipatingCache
+
+	PublisherCacheAddr string
 }
 
 type CacheInfo struct {
@@ -47,21 +51,67 @@ type reverseMappingEntry struct {
 	path string
 }
 
-func NewContentPublisher(l *logrus.Logger, db *sql.DB, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
+func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherCacheAddr string, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
 	p := &ContentPublisher{
-		l:              l,
-		db:             db,
-		signer:         signer,
-		catalog:        catalog,
-		reverseMapping: make(map[common.ObjectID]reverseMappingEntry),
+		l:                  l,
+		db:                 db,
+		signer:             signer,
+		catalog:            catalog,
+		caches:             make(map[string]*ParticipatingCache),
+		reverseMapping:     make(map[common.ObjectID]reverseMappingEntry),
+		PublisherCacheAddr: publisherCacheAddr,
 	}
 
 	return p, nil
 }
 
+func (p *ContentPublisher) LoadFromDatabase(ctx context.Context) (int, error) {
+	escrows, err := models.Escrows().All(ctx, p.db)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to query Escrows")
+	}
+
+	for _, e := range escrows {
+		escrow := &Escrow{
+			Inner:  *e,
+			Caches: []*ParticipatingCache{},
+		}
+
+		ecs, err := e.EscrowCaches().All(ctx, p.db)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to query EscrowsCaches")
+		}
+
+		for _, ec := range ecs {
+			c, err := ec.Cache().One(ctx, p.db)
+			if err != nil {
+				return 0, errors.Wrap(err, "failed to query Cache")
+			}
+
+			escrow.Caches = append(escrow.Caches, &ParticipatingCache{
+				Cache:          *c,
+				InnerMasterKey: ec.InnerMasterKey,
+			})
+		}
+
+		err = p.AddEscrow(escrow)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to query Cache")
+		}
+	}
+
+	return len(escrows), nil
+}
+
 // XXX: Temporary
 func (p *ContentPublisher) AddEscrow(escrow *Escrow) error {
 	p.escrows = append(p.escrows, escrow)
+
+	// setup a map from pubkey -> *cache
+	for _, cache := range escrow.Caches {
+		p.caches[string(cache.PublicKey())] = cache
+	}
+
 	return nil
 }
 
@@ -144,6 +194,9 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get metadata for requested object")
 	}
+	p.l.WithFields(logrus.Fields{
+		"size": obj.ObjectSize(),
+	}).Debug("received metadata and blocks")
 
 	// - The _byte range_ is translated to a _block range_ depending on how the publisher would like to chunk the object.
 	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The publisher may also choose how
@@ -385,6 +438,35 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 	}
 
 	return &resp, nil
+}
+
+func (p *ContentPublisher) AddEscrowToDatabase(ctx context.Context, escrow *Escrow) error {
+	if err := p.AddEscrow(escrow); err != nil {
+		return errors.Wrap(err, "failed to add escrow to publisher")
+	}
+	if err := escrow.Inner.Insert(ctx, p.db, boil.Infer()); err != nil {
+		return errors.Wrap(err, "failed to add escrow to database")
+	}
+
+	for _, c := range escrow.Caches {
+		p.l.Info("Adding cache to database: ", c)
+		err := c.Cache.Upsert(ctx, p.db, true, []string{"public_key"}, boil.Whitelist("inetaddr", "port"), boil.Infer())
+		if err != nil {
+			return errors.Wrap(err, "failed to add cache to database")
+		}
+
+		ec := models.EscrowCache{
+			EscrowID:       escrow.Inner.ID,
+			CacheID:        c.Cache.ID,
+			InnerMasterKey: c.InnerMasterKey,
+		}
+		err = ec.Upsert(ctx, p.db, false, []string{"escrow_id", "cache_id"}, boil.Whitelist("inner_master_key"), boil.Infer())
+		if err != nil {
+			return errors.Wrap(err, "failed to link cache to escrow")
+		}
+	}
+
+	return nil
 }
 
 // XXX: This is, obviously, temporary.  We should be using object IDs that are larger than 64 bits, among other
