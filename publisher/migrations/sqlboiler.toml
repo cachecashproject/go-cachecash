@@ -44,6 +44,14 @@
   [types.imports]
 	third_party = ['"net"']
 
+[[types]]
+  [types.match]
+    name = "inet6addr"
+  [types.replace]
+    type = "net.IP"
+  [types.imports]
+	third_party = ['"net"']
+
 [aliases.tables.escrow_caches]
     up_plural     = "EscrowCaches"
     up_singular   = "EscrowCache"

@@ -19,7 +19,7 @@ type Client struct {
 func NewClient(l *logrus.Logger, addr string) (*Client, error) {
 	// XXX: No transport security!
 	// XXX: Should not create a new connection for each attempt.
-	l.Info("dialing bootstrap service")
+	l.Info("dialing bootstrap service: ", addr)
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial bootstrap service")
