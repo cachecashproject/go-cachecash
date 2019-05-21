@@ -151,7 +151,7 @@ func testEscrowsExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := EscrowExists(ctx, tx, o.ID)
+	e, err := EscrowExists(ctx, tx, o.Txid)
 	if err != nil {
 		t.Errorf("Unable to check if Escrow exists: %s", err)
 	}
@@ -177,7 +177,7 @@ func testEscrowsFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	escrowFound, err := FindEscrow(ctx, tx, o.ID)
+	escrowFound, err := FindEscrow(ctx, tx, o.Txid)
 	if err != nil {
 		t.Error(err)
 	}
@@ -570,7 +570,7 @@ func testEscrowsSelect(t *testing.T) {
 }
 
 var (
-	escrowDBTypes = map[string]string{`ID`: `INT`, `Txid`: `BYTEA`, `InnerMasterKey`: `VARCHAR`, `OuterMasterKey`: `VARCHAR`, `Slots`: `INT`, `PublisherCacheAddr`: `VARCHAR`}
+	escrowDBTypes = map[string]string{`Txid`: `BYTEA`, `InnerMasterKey`: `VARCHAR`, `OuterMasterKey`: `VARCHAR`, `Slots`: `INT`, `PublisherCacheAddr`: `VARCHAR`}
 	_             = bytes.MinRead
 )
 

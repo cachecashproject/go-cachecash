@@ -522,10 +522,16 @@ func (c *Cache) OfferEscrow(ctx context.Context, req *ccmsg.EscrowOfferRequest) 
 		return nil, errors.Wrap(err, "invalid escrow id")
 	}
 
+	l := c.l.WithFields(logrus.Fields{
+		"txid": txid,
+	})
+	l.Info("starting to create escrow...")
+
 	publisherAddr, err := getPublisherAddr(ctx, req.PublisherCacheAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PublisherCacheAddr")
 	}
+	l.Info("found publisher addr: ", publisherAddr)
 
 	escrow := &Escrow{
 		Inner: models.Escrow{
@@ -538,9 +544,12 @@ func (c *Cache) OfferEscrow(ctx context.Context, req *ccmsg.EscrowOfferRequest) 
 	}
 	c.Escrows[txid] = escrow
 
+	l.Info("adding escrow to database")
 	if err = c.AddEscrowToDatabase(ctx, escrow); err != nil {
+		l.Error("failed to add escrow to database: ", err)
 		return nil, errors.Wrap(err, "failed to add escrow to database")
 	}
+	l.Info("escrow successfully created")
 
 	return &ccmsg.EscrowOfferResponse{}, nil
 }

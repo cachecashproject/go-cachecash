@@ -11,8 +11,7 @@ CREATE TABLE logical_cache_mapping (
 );
 
 CREATE TABLE escrow (
-    id                     int PRIMARY KEY NOT NULL,
-    txid                   bytea NOT NULL,
+    txid                   bytea PRIMARY KEY NOT NULL,
     inner_master_key       varchar NOT NULL,
     outer_master_key       varchar NOT NULL,
     slots                  int NOT NULL,
