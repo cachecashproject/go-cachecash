@@ -31,19 +31,26 @@ func NewBootstrapd(l *logrus.Logger, db *sql.DB) (*Bootstrapd, error) {
 }
 
 func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, port uint32) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	addr := fmt.Sprintf("%s:%d", srcIP.String(), port)
-	b.l.Info("dialing cache back: ", addr)
+	l := b.l.WithFields(logrus.Fields{
+		"addr": addr,
+	})
+	l.Info("dialing cache back")
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
+		l.Error("failed to dial cache address")
 		return errors.Wrap(err, "failed to dial cache address")
 	}
 	grpcClient := ccmsg.NewPublisherCacheClient(conn)
 	_, err = grpcClient.PingCache(ctx, &ccmsg.PingCacheRequest{})
 	if err != nil {
-		// this should never happen
+		l.Error("ping failed, cache seem defunct")
 		return errors.Wrap(err, "ping failed")
 	}
-	b.l.Info("cache dailed successfully")
+	l.Info("cache dailed successfully")
 	return nil
 }
 
