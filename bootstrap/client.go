@@ -34,6 +34,9 @@ func NewClient(l *logrus.Logger, addr string) (*Client, error) {
 }
 
 func (c *Client) AnnounceCache(ctx context.Context, publicKey ed25519.PublicKey, port uint32, startupTime time.Time, info *CacheInfo) error {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
 	c.l.Info("announcing our cache to the bootstrap service")
 	_, err := c.grpcClient.AnnounceCache(ctx, &ccmsg.CacheAnnounceRequest{
 		PublicKey:   publicKey,
@@ -53,6 +56,9 @@ func (c *Client) AnnounceCache(ctx context.Context, publicKey ed25519.PublicKey,
 }
 
 func (c *Client) FetchCaches(ctx context.Context) ([]*ccmsg.CacheDescription, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
 	c.l.Info("fetching caches from bootstrap service")
 	resp, err := c.grpcClient.FetchCaches(ctx, &ccmsg.CacheFetchRequest{})
 	if err != nil {

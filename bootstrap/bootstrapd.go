@@ -47,7 +47,7 @@ func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, p
 	grpcClient := ccmsg.NewPublisherCacheClient(conn)
 	_, err = grpcClient.PingCache(ctx, &ccmsg.PingCacheRequest{})
 	if err != nil {
-		l.Error("ping failed, cache seem defunct")
+		l.Error("ping failed, cache seems defunct: ", err)
 		return errors.Wrap(err, "ping failed")
 	}
 	l.Info("cache dailed successfully")
@@ -99,10 +99,17 @@ func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.
 
 	// XXX: ignore duplicate key errors
 	cache.Insert(ctx, b.db, boil.Infer())
-	// XXX: force an update in case the insert failed due to a conflict
-	cache.Update(ctx, b.db, boil.Infer())
 
-	b.reapStaleAnnoucements(ctx)
+	// force an update in case the insert failed due to a conflict
+	_, err = cache.Update(ctx, b.db, boil.Infer())
+	if err != nil {
+		return nil, err
+	}
+
+	err = b.reapStaleAnnoucements(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ccmsg.CacheAnnounceResponse{}, nil
 }

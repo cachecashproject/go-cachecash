@@ -195,7 +195,10 @@ func (s *clientProtocolServer) Start() error {
 			info := bootstrap.NewCacheInfo()
 			info.ReadMemoryStats()
 			info.ReadDiskStats(s.cache.StoragePath)
-			bootstrapClient.AnnounceCache(context.TODO(), s.cache.PublicKey, uint32(port), s.cache.StartupTime, info)
+			err = bootstrapClient.AnnounceCache(context.TODO(), s.cache.PublicKey, uint32(port), s.cache.StartupTime, info)
+			if err != nil {
+				s.l.Error("failed to announce cache: ", err)
+			}
 
 			select {
 			// if a shutdown has been requested close the go channel
