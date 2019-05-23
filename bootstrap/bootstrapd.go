@@ -44,12 +44,15 @@ func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, p
 		l.Error("failed to dial cache address")
 		return errors.Wrap(err, "failed to dial cache address")
 	}
+	defer conn.Close()
+
 	grpcClient := ccmsg.NewPublisherCacheClient(conn)
 	_, err = grpcClient.PingCache(ctx, &ccmsg.PingCacheRequest{})
 	if err != nil {
 		l.Error("ping failed, cache seems defunct: ", err)
 		return errors.Wrap(err, "ping failed")
 	}
+
 	l.Info("cache dailed successfully")
 	return nil
 }
