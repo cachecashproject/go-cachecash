@@ -215,9 +215,10 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			},
 		})
 
-		cacheConfig := &cache.ConfigFile{}
-		cacheConfig.PublicKey = cachePublicKeys[i]
-		cacheConfig.BadgerDirectory = fmt.Sprintf("./cache-%d/", i)
+		cacheConfig := &cache.ConfigFile{
+			PublicKey:       cachePublicKeys[i],
+			BadgerDirectory: fmt.Sprintf("./unittestdata/cache-%d/", i),
+		}
 		ts.CacheConfigs = append(ts.CacheConfigs, cacheConfig)
 
 		c, err := cache.NewCache(ts.L, nil, cacheConfig)
