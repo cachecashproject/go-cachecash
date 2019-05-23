@@ -234,6 +234,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 	cl.l.Info("got singly-encrypted data from each cache")
 
 	// Solve colocation puzzle.
+	tt := common.StartTelemetryTimer(cl.l, "solvePuzzle")
 	var singleEncryptedBlocks [][]byte
 	for i := 0; i < cacheQty; i++ {
 		singleEncryptedBlocks = append(singleEncryptedBlocks, blockResults[i].encData)
@@ -244,6 +245,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 		StartOffset: uint32(pi.StartOffset),
 		StartRange:  uint32(pi.StartRange),
 	}, singleEncryptedBlocks, pi.Goal)
+	tt.Stop()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to solve colocation puzzle")
 	}
@@ -265,7 +267,9 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to build L2 ticket request")
 		}
+		tt := common.StartTelemetryTimer(cl.l, "exchangeTicketL2")
 		_, err = cacheConns[i].grpcClient.ExchangeTicketL2(ctx, req)
+		tt.Stop()
 		if err != nil {
 			// TODO: This should not cause us to abort sending the L2 ticket to other caches, and should not prevent us
 			// from returning the plaintext data.
@@ -274,6 +278,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 	}
 
 	// Decrypt singly-encrypted blocks to produce final plaintext.
+	tt = common.StartTelemetryTimer(cl.l, "decryptData")
 	var plaintextBlocks [][]byte
 	var blockIdx []uint64
 	for i, ciphertext := range singleEncryptedBlocks {
@@ -288,6 +293,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 		plaintextBlocks = append(plaintextBlocks, plaintext)
 		blockIdx = append(blockIdx, bundle.TicketRequest[i].BlockIdx)
 	}
+	tt.Stop()
 
 	// Return data to parent.
 	cl.l.Info("block-group fetch completed without error")
@@ -312,10 +318,12 @@ func (cl *client) requestBlockC(ctx context.Context, cc *cacheConnection, b *blo
 	if err != nil {
 		return errors.Wrap(err, "failed to build client-cache request")
 	}
+	tt := common.StartTelemetryTimer(cl.l, "getBlock")
 	msgData, err := cc.grpcClient.GetBlock(ctx, reqData)
 	if err != nil {
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
+	tt.Stop()
 	cl.l.WithFields(logrus.Fields{
 		"blockIdx": b.bundle.TicketRequest[b.idx].BlockIdx,
 		"len":      len(msgData.Data),
@@ -326,10 +334,12 @@ func (cl *client) requestBlockC(ctx context.Context, cc *cacheConnection, b *blo
 	if err != nil {
 		return errors.Wrap(err, "failed to build client-cache request")
 	}
+	tt = common.StartTelemetryTimer(cl.l, "exchangeTicketL1")
 	msgL1, err := cc.grpcClient.ExchangeTicketL1(ctx, reqL1)
 	if err != nil {
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
+	tt.Stop()
 	cl.l.Infof("got L1 response from cache")
 
 	// Decrypt data.
