@@ -76,7 +76,11 @@ func (p ParticipatingCache) PublicKey() ed25519.PublicKey {
 }
 
 func (p ParticipatingCache) Inetaddr() net.IP {
-	return p.Cache.Inetaddr
+	return p.Cache.Inetaddr.To4()
+}
+
+func (p ParticipatingCache) Inet6Addr() net.IP {
+	return p.Cache.Inet6addr.To16()
 }
 
 func (p ParticipatingCache) Port() uint32 {
@@ -172,8 +176,9 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 
 		resp.CacheInfo = append(resp.CacheInfo, &ccmsg.CacheInfo{
 			Addr: &ccmsg.NetworkAddress{
-				Inetaddr: bep.Cache.Inetaddr(),
-				Port:     bep.Cache.Port(),
+				Inetaddr:  bep.Cache.Inetaddr(),
+				Inet6Addr: bep.Cache.Inet6Addr(),
+				Port:      bep.Cache.Port(),
 			},
 		})
 

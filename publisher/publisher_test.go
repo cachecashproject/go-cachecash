@@ -22,12 +22,10 @@ type PublisherTestSuite struct {
 	l *logrus.Logger
 
 	publisher *ContentPublisher
-	escrow    *Escrow
 
 	blockSize int
 
-	clientPublic  ed25519.PublicKey
-	clientPrivate ed25519.PrivateKey
+	clientPublic ed25519.PublicKey
 }
 
 func TestPublisherTestSuite(t *testing.T) {

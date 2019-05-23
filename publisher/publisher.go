@@ -207,7 +207,6 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		return nil, errors.New("invalid range")
 	}
 	rangeBegin := uint64(req.RangeBegin / obj.PolicyBlockSize())
-	rangeEnd := uint64(req.RangeEnd / obj.PolicyBlockSize()) // XXX: This probably needs a ceil()
 
 	// XXX: this doesn't work with empty files
 	if rangeBegin >= uint64(obj.BlockCount()) {
@@ -215,7 +214,7 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	}
 
 	// TODO: Return multiple block-groups if appropriate.
-	rangeEnd = rangeBegin + blocksPerGroup
+	rangeEnd := rangeBegin + blocksPerGroup
 	if rangeEnd > uint64(obj.BlockCount()) {
 		rangeEnd = uint64(obj.BlockCount())
 	}

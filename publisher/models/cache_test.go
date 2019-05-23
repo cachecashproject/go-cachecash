@@ -724,7 +724,7 @@ func testCachesSelect(t *testing.T) {
 }
 
 var (
-	cacheDBTypes = map[string]string{`ID`: `integer`, `PublicKey`: `bytea`, `Inetaddr`: `bytea`, `Port`: `integer`}
+	cacheDBTypes = map[string]string{`ID`: `integer`, `PublicKey`: `bytea`, `Inetaddr`: `bytea`, `Inet6addr`: `bytea`, `Port`: `integer`}
 	_            = bytes.MinRead
 )
 

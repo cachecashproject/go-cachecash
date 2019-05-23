@@ -4,7 +4,7 @@ package migrations
 
 import (
 	"github.com/gobuffalo/packr"
-	"github.com/rubenv/sql-migrate"
+	migrate "github.com/rubenv/sql-migrate"
 )
 
 var (

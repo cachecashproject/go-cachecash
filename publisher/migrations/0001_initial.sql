@@ -27,6 +27,7 @@ CREATE TABLE cache (
     id SERIAL PRIMARY KEY,
     public_key BYTEA NOT NULL,
     inetaddr BYTEA NOT NULL,
+    inet6addr BYTEA NOT NULL,
     port INT NOT NULL
 );
 CREATE UNIQUE INDEX cache_public_key ON cache (public_key);

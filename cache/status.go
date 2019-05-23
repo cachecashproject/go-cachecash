@@ -50,7 +50,7 @@ func (s *statusServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	escrows := [][]byte{}
-	for escrowID, _ := range s.cache.Escrows {
+	for escrowID := range s.cache.Escrows {
 		escrows = append(escrows, escrowID[:])
 	}
 

@@ -27,9 +27,9 @@ func NewMockUpstream(l *logrus.Logger) (*MockUpstream, error) {
 
 func (up *MockUpstream) FetchData(ctx context.Context, path string, metadata *ObjectMetadata, rangeBegin, rangeEnd uint) (*FetchResult, error) {
 	up.l.WithFields(logrus.Fields{
-		"path":          path,
-		"rangeBegin":    rangeBegin,
-		"rangeEnd":      rangeEnd,
+		"path":       path,
+		"rangeBegin": rangeBegin,
+		"rangeEnd":   rangeEnd,
 	}).Info("upstream fetch")
 
 	data, ok := up.Objects[path]

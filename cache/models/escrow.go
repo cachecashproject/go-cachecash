@@ -23,7 +23,6 @@ import (
 
 // Escrow is an object representing the database table.
 type Escrow struct {
-	ID                 int64           `boil:"id" json:"id" toml:"id" yaml:"id"`
 	Txid               common.EscrowID `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
 	InnerMasterKey     []byte          `boil:"inner_master_key" json:"inner_master_key" toml:"inner_master_key" yaml:"inner_master_key"`
 	OuterMasterKey     []byte          `boil:"outer_master_key" json:"outer_master_key" toml:"outer_master_key" yaml:"outer_master_key"`
@@ -35,14 +34,12 @@ type Escrow struct {
 }
 
 var EscrowColumns = struct {
-	ID                 string
 	Txid               string
 	InnerMasterKey     string
 	OuterMasterKey     string
 	Slots              string
 	PublisherCacheAddr string
 }{
-	ID:                 "id",
 	Txid:               "txid",
 	InnerMasterKey:     "inner_master_key",
 	OuterMasterKey:     "outer_master_key",
@@ -51,15 +48,6 @@ var EscrowColumns = struct {
 }
 
 // Generated where
-
-type whereHelperint64 struct{ field string }
-
-func (w whereHelperint64) EQ(x int64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperint64) NEQ(x int64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperint64) LT(x int64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperint64) LTE(x int64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperint64) GT(x int64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperint64) GTE(x int64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
 type whereHelpercommon_EscrowID struct{ field string }
 
@@ -110,14 +98,12 @@ func (w whereHelperstring) GT(x string) qm.QueryMod  { return qmhelper.Where(w.f
 func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
 var EscrowWhere = struct {
-	ID                 whereHelperint64
 	Txid               whereHelpercommon_EscrowID
 	InnerMasterKey     whereHelper__byte
 	OuterMasterKey     whereHelper__byte
 	Slots              whereHelperuint64
 	PublisherCacheAddr whereHelperstring
 }{
-	ID:                 whereHelperint64{field: `id`},
 	Txid:               whereHelpercommon_EscrowID{field: `txid`},
 	InnerMasterKey:     whereHelper__byte{field: `inner_master_key`},
 	OuterMasterKey:     whereHelper__byte{field: `outer_master_key`},
@@ -142,10 +128,10 @@ func (*escrowR) NewStruct() *escrowR {
 type escrowL struct{}
 
 var (
-	escrowColumns               = []string{"id", "txid", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
-	escrowColumnsWithoutDefault = []string{"id", "txid", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
+	escrowColumns               = []string{"txid", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
+	escrowColumnsWithoutDefault = []string{"txid", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
 	escrowColumnsWithDefault    = []string{}
-	escrowPrimaryKeyColumns     = []string{"id"}
+	escrowPrimaryKeyColumns     = []string{"txid"}
 )
 
 type (
@@ -431,7 +417,7 @@ func Escrows(mods ...qm.QueryMod) escrowQuery {
 
 // FindEscrow retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindEscrow(ctx context.Context, exec boil.ContextExecutor, iD int64, selectCols ...string) (*Escrow, error) {
+func FindEscrow(ctx context.Context, exec boil.ContextExecutor, txid common.EscrowID, selectCols ...string) (*Escrow, error) {
 	escrowObj := &Escrow{}
 
 	sel := "*"
@@ -439,10 +425,10 @@ func FindEscrow(ctx context.Context, exec boil.ContextExecutor, iD int64, select
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"escrow\" where \"id\"=?", sel,
+		"select %s from \"escrow\" where \"txid\"=?", sel,
 	)
 
-	q := queries.Raw(query, iD)
+	q := queries.Raw(query, txid)
 
 	err := q.Bind(ctx, exec, escrowObj)
 	if err != nil {
@@ -527,7 +513,7 @@ func (o *Escrow) Insert(ctx context.Context, exec boil.ContextExecutor, columns 
 	}
 
 	identifierCols = []interface{}{
-		o.ID,
+		o.Txid,
 	}
 
 	if boil.DebugMode {
@@ -690,7 +676,7 @@ func (o *Escrow) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, 
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), escrowPrimaryKeyMapping)
-	sql := "DELETE FROM \"escrow\" WHERE \"id\"=?"
+	sql := "DELETE FROM \"escrow\" WHERE \"txid\"=?"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
@@ -791,7 +777,7 @@ func (o EscrowSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *Escrow) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindEscrow(ctx, exec, o.ID)
+	ret, err := FindEscrow(ctx, exec, o.Txid)
 	if err != nil {
 		return err
 	}
@@ -830,16 +816,16 @@ func (o *EscrowSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) 
 }
 
 // EscrowExists checks if the Escrow row exists.
-func EscrowExists(ctx context.Context, exec boil.ContextExecutor, iD int64) (bool, error) {
+func EscrowExists(ctx context.Context, exec boil.ContextExecutor, txid common.EscrowID) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"escrow\" where \"id\"=? limit 1)"
+	sql := "select exists(select 1 from \"escrow\" where \"txid\"=? limit 1)"
 
 	if boil.DebugMode {
 		fmt.Fprintln(boil.DebugWriter, sql)
-		fmt.Fprintln(boil.DebugWriter, iD)
+		fmt.Fprintln(boil.DebugWriter, txid)
 	}
 
-	row := exec.QueryRowContext(ctx, sql, iD)
+	row := exec.QueryRowContext(ctx, sql, txid)
 
 	err := row.Scan(&exists)
 	if err != nil {

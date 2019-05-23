@@ -31,19 +31,29 @@ func NewBootstrapd(l *logrus.Logger, db *sql.DB) (*Bootstrapd, error) {
 }
 
 func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, port uint32) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	addr := fmt.Sprintf("%s:%d", srcIP.String(), port)
-	b.l.Info("dialing cache back: ", addr)
+	l := b.l.WithFields(logrus.Fields{
+		"addr": addr,
+	})
+	l.Info("dialing cache back")
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
+		l.Error("failed to dial cache address")
 		return errors.Wrap(err, "failed to dial cache address")
 	}
+	defer conn.Close()
+
 	grpcClient := ccmsg.NewPublisherCacheClient(conn)
 	_, err = grpcClient.PingCache(ctx, &ccmsg.PingCacheRequest{})
 	if err != nil {
-		// this should never happen
+		l.Error("ping failed, cache seems defunct: ", err)
 		return errors.Wrap(err, "ping failed")
 	}
-	b.l.Info("cache dailed successfully")
+
+	l.Info("cache dailed successfully")
 	return nil
 }
 
@@ -91,16 +101,23 @@ func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.
 	*/
 
 	// XXX: ignore duplicate key errors
-	cache.Insert(ctx, b.db, boil.Infer())
-	// XXX: force an update in case the insert failed due to a conflict
-	cache.Update(ctx, b.db, boil.Infer())
+	_ = cache.Insert(ctx, b.db, boil.Infer())
 
-	b.reapStaleAnnoucements(ctx)
+	// force an update in case the insert failed due to a conflict
+	_, err = cache.Update(ctx, b.db, boil.Infer())
+	if err != nil {
+		return nil, err
+	}
+
+	err = b.reapStaleAnnouncements(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ccmsg.CacheAnnounceResponse{}, nil
 }
 
-func (b *Bootstrapd) reapStaleAnnoucements(ctx context.Context) error {
+func (b *Bootstrapd) reapStaleAnnouncements(ctx context.Context) error {
 	deadline := time.Now().Add(-5 * time.Minute)
 	rows, err := models.Caches(qm.Where("last_ping<?", deadline)).DeleteAll(ctx, b.db)
 	if err != nil {
@@ -111,7 +128,10 @@ func (b *Bootstrapd) reapStaleAnnoucements(ctx context.Context) error {
 }
 
 func (b *Bootstrapd) HandleCacheFetchRequest(ctx context.Context, req *ccmsg.CacheFetchRequest) (*ccmsg.CacheFetchResponse, error) {
-	b.reapStaleAnnoucements(ctx)
+	err := b.reapStaleAnnouncements(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to reap stale announcement")
+	}
 
 	caches, err := models.Caches().All(ctx, b.db)
 	if err != nil {

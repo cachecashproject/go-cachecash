@@ -2,7 +2,6 @@ package catalog
 
 import (
 	"context"
-	"crypto/aes"
 	"fmt"
 	"math"
 	"sync"
@@ -76,7 +75,7 @@ func (policy *ObjectPolicy) ChunkIntoBlocks(buf []byte) [][]byte {
 
 	// doing this afterwards so we don't need to branch inside the loop
 	if len(buf) > 0 {
-		blocks = append(blocks, buf[:len(buf)])
+		blocks = append(blocks, buf)
 	}
 
 	return blocks
@@ -158,21 +157,6 @@ func (m *ObjectMetadata) BlockRange(rangeBegin uint64, rangeEnd uint64) ([][]byt
 		rangeEnd = uint64(len(m.blocks))
 	}
 	return m.blocks[rangeBegin:rangeEnd], nil
-}
-
-// GetCipherBlock returns an individual cipher block (aka "sub-block") of a particular data block (a protocol-level
-// block).  The return value will be aes.BlockSize bytes long (16 bytes).  ciperBlockIdx is taken modulo the number
-// of whole cipher blocks that exist in the data block.
-func (m *ObjectMetadata) getCipherBlock(dataBlockIdx, cipherBlockIdx uint32) ([]byte, error) {
-	dataBlock, err := m.getBlock(dataBlockIdx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get data block")
-	}
-
-	cipherBlockIdx = cipherBlockIdx % uint32(len(dataBlock)/aes.BlockSize)
-	cipherBlock := dataBlock[cipherBlockIdx*aes.BlockSize : (cipherBlockIdx+1)*aes.BlockSize]
-	m.c.l.Debugf("ObjectMetadata.GetCipherBlock() len(rval)=%v", len(cipherBlock))
-	return cipherBlock, nil
 }
 
 func BlockCount(size uint64, blockSize int) int {
@@ -295,14 +279,13 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 
 	cacheControl := r.header.Get("Cache-Control")
 	if cacheControl != "" {
-		cc, err := cachecontrol.Parse(cacheControl)
-		if err == nil {
-			if cc.MaxAge != nil {
-				validUntil := m.c.clock.Now().Add(*cc.MaxAge)
-				m.ValidUntil = &validUntil
-			}
-			m.Immutable = cc.Immutable
+		cc := cachecontrol.Parse(cacheControl)
+
+		if cc.MaxAge != nil {
+			validUntil := m.c.clock.Now().Add(*cc.MaxAge)
+			m.ValidUntil = &validUntil
 		}
+		m.Immutable = cc.Immutable
 	}
 
 	if m.ValidUntil == nil && !m.Immutable {

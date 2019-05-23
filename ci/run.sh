@@ -7,7 +7,7 @@ case "$BUILD_MODE" in
 		docker run --rm --network=cachecash cachecash-ci go test -v -race -tags=sqlboiler_test ./...
 
 		# Linting is non-fatal right now.  See `.golangci.yml` for configuration.
-		docker run --rm --network=cachecash cachecash-ci golangci-lint run || true
+		docker run --rm --network=cachecash cachecash-ci golangci-lint run
 		;;
 	docker)
 		docker-compose build

@@ -28,6 +28,7 @@ type Cache struct {
 	ID        int               `boil:"id" json:"id" toml:"id" yaml:"id"`
 	PublicKey ed25519.PublicKey `boil:"public_key" json:"public_key" toml:"public_key" yaml:"public_key"`
 	Inetaddr  net.IP            `boil:"inetaddr" json:"inetaddr" toml:"inetaddr" yaml:"inetaddr"`
+	Inet6addr net.IP            `boil:"inet6addr" json:"inet6addr" toml:"inet6addr" yaml:"inet6addr"`
 	Port      uint32            `boil:"port" json:"port" toml:"port" yaml:"port"`
 
 	R *cacheR `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -38,11 +39,13 @@ var CacheColumns = struct {
 	ID        string
 	PublicKey string
 	Inetaddr  string
+	Inet6addr string
 	Port      string
 }{
 	ID:        "id",
 	PublicKey: "public_key",
 	Inetaddr:  "inetaddr",
+	Inet6addr: "inet6addr",
 	Port:      "port",
 }
 
@@ -91,11 +94,13 @@ var CacheWhere = struct {
 	ID        whereHelperint
 	PublicKey whereHelpered25519_PublicKey
 	Inetaddr  whereHelpernet_IP
+	Inet6addr whereHelpernet_IP
 	Port      whereHelperuint32
 }{
 	ID:        whereHelperint{field: `id`},
 	PublicKey: whereHelpered25519_PublicKey{field: `public_key`},
 	Inetaddr:  whereHelpernet_IP{field: `inetaddr`},
+	Inet6addr: whereHelpernet_IP{field: `inet6addr`},
 	Port:      whereHelperuint32{field: `port`},
 }
 
@@ -120,8 +125,8 @@ func (*cacheR) NewStruct() *cacheR {
 type cacheL struct{}
 
 var (
-	cacheColumns               = []string{"id", "public_key", "inetaddr", "port"}
-	cacheColumnsWithoutDefault = []string{"public_key", "inetaddr", "port"}
+	cacheColumns               = []string{"id", "public_key", "inetaddr", "inet6addr", "port"}
+	cacheColumnsWithoutDefault = []string{"public_key", "inetaddr", "inet6addr", "port"}
 	cacheColumnsWithDefault    = []string{"id"}
 	cachePrimaryKeyColumns     = []string{"id"}
 )
