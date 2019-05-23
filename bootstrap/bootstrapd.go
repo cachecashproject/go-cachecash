@@ -98,7 +98,7 @@ func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.
 	*/
 
 	// XXX: ignore duplicate key errors
-	cache.Insert(ctx, b.db, boil.Infer())
+	_ = cache.Insert(ctx, b.db, boil.Infer())
 
 	// force an update in case the insert failed due to a conflict
 	_, err = cache.Update(ctx, b.db, boil.Infer())
@@ -106,7 +106,7 @@ func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.
 		return nil, err
 	}
 
-	err = b.reapStaleAnnoucements(ctx)
+	err = b.reapStaleAnnouncements(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.
 	return &ccmsg.CacheAnnounceResponse{}, nil
 }
 
-func (b *Bootstrapd) reapStaleAnnoucements(ctx context.Context) error {
+func (b *Bootstrapd) reapStaleAnnouncements(ctx context.Context) error {
 	deadline := time.Now().Add(-5 * time.Minute)
 	rows, err := models.Caches(qm.Where("last_ping<?", deadline)).DeleteAll(ctx, b.db)
 	if err != nil {
@@ -125,7 +125,10 @@ func (b *Bootstrapd) reapStaleAnnoucements(ctx context.Context) error {
 }
 
 func (b *Bootstrapd) HandleCacheFetchRequest(ctx context.Context, req *ccmsg.CacheFetchRequest) (*ccmsg.CacheFetchResponse, error) {
-	b.reapStaleAnnoucements(ctx)
+	err := b.reapStaleAnnouncements(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to reap stale announcement")
+	}
 
 	caches, err := models.Caches().All(ctx, b.db)
 	if err != nil {

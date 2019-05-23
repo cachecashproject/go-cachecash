@@ -16,7 +16,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/publisher/migrations"
 	"github.com/pkg/errors"
-	"github.com/rubenv/sql-migrate"
+	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
 )
@@ -58,6 +58,9 @@ func generateConfigFile(path string) error {
 	bootstrapAddr := GetenvDefault("BOOTSTRAP_ADDR", *bootstrapAddr)
 
 	_, privateKey, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		return err
+	}
 
 	cf := &publisher.ConfigFile{
 		CacheProtocolAddr: publisherCacheAddr,

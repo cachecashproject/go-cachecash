@@ -59,7 +59,7 @@ func mainC() error {
 	}
 
 	// Generate cache-side configuration files.
-	for i, _ := range scen.Caches {
+	for i := range scen.Caches {
 		cf := cache.ConfigFile{
 			// XXX: This must match what is set up in the Escrow struct on the publisher side so that the publisher
 			// sends clients to the right place.

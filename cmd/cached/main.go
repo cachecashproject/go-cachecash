@@ -58,6 +58,9 @@ func generateConfigFile(path string) error {
 	bootstrapAddr := GetenvDefault("BOOTSTRAP_ADDR", *bootstrapAddr)
 
 	publicKey, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		return err
+	}
 
 	cf := cache.ConfigFile{
 		ClientProtocolGrpcAddr: grpcAddr,

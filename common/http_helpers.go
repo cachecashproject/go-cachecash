@@ -2,7 +2,6 @@ package common
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -67,35 +66,4 @@ var (
 	ErrMethodNotAllowed = &webError{status: http.StatusMethodNotAllowed}
 )
 
-func internalError(err error) WebError {
-	return &webError{
-		status: http.StatusInternalServerError,
-		msg:    err.Error(),
-	}
-}
-
 type MyHandlerFunc func(w http.ResponseWriter, req *http.Request) (respObj interface{}, err WebError)
-
-// XXX: Rename this; integrate it better with jsonResponse.
-func handlerWrapper(h MyHandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		respObj, err := h(w, req)
-		if err != nil {
-			http.Error(w, http.StatusText(err.StatusCode()), err.StatusCode())
-			return
-		}
-		JSONResponse(w, respObj)
-	}
-}
-
-func unmarshalBody(req *http.Request, body interface{}) error {
-	defer func() { _ = req.Body.Close() }()
-	rawBody, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		return internalError(err)
-	}
-	if err := json.Unmarshal(rawBody, body); err != nil {
-		return internalError(err)
-	}
-	return nil
-}
