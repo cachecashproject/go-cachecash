@@ -10,6 +10,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/cache"
 	"github.com/cachecashproject/go-cachecash/cache/migrations"
 	"github.com/cachecashproject/go-cachecash/common"
@@ -107,6 +108,7 @@ func mainC() error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
+	l.Info("Starting CacheCash cached ", cachecash.CurrentVersion)
 
 	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
 		l.Info("config doesn't exist, generating")
@@ -149,7 +151,7 @@ func mainC() error {
 		return errors.Wrap(err, "failed to create cache application")
 	}
 
-	if err := common.RunStarterShutdowner(app); err != nil {
+	if err := common.RunStarterShutdowner(l, app); err != nil {
 		return err
 	}
 	return nil

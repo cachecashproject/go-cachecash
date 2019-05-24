@@ -94,7 +94,8 @@ func main() {
 	if err := ts.setup(); err != nil {
 		panic(err)
 	}
-	if err := common.RunStarterShutdowner(ts); err != nil {
+	l := logrus.New()
+	if err := common.RunStarterShutdowner(l, ts); err != nil {
 		panic(err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -40,7 +41,7 @@ func (c *Client) AnnounceCache(ctx context.Context, publicKey ed25519.PublicKey,
 	c.l.Info("announcing our cache to the bootstrap service")
 	_, err := c.grpcClient.AnnounceCache(ctx, &ccmsg.CacheAnnounceRequest{
 		PublicKey:   publicKey,
-		Version:     "todo", // TODO
+		Version:     cachecash.CurrentVersion,
 		FreeMemory:  info.FreeMemory,
 		TotalMemory: info.TotalMemory,
 		FreeDisk:    info.FreeDisk,
