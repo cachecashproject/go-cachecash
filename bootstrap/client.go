@@ -34,21 +34,29 @@ func NewClient(l *logrus.Logger, addr string) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) AnnounceCache(ctx context.Context, publicKey ed25519.PublicKey, port uint32, startupTime time.Time, info *CacheInfo) error {
+type BootstrapInfo struct {
+	PublicKey   ed25519.PublicKey
+	Stats       *CacheStats
+	StartupTime time.Time
+	Port        uint32
+	ContactUrl  string
+}
+
+func (c *Client) AnnounceCache(ctx context.Context, info BootstrapInfo) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
 	c.l.Info("announcing our cache to the bootstrap service")
 	_, err := c.grpcClient.AnnounceCache(ctx, &ccmsg.CacheAnnounceRequest{
-		PublicKey:   publicKey,
+		PublicKey:   info.PublicKey,
 		Version:     cachecash.CurrentVersion,
-		FreeMemory:  info.FreeMemory,
-		TotalMemory: info.TotalMemory,
-		FreeDisk:    info.FreeDisk,
-		TotalDisk:   info.TotalDisk,
-		StartupTime: startupTime.Unix(),
-		ContactUrl:  "", // TODO
-		Port:        port,
+		FreeMemory:  info.Stats.FreeMemory,
+		TotalMemory: info.Stats.TotalMemory,
+		FreeDisk:    info.Stats.FreeDisk,
+		TotalDisk:   info.Stats.TotalDisk,
+		StartupTime: info.StartupTime.Unix(),
+		ContactUrl:  info.ContactUrl,
+		Port:        info.Port,
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to announce our cache to the bootstrap service")
