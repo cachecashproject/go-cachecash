@@ -18,6 +18,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/cache/models"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/util"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -70,7 +71,7 @@ type Cache struct {
 	StartupTime time.Time
 }
 
-func NewCache(l *logrus.Logger, db *sql.DB, cf *ConfigFile) (*Cache, error) {
+func NewCache(l *logrus.Logger, db *sql.DB, cf *ConfigFile, kp *keypair.KeyPair) (*Cache, error) {
 	s, err := NewCacheStorage(l, cf.BadgerDirectory)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create cache storage")
@@ -79,7 +80,7 @@ func NewCache(l *logrus.Logger, db *sql.DB, cf *ConfigFile) (*Cache, error) {
 	return &Cache{
 		l:           l,
 		db:          db,
-		PublicKey:   cf.PublicKey,
+		PublicKey:   kp.PublicKey,
 		Escrows:     make(map[common.EscrowID]*Escrow),
 		Storage:     s,
 		StoragePath: cf.BadgerDirectory,

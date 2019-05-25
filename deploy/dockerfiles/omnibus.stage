@@ -32,6 +32,8 @@ COPY deploy/omnibus-cache/publisher.log.config /var/log/publishercash/publisher/
 COPY --from=filebeat /usr/share/filebeat/filebeat /usr/bin/
 COPY --from=build /artifacts/bin/* /usr/local/bin/
 
+WORKDIR /data
+
 # TODO: Still need containernet packages required on Ubuntu images.
 
 # --------------------

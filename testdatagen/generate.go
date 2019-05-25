@@ -13,6 +13,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/publisher"
 	publisherModels "github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/cachecashproject/go-cachecash/testutil"
@@ -216,12 +217,14 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		})
 
 		cacheConfig := &cache.ConfigFile{
-			PublicKey:       cachePublicKeys[i],
 			BadgerDirectory: fmt.Sprintf("./unittestdata/cache-%d/", i),
+		}
+		keypair := &keypair.KeyPair{
+			PublicKey: cachePublicKeys[i],
 		}
 		ts.CacheConfigs = append(ts.CacheConfigs, cacheConfig)
 
-		c, err := cache.NewCache(ts.L, nil, cacheConfig)
+		c, err := cache.NewCache(ts.L, nil, cacheConfig, keypair)
 		if err != nil {
 			return nil, err
 		}

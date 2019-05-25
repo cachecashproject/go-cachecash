@@ -14,7 +14,6 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
 
@@ -30,10 +29,9 @@ type ConfigFile struct {
 	StatusAddr             string
 	BootstrapAddr          string
 
-	PublicKey       ed25519.PublicKey `json:"public_key"`
-	BadgerDirectory string            `json:"badger_directory"`
-	Database        string            `json:"database"`
-	ContactUrl      string            `json:"contact_url"`
+	BadgerDirectory string `json:"badger_directory"`
+	Database        string `json:"database"`
+	ContactUrl      string `json:"contact_url"`
 }
 
 func (c *ConfigFile) FillDefaults() {
