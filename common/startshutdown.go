@@ -2,13 +2,13 @@ package common
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type StarterShutdowner interface {
@@ -19,7 +19,7 @@ type StarterShutdowner interface {
 	Shutdown(context.Context) error
 }
 
-func RunStarterShutdowner(o StarterShutdowner) error {
+func RunStarterShutdowner(l *logrus.Logger, o StarterShutdowner) error {
 	// When we receive SIGINT or SIGTERM, exit.
 	sigCh := make(chan os.Signal)
 	stopCtx, stop := context.WithCancel(context.Background())
@@ -30,23 +30,23 @@ func RunStarterShutdowner(o StarterShutdowner) error {
 	}()
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
-	log.Printf("starting...\n")
+	l.Info("starting...")
 	if err := o.Start(); err != nil {
 		return errors.Wrap(err, "failed to start")
 	}
 
 	// Block until a signal causes us to cancel stopCtx.
-	log.Printf("ready...\n")
+	l.Info("ready...")
 	<-stopCtx.Done()
 
 	// Wait until outstanding requests finish or our timeout expires.
-	log.Printf("graceful shutdown...\n")
+	l.Info("graceful shutdown...")
 	gracefulCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := o.Shutdown(gracefulCtx); err != nil {
 		return errors.Wrap(err, "shutdown error")
 	}
 
-	log.Printf("shutdown complete")
+	l.Info("shutdown complete")
 	return nil
 }

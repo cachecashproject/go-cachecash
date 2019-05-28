@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"os"
+
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/dgraph-io/badger"
@@ -15,6 +17,11 @@ type CacheStorage struct {
 }
 
 func NewCacheStorage(l *logrus.Logger, badgerDirectory string) (*CacheStorage, error) {
+	err := os.MkdirAll(badgerDirectory, 0700)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create badger directory")
+	}
+
 	opts := badger.DefaultOptions
 	opts.Dir = badgerDirectory
 	opts.ValueDir = badgerDirectory

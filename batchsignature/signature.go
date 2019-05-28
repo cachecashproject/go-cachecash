@@ -50,9 +50,9 @@ func NewDigestTree(leaves [][]byte) ([]byte, []BatchResidue, error) {
 	for i := uint(0); (1 << i) < len(leaves); i++ {
 		subtreeSize := 1 << (i + 1)
 		halfSubtreeSize := 1 << i
-		// log.Printf("i=%v (subtrees of size %v)\n", i, subtreeSize)
+		// l.Infof("i=%v (subtrees of size %v)\n", i, subtreeSize)
 		for j := 0; len(leaves) > j+halfSubtreeSize; j += subtreeSize {
-			// log.Printf("  i=%v j=%v\n", i, j)
+			// l.Infof("  i=%v j=%v\n", i, j)
 			leftDigest := leafRootDigests[j]
 			rightDigest := leafRootDigests[j+halfSubtreeSize]
 			for k := j; k < j+halfSubtreeSize; k++ {

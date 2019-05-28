@@ -1,7 +1,7 @@
-.git
 Dockerfile
 docker-compose.yml
 .dockerignore
 /bin/
 /deploy/prometheus-grafana/data/
 /data/
+/unittestdata/

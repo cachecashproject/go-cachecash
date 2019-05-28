@@ -14,7 +14,6 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
 
@@ -30,9 +29,9 @@ type ConfigFile struct {
 	StatusAddr             string
 	BootstrapAddr          string
 
-	PublicKey       ed25519.PublicKey `json:"public_key"`
-	BadgerDirectory string            `json:"badger_directory"`
-	Database        string            `json:"database"`
+	BadgerDirectory string `json:"badger_directory"`
+	Database        string `json:"database"`
+	ContactUrl      string `json:"contact_url"`
 }
 
 func (c *ConfigFile) FillDefaults() {
@@ -192,14 +191,20 @@ func (s *clientProtocolServer) Start() error {
 	quit := make(chan bool, 1)
 	go func() {
 		for {
-			info := bootstrap.NewCacheInfo()
-			info.ReadMemoryStats()
-			err = info.ReadDiskStats(s.cache.StoragePath)
+			stats := bootstrap.NewCacheStats()
+			stats.ReadMemoryStats()
+			err = stats.ReadDiskStats(s.cache.StoragePath)
 			if err != nil {
 				s.l.Error("failed to read disk stats: ", err)
 				continue
 			}
-			err = bootstrapClient.AnnounceCache(context.TODO(), s.cache.PublicKey, uint32(port), s.cache.StartupTime, info)
+			err = bootstrapClient.AnnounceCache(context.Background(), bootstrap.BootstrapInfo{
+				PublicKey:   s.cache.PublicKey,
+				Stats:       stats,
+				StartupTime: s.cache.StartupTime,
+				Port:        uint32(port),
+				ContactUrl:  s.conf.ContactUrl,
+			})
 			if err != nil {
 				s.l.Error("failed to announce cache: ", err)
 			}

@@ -53,7 +53,7 @@ func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, p
 		return errors.Wrap(err, "ping failed")
 	}
 
-	l.Info("cache dailed successfully")
+	l.Info("cache dialed successfully")
 	return nil
 }
 

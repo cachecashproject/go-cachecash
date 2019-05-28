@@ -41,14 +41,14 @@ services:
   publisher:
     image: cachecash/go-cachecash
     build: .
-    command: publisherd -logLevel debug -config /data/publisher.config.json
+    command: publisherd -logLevel debug
     ports:
     - 8080:8080
     - 8082:8082
     - 8043:8043
     environment:
     - PUBLISHER_CACHE_ADDR=publisher:8082
-    - PUBLISHER_UPSTREAM=http://upstream:80
+    - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
     - BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/publisher:/data
@@ -63,7 +63,7 @@ services:
   bootstrapd:
     image: cachecash/go-cachecash
     build: .
-    command: bootstrapd -logLevel debug -config /data/bootstrapd.config.json
+    command: bootstrapd -logLevel debug
     ports:
     - 7777:7777
     volumes:
@@ -72,7 +72,7 @@ services:
   cache-0:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug -config /data/cached.config.json
+    command: cached -logLevel debug
     ports:
     - 9000:9000
     - 9443:9443
@@ -85,7 +85,7 @@ services:
   cache-1:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug -config /data/cached.config.json
+    command: cached -logLevel debug
     ports:
     - 9001:9000
     - 9444:9443
@@ -98,7 +98,7 @@ services:
   cache-2:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug -config /data/cached.config.json
+    command: cached -logLevel debug
     ports:
     - 9002:9000
     - 9445:9443
@@ -111,7 +111,7 @@ services:
   cache-3:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug -config /data/cached.config.json
+    command: cached -logLevel debug
     ports:
     - 9003:9000
     - 9446:9443

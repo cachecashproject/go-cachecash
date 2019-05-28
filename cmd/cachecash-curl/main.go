@@ -86,14 +86,14 @@ func mainC() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create client")
 	}
-	log.Printf("created client\n")
+	l.Info("created client")
 
 	o, err := cl.GetObject(ctx, objPath) // e.g. "/foo/bar"
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch object")
 	}
 
-	log.Printf("fetch complete; shutting down client\n")
+	l.Info("fetch complete; shutting down client")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 999*time.Second)
 	defer shutdownCancel()
 	if err := cl.Close(shutdownCtx); err != nil {
@@ -101,12 +101,12 @@ func mainC() error {
 	}
 
 	if *outputPath != "" {
-		log.Printf("writing data to file")
+		l.Info("writing data to file: ", outputPath)
 		if err := ioutil.WriteFile(*outputPath, o.Data(), 0644); err != nil {
 			return errors.Wrap(err, "failed to write data to file")
 		}
 	}
 
-	log.Printf("completed without error\n")
+	l.Info("completed without error")
 	return nil
 }

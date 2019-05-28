@@ -10,14 +10,15 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/cache"
 	"github.com/cachecashproject/go-cachecash/cache/migrations"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ed25519"
 )
 
 var (
@@ -25,6 +26,7 @@ var (
 	logCaller     = flag.Bool("logCaller", false, "Enable method name logging")
 	logFile       = flag.String("logFile", "", "Path where file should be logged")
 	configPath    = flag.String("config", "cache.config.json", "Path to configuration file")
+	keypairPath   = flag.String("keypair", "cache.keypair.json", "Path to keypair file")
 	bootstrapAddr = flag.String("bootstrapd", "bootstrapd:7777", "Bootstrap service to use")
 )
 
@@ -57,18 +59,12 @@ func generateConfigFile(path string) error {
 	statusAddr := GetenvDefault("CACHE_STATUS_ADDR", ":9100")
 	bootstrapAddr := GetenvDefault("BOOTSTRAP_ADDR", *bootstrapAddr)
 
-	publicKey, _, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		return err
-	}
-
 	cf := cache.ConfigFile{
 		ClientProtocolGrpcAddr: grpcAddr,
 		ClientProtocolHttpAddr: httpAddr,
 		StatusAddr:             statusAddr,
 		BootstrapAddr:          bootstrapAddr,
 
-		PublicKey:       publicKey,
 		BadgerDirectory: "/data/chunks/",
 		Database:        "/data/cache.db",
 	}
@@ -107,6 +103,7 @@ func mainC() error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
+	l.Info("Starting CacheCash cached ", cachecash.CurrentVersion)
 
 	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
 		l.Info("config doesn't exist, generating")
@@ -118,6 +115,10 @@ func mainC() error {
 	cf, err := loadConfigFile(*configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
+	}
+	kp, err := keypair.LoadOrGenerate(l, *keypairPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to get keypair")
 	}
 
 	db, err := sql.Open("sqlite3", cf.Database)
@@ -132,7 +133,7 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	c, err := cache.NewCache(l, db, cf)
+	c, err := cache.NewCache(l, db, cf, kp)
 	if err != nil {
 		return nil
 	}
@@ -149,7 +150,7 @@ func mainC() error {
 		return errors.Wrap(err, "failed to create cache application")
 	}
 
-	if err := common.RunStarterShutdowner(app); err != nil {
+	if err := common.RunStarterShutdowner(l, app); err != nil {
 		return err
 	}
 	return nil
