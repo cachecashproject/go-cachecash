@@ -2,6 +2,55 @@
 
 [![Build Status](https://travis-ci.com/cachecashproject/go-cachecash.svg?token=utLK2DGqpJaDNkKeJ4fh&branch=master)](https://travis-ci.com/cachecashproject/go-cachecash)
 
+## Cloning the git repository
+
+This repository uses `git-lfs` for test data artifacts, among other things; you'll need to install it:
+```
+# Ubuntu
+apt-get install git-lfs
+
+# macOS
+brew install git-lfs
+
+# Archlinux
+pacman -S git-lfs
+```
+
+Next, clone the cachecash repo:
+```
+git clone git@github.com:cachecashproject/go-cachecash.git "$(go env GOPATH)/src/github.com/cachecashproject/go-cachecash"
+```
+
+And initialize git-lfs in that repo:
+```
+cd "$(go env GOPATH)/src/github.com/cachecashproject/go-cachecash"
+git lfs install
+```
+
+## Running a local test network
+
+The easiest way to get cachecash up and running is starting the test network with docker-compose. The first step is
+building all images:
+```
+docker-compose build
+```
+
+Next, bring up the network:
+```
+docker-compose up
+```
+
+It's going to take 1-2 minutes until everything is initialized, this includes the postgres initialization, the caches
+announcing themselves to the bootstrap service, the publisher requesting a list of all caches from the bootstrap service
+and finally the publisher and the caches negotiating an escrow. After the escrow is setup you can download from the
+caches using `cachecash-curl` or [typescript-cachecash]:
+```
+make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug cachecash://localhost:8080/file0.bin
+diff output.bin testdata/content/file0.bin
+```
+
+[typescript-cachecash]: https://github.com/cachecashproject/typescript-cachecash
+
 ## Running the test server
 
 There is a binary named `testserverd` that can be useful in situations where you do not need a full network.  It runs an
@@ -14,29 +63,16 @@ file (here, `output.bin`) should exactly match the original artifact (here, `tes
 The `-logLevel` option can be changed to control output verbosity for each program.
 
 ```
-go build -o bin/testserverd ./cmd/testserverd && ./bin/testserverd -logLevel=info
-go build -o bin/cachecash-curl ./cmd/cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug cachecash://localhost:8080/file0.bin
+make testserverd && ./bin/testserverd -logLevel=info
+make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug cachecash://localhost:8080/file0.bin
 diff output.bin testdata/content/file0.bin
 ```
 
 ## Setting up a development environment
 
-This repository uses `git-lfs` for test data artifacts, among other things; you'll need to install it.
-
-```
-# Ubuntu
-apt-get install git-lfs
-
-# macOS
-brew install git-lfs
-```
-
 You will need a working Go toolchain.  We tend to stay on the latest stable version.
 
-You should check out this repository into your `GOPATH` (e.g. `~/src/go/github.com/cachecashproject/go-cachecash`).
-
-You will also need some extra code generation tools.
-
+You will also need some extra code generation tools:
 ```
 go get -u github.com/rubenv/sql-migrate/...
 go get -u github.com/volatiletech/sqlboiler/...
