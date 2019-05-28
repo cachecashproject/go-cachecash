@@ -44,29 +44,18 @@ It's going to take 1-2 minutes until everything is initialized, this includes th
 announcing themselves to the bootstrap service, the publisher requesting a list of all caches from the bootstrap service
 and finally the publisher and the caches negotiating an escrow. After the escrow is setup you can download from the
 caches using `cachecash-curl` or [typescript-cachecash]:
+
+In this case we're going to use the `cachecash-curl` program at this publisher to see it fetch data. The resulting file
+(here, `output.bin`) should exactly match the original artifact (here, `testdata/content/file0.bin`).
+
+The `-logLevel` option can be changed to control output verbosity for each program.
+
 ```
 make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug cachecash://localhost:8080/file0.bin
 diff output.bin testdata/content/file0.bin
 ```
 
 [typescript-cachecash]: https://github.com/cachecashproject/typescript-cachecash
-
-## Running the test server
-
-There is a binary named `testserverd` that can be useful in situations where you do not need a full network.  It runs an
-HTTP origin (which serves the test artifacts in `testdata/content`), a publisher pointed at that origin, and four
-caches.  The publisher/cache relationships are automatically configured for you.
-
-You can point the `cachecash-curl` program (or another client) at this publisher to see it fetch data.  The resulting
-file (here, `output.bin`) should exactly match the original artifact (here, `testdata/content/file0.bin`).
-
-The `-logLevel` option can be changed to control output verbosity for each program.
-
-```
-make testserverd && ./bin/testserverd -logLevel=info
-make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug cachecash://localhost:8080/file0.bin
-diff output.bin testdata/content/file0.bin
-```
 
 ## Setting up a development environment
 
