@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
@@ -46,6 +47,7 @@ func newStatusServer(l *logrus.Logger, c *Cache, conf *ConfigFile) (*statusServe
 type infoResponse struct {
 	Escrows   [][]byte
 	PublicKey ed25519.PublicKey
+	Version   string
 }
 
 func (s *statusServer) handleInfo(w http.ResponseWriter, r *http.Request) {
@@ -59,6 +61,7 @@ func (s *statusServer) handleInfo(w http.ResponseWriter, r *http.Request) {
 	resp := &infoResponse{
 		Escrows:   escrows,
 		PublicKey: s.cache.PublicKey,
+		Version:   cachecash.CurrentVersion,
 	}
 
 	d, err := json.Marshal(resp)
