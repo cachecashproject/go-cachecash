@@ -84,12 +84,38 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	// TODO: User, RawQuery, Fragment are currently ignored.  Should either pass to server or throw an error if they are
 	// provided.
 
-	var blockSize uint64
+	queue := make(chan *ccmsg.TicketBundle, 1)
+	go func() {
+		defer close(queue)
+
+		var blockSize uint64
+		var rangeBegin uint64
+
+		for {
+			bundle, err := cl.requestBundle(ctx, path, rangeBegin*blockSize)
+			if err != nil {
+				cl.l.Error("failed to fetch block-group at offset ", rangeBegin, ": ", err)
+				break
+			}
+
+			chunks := uint64(len(bundle.TicketRequest))
+			cl.l.Infof("pushing bundle with %d chunks to downloader", chunks)
+			queue <- bundle
+			rangeBegin += chunks
+
+			if rangeBegin >= bundle.Metadata.BlockCount() {
+				cl.l.Info("got all bundles")
+				break
+			}
+			blockSize = bundle.Metadata.BlockSize
+		}
+	}()
+
 	var rangeBegin uint64
 	var data []byte
-	for {
+	for bundle := range queue {
 		// XXX: `rangeBegin` here must be in bytes.
-		bg, err := cl.requestBlockGroup(ctx, path, rangeBegin*blockSize)
+		bg, err := cl.requestBlockGroup(ctx, path, bundle)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to fetch block-group at offset %v", rangeBegin)
 		}
@@ -107,11 +133,7 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 			data = append(data, d...)
 		}
 
-		rangeBegin = rangeBegin + uint64(len(bg.data))
-		if rangeBegin >= bg.metadata.BlockCount() {
-			break
-		}
-		blockSize = bg.metadata.BlockSize
+		rangeBegin += uint64(len(bg.data))
 	}
 
 	return &object{
@@ -170,7 +192,7 @@ type blockRequest struct {
 	err     error
 }
 
-func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin uint64) (*blockGroup, error) {
+func (cl *client) requestBundle(ctx context.Context, path string, rangeBegin uint64) (*ccmsg.TicketBundle, error) {
 	req := &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            path,
@@ -188,6 +210,10 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, rangeBegin
 	cl.l.Info("got ticket bundle from publisher for escrow: ", bundle.GetRemainder().GetEscrowId())
 	// cl.l.Debugf("got ticket bundle from publisher: %v", proto.MarshalTextString(bundle))
 
+	return bundle, nil
+}
+
+func (cl *client) requestBlockGroup(ctx context.Context, path string, bundle *ccmsg.TicketBundle) (*blockGroup, error) {
 	cacheQty := len(bundle.CacheInfo)
 
 	// For each block in TicketBundle, dispatch a request to the appropriate cache.
