@@ -6,6 +6,7 @@ import (
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type fetchGroup struct {
@@ -20,6 +21,14 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 	var rangeBegin uint64
 
 	for {
+		cl.l.Info("enumerating backlog length")
+		for _, cc := range cl.cacheConns {
+			cl.l.WithFields(logrus.Fields{
+				"cache": cc.addr,
+			}).Info("backlog length: ", len(cc.backlog))
+		}
+
+		cl.l.Info("requesting bundle")
 		bundle, err := cl.requestBundle(ctx, path, rangeBegin*blockSize)
 		if err != nil {
 			cl.l.Error("failed to fetch block-group at offset ", rangeBegin, ": ", err)

@@ -70,7 +70,7 @@ func (cc *cacheConnection) Run(ctx context.Context) {
 		"cache": cc.addr,
 	})
 	for task := range cc.backlog {
-		l.Debug("got download request")
+		l.Debugf("got download request (%d in backlog)", len(cc.backlog))
 		blockRequest := task.req
 		err := cc.requestBlock(ctx, blockRequest)
 		blockRequest.err = err
