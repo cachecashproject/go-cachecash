@@ -51,9 +51,7 @@ type client struct {
 	publisherConn *publisherConnection
 
 	// Unclear what key type should be.
-	cacheConns map[cacheID]*Downloader
-
-	queue chan *fetchGroup
+	cacheConns map[cacheID]*cacheConnection
 }
 
 var _ Client = (*client)(nil)
@@ -77,25 +75,24 @@ func New(l *logrus.Logger, addr string) (Client, error) {
 
 		publisherConn: pc,
 
-		cacheConns: make(map[cacheID]*Downloader),
-		queue:      make(chan *fetchGroup),
+		cacheConns: make(map[cacheID]*cacheConnection),
 	}, nil
 }
 
 func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	// TODO: User, RawQuery, Fragment are currently ignored.  Should either pass to server or throw an error if they are
 	// provided.
-
-	go cl.schedule(ctx, path)
+	queue := make(chan *fetchGroup, 128)
+	go cl.schedule(ctx, path, queue)
 
 	var rangeBegin uint64
 	var data []byte
 
-	for group := range cl.queue {
+	for group := range queue {
 		bundle := group.bundle
 		cacheQty := len(group.notify)
 		chunkResults := make([]*blockRequest, cacheQty)
-		cacheConns := make([]*Downloader, cacheQty)
+		cacheConns := make([]*cacheConnection, cacheQty)
 
 		// We receive either an error (in which case we abort the other requests and return an error to our parent) or we
 		// receive singly-encrypted data from each cache.
@@ -154,7 +151,7 @@ func (cl *client) Close(ctx context.Context) error {
 			retErr = err
 		}
 	}
-	cl.cacheConns = make(map[cacheID]*Downloader)
+	cl.cacheConns = make(map[cacheID]*cacheConnection)
 
 	if err := cl.publisherConn.Close(ctx); err != nil {
 		retErr = err
@@ -174,7 +171,7 @@ func (o *object) Data() []byte {
 	return o.data
 }
 
-func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*blockRequest, cacheConns []*Downloader) (*blockGroup, error) {
+func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*blockRequest, cacheConns []*cacheConnection) (*blockGroup, error) {
 	// Solve colocation puzzle.
 	tt := common.StartTelemetryTimer(cl.l, "solvePuzzle")
 	var singleEncryptedBlocks [][]byte

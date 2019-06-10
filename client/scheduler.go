@@ -13,7 +13,9 @@ type fetchGroup struct {
 	notify []chan DownloadResult
 }
 
-func (cl *client) schedule(ctx context.Context, path string) {
+func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGroup) {
+	defer close(queue)
+
 	var blockSize uint64
 	var rangeBegin uint64
 
@@ -32,7 +34,6 @@ func (cl *client) schedule(ctx context.Context, path string) {
 		cacheQty := len(bundle.CacheInfo)
 		// For each block in TicketBundle, dispatch a request to the appropriate cache.
 		chunkResults := make([]*blockRequest, cacheQty)
-		cacheConns := make([]*Downloader, cacheQty)
 
 		fetchGroup := &fetchGroup{
 			bundle: bundle,
@@ -47,30 +48,29 @@ func (cl *client) schedule(ctx context.Context, path string) {
 			chunkResults[i] = b
 
 			cid := (cacheID)(bundle.CacheInfo[i].Addr.ConnectionString())
-			d, ok := cl.cacheConns[cid]
+			cc, ok := cl.cacheConns[cid]
 			if !ok {
+				var err error
 				// XXX: It's problematic to pass ctx here, because canceling the context will destroy the cache connections!
 				// (It should only cancel this particular block-group request.)
-				cc, err := newCacheConnection(ctx, cl.l, bundle.CacheInfo[i].Addr.ConnectionString())
+				cc, err = newCacheConnection(ctx, cl.l, bundle.CacheInfo[i].Addr.ConnectionString())
 				if err != nil {
 					cc.l.WithError(err).Error("failed to connect to cache")
 					b.err = err
 				}
-				d = NewDownloader(cl.l, cc)
-				cl.cacheConns[cid] = d
-				go d.Run(ctx)
+				cl.cacheConns[cid] = cc
+				go cc.Run(ctx)
 			}
-			cacheConns = append(cacheConns, d)
 
-			notify := make(chan DownloadResult)
+			notify := make(chan DownloadResult, 128)
 			fetchGroup.notify = append(fetchGroup.notify, notify)
-			d.QueueRequest(DownloadTask{
+			cc.QueueRequest(DownloadTask{
 				req:    b,
 				notify: notify,
 			})
 		}
 
-		cl.queue <- fetchGroup
+		queue <- fetchGroup
 		rangeBegin += chunks
 
 		if rangeBegin >= bundle.Metadata.BlockCount() {
@@ -80,7 +80,6 @@ func (cl *client) schedule(ctx context.Context, path string) {
 		blockSize = bundle.Metadata.BlockSize
 	}
 	cl.l.Info("scheduler successfully terminated")
-	close(cl.queue)
 }
 
 type blockRequest struct {
