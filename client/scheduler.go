@@ -26,21 +26,18 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			break
 		}
 
-		chunks := uint64(len(bundle.TicketRequest))
+		chunks := len(bundle.TicketRequest)
 		cl.l.Infof("pushing bundle with %d chunks to downloader", chunks)
 
-		///
-
-		cacheQty := len(bundle.CacheInfo)
-		// For each block in TicketBundle, dispatch a request to the appropriate cache.
-		chunkResults := make([]*blockRequest, cacheQty)
+		// For each chunk in TicketBundle, dispatch a request to the appropriate cache.
+		chunkResults := make([]*blockRequest, chunks)
 
 		fetchGroup := &fetchGroup{
 			bundle: bundle,
 			notify: []chan DownloadResult{},
 		}
 
-		for i := 0; i < cacheQty; i++ {
+		for i := 0; i < chunks; i++ {
 			b := &blockRequest{
 				bundle: bundle,
 				idx:    i,
@@ -71,7 +68,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 		}
 
 		queue <- fetchGroup
-		rangeBegin += chunks
+		rangeBegin += uint64(chunks)
 
 		if rangeBegin >= bundle.Metadata.BlockCount() {
 			cl.l.Info("got all bundles")

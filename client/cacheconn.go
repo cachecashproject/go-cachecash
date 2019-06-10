@@ -15,7 +15,8 @@ import (
 // - Routes replies by matching sequence numbers.
 // - How do we handle the consumer of a reply exiting/terminating/canceling?
 type cacheConnection struct {
-	l *logrus.Logger
+	l    *logrus.Logger
+	addr string
 
 	nextSequenceNo uint64
 
@@ -44,7 +45,8 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string) (*ca
 	grpcClient := ccmsg.NewClientCacheClient(conn)
 
 	return &cacheConnection{
-		l: l,
+		l:    l,
+		addr: addr,
 
 		nextSequenceNo: 4000, // XXX: Make this easier to pick out of logs.
 
@@ -55,7 +57,7 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string) (*ca
 }
 
 func (cc *cacheConnection) Close(ctx context.Context) error {
-	cc.l.Info("cacheConnection.Close() - enter")
+	cc.l.WithField("cache", cc.addr).Info("cacheConnection.Close() - enter")
 	close(cc.backlog)
 	if err := cc.conn.Close(); err != nil {
 		return errors.Wrap(err, "failed to close connection")
@@ -64,18 +66,21 @@ func (cc *cacheConnection) Close(ctx context.Context) error {
 }
 
 func (cc *cacheConnection) Run(ctx context.Context) {
+	l := cc.l.WithFields(logrus.Fields{
+		"cache": cc.addr,
+	})
 	for task := range cc.backlog {
-		cc.l.Debug("got download request")
+		l.Debug("got download request")
 		blockRequest := task.req
 		err := cc.requestBlock(ctx, blockRequest)
 		blockRequest.err = err
-		cc.l.Debug("yielding download result")
+		l.Debug("yielding download result")
 		task.notify <- DownloadResult{
 			resp:  blockRequest,
 			cache: cc,
 		}
 	}
-	cc.l.Info("downloader successfully terminated")
+	l.Info("downloader successfully terminated")
 }
 
 func (cc *cacheConnection) QueueRequest(task DownloadTask) {
@@ -100,6 +105,7 @@ func (cc *cacheConnection) requestBlock(ctx context.Context, b *blockRequest) er
 	}
 	tt.Stop()
 	cc.l.WithFields(logrus.Fields{
+		"cache":    cc.addr,
 		"blockIdx": b.bundle.TicketRequest[b.idx].BlockIdx,
 		"len":      len(msgData.Data),
 	}).Infof("got data response from cache")
@@ -115,7 +121,7 @@ func (cc *cacheConnection) requestBlock(ctx context.Context, b *blockRequest) er
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
 	tt.Stop()
-	cc.l.Infof("got L1 response from cache")
+	cc.l.WithField("cache", cc.addr).Infof("got L1 response from cache")
 
 	// Decrypt data.
 	encData, err := util.EncryptDataBlock(
