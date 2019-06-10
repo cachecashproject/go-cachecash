@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/colocationpuzzle"
 	"github.com/cachecashproject/go-cachecash/common"
@@ -52,7 +51,9 @@ type client struct {
 	publisherConn *publisherConnection
 
 	// Unclear what key type should be.
-	cacheConns map[cacheID]*cacheConnection
+	cacheConns map[cacheID]*Downloader
+
+	queue chan *fetchGroup
 }
 
 var _ Client = (*client)(nil)
@@ -76,7 +77,8 @@ func New(l *logrus.Logger, addr string) (Client, error) {
 
 		publisherConn: pc,
 
-		cacheConns: make(map[cacheID]*cacheConnection),
+		cacheConns: make(map[cacheID]*Downloader),
+		queue:      make(chan *fetchGroup),
 	}, nil
 }
 
@@ -84,43 +86,39 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	// TODO: User, RawQuery, Fragment are currently ignored.  Should either pass to server or throw an error if they are
 	// provided.
 
-	queue := make(chan *ccmsg.TicketBundle, 1)
-	go func() {
-		defer close(queue)
-
-		var blockSize uint64
-		var rangeBegin uint64
-
-		for {
-			bundle, err := cl.requestBundle(ctx, path, rangeBegin*blockSize)
-			if err != nil {
-				cl.l.Error("failed to fetch block-group at offset ", rangeBegin, ": ", err)
-				break
-			}
-
-			chunks := uint64(len(bundle.TicketRequest))
-			cl.l.Infof("pushing bundle with %d chunks to downloader", chunks)
-			queue <- bundle
-			rangeBegin += chunks
-
-			if rangeBegin >= bundle.Metadata.BlockCount() {
-				cl.l.Info("got all bundles")
-				break
-			}
-			blockSize = bundle.Metadata.BlockSize
-		}
-	}()
+	go cl.schedule(ctx, path)
 
 	var rangeBegin uint64
 	var data []byte
-	for bundle := range queue {
-		// XXX: `rangeBegin` here must be in bytes.
-		bg, err := cl.requestBlockGroup(ctx, path, bundle)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to fetch block-group at offset %v", rangeBegin)
+
+	for group := range cl.queue {
+		bundle := group.bundle
+		cacheQty := len(group.notify)
+		chunkResults := make([]*blockRequest, cacheQty)
+		cacheConns := make([]*Downloader, cacheQty)
+
+		// We receive either an error (in which case we abort the other requests and return an error to our parent) or we
+		// receive singly-encrypted data from each cache.
+		for i, notify := range group.notify {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case result := <-notify:
+				b := result.resp
+				chunkResults[i] = b
+				cacheConns[i] = result.cache
+				if b.err != nil {
+					return nil, errors.Wrap(b.err, "got error in block request; aborting any that remain in group")
+				}
+			}
 		}
 
-		// XXX: There's lots of copying going on here that is probably unnecessary.
+		cl.l.Info("got singly-encrypted data from each cache")
+		bg, err := cl.decryptPuzzle(ctx, bundle, chunkResults, cacheConns)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decrypt puzzle")
+		}
+
 		for i, d := range bg.data {
 			if bg.blockIdx[i] != rangeBegin+uint64(i) {
 				return nil, fmt.Errorf("block at position %v has index %v, but expected %v",
@@ -156,7 +154,7 @@ func (cl *client) Close(ctx context.Context) error {
 			retErr = err
 		}
 	}
-	cl.cacheConns = make(map[cacheID]*cacheConnection)
+	cl.cacheConns = make(map[cacheID]*Downloader)
 
 	if err := cl.publisherConn.Close(ctx); err != nil {
 		retErr = err
@@ -176,94 +174,12 @@ func (o *object) Data() []byte {
 	return o.data
 }
 
-/*
-// Dispatches to cacheConnection.requestBlock() for the correct cache.  If no connection exists for the cache, creates
-// one.
-func (cl *client) requestBlock(ctx context.Context, cid cacheID, req *blockRequest) (bool, error) {
-	return false, errors.New("no impl")
-}
-*/
-
-type blockRequest struct {
-	bundle *ccmsg.TicketBundle
-	idx    int
-
-	encData []byte // Singly-encrypted data.
-	err     error
-}
-
-func (cl *client) requestBundle(ctx context.Context, path string, rangeBegin uint64) (*ccmsg.TicketBundle, error) {
-	req := &ccmsg.ContentRequest{
-		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
-		Path:            path,
-		RangeBegin:      rangeBegin,
-		RangeEnd:        0, // "continue to the end of the object"
-	}
-	cl.l.Infof("sending content request to publisher: %v", req)
-
-	// Send request to publisher; get TicketBundle in response.
-	resp, err := cl.publisherConn.grpcClient.GetContent(ctx, req)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to request bundle from publisher")
-	}
-	bundle := resp.Bundle
-	cl.l.Info("got ticket bundle from publisher for escrow: ", bundle.GetRemainder().GetEscrowId())
-	// cl.l.Debugf("got ticket bundle from publisher: %v", proto.MarshalTextString(bundle))
-
-	return bundle, nil
-}
-
-func (cl *client) requestBlockGroup(ctx context.Context, path string, bundle *ccmsg.TicketBundle) (*blockGroup, error) {
-	cacheQty := len(bundle.CacheInfo)
-
-	// For each block in TicketBundle, dispatch a request to the appropriate cache.
-	var cacheConns []*cacheConnection
-	blockResults := make([]*blockRequest, cacheQty)
-	blockResultCh := make(chan *blockRequest)
-	for i := 0; i < cacheQty; i++ {
-		cid := (cacheID)(bundle.CacheInfo[i].Addr.ConnectionString())
-
-		cc, ok := cl.cacheConns[cid]
-		if !ok {
-			var err error
-			// XXX: It's problematic to pass ctx here, because canceling the context will destroy the cache connections!
-			// (It should only cancel this particular block-group request.)
-			cc, err = newCacheConnection(context.Background(), cl.l, bundle.CacheInfo[i].Addr.ConnectionString())
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to connect to cache")
-			}
-			cl.cacheConns[cid] = cc
-		}
-		cacheConns = append(cacheConns, cc)
-
-		blockResults[i] = &blockRequest{
-			bundle: bundle,
-			idx:    i,
-		}
-		go cl.requestBlock(ctx, cc, blockResults[i], blockResultCh)
-	}
-
-	// We receive either an error (in which case we abort the other requests and return an error to our parent) or we
-	// receive singly-encrypted data from each cache.
-	for i := 0; i < cacheQty; i++ {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case b := <-blockResultCh:
-			if b.err != nil {
-				return nil, errors.Wrap(b.err, "got error in block request; aborting any that remain in group")
-			}
-		}
-		// ..
-	}
-
-	cl.l.Info("got singly-encrypted data from each cache")
-
+func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*blockRequest, cacheConns []*Downloader) (*blockGroup, error) {
 	// Solve colocation puzzle.
 	tt := common.StartTelemetryTimer(cl.l, "solvePuzzle")
 	var singleEncryptedBlocks [][]byte
-	for i := 0; i < cacheQty; i++ {
-		singleEncryptedBlocks = append(singleEncryptedBlocks, blockResults[i].encData)
+	for _, result := range chunkResults {
+		singleEncryptedBlocks = append(singleEncryptedBlocks, result.encData)
 	}
 	pi := bundle.Remainder.PuzzleInfo
 	secret, _, err := colocationpuzzle.Solve(colocationpuzzle.Parameters{
@@ -285,7 +201,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, bundle *cc
 	// Send the L2 ticket to each cache.
 	// XXX: This should not be serialized.
 	// l2ResultCh := make(chan l2Result)
-	for i := 0; i < cacheQty; i++ {
+	for _, conn := range cacheConns {
 		req, err := bundle.BuildClientCacheRequest(&ccmsg.TicketL2Info{
 			EncryptedTicketL2: bundle.EncryptedTicketL2,
 			PuzzleSecret:      secret,
@@ -294,7 +210,7 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, bundle *cc
 			return nil, errors.Wrap(err, "failed to build L2 ticket request")
 		}
 		tt := common.StartTelemetryTimer(cl.l, "exchangeTicketL2")
-		_, err = cacheConns[i].grpcClient.ExchangeTicketL2(ctx, req)
+		err = conn.ExchangeTicketL2(ctx, req)
 		tt.Stop()
 		if err != nil {
 			// TODO: This should not cause us to abort sending the L2 ticket to other caches, and should not prevent us
@@ -328,57 +244,4 @@ func (cl *client) requestBlockGroup(ctx context.Context, path string, bundle *cc
 		blockIdx: blockIdx,
 		metadata: bundle.Metadata,
 	}, nil
-}
-
-func (cl *client) requestBlock(ctx context.Context, cc *cacheConnection, b *blockRequest, blockResultCh chan<- *blockRequest) {
-	if err := cl.requestBlockC(ctx, cc, b); err != nil {
-		cc.l.WithError(err).Error("error in requestBlockC")
-		b.err = err
-	}
-	blockResultCh <- b
-}
-
-func (cl *client) requestBlockC(ctx context.Context, cc *cacheConnection, b *blockRequest) error {
-	// Send request ticket to cache; await data.
-	reqData, err := b.bundle.BuildClientCacheRequest(b.bundle.TicketRequest[b.idx])
-	if err != nil {
-		return errors.Wrap(err, "failed to build client-cache request")
-	}
-	tt := common.StartTelemetryTimer(cl.l, "getBlock")
-	msgData, err := cc.grpcClient.GetBlock(ctx, reqData)
-	if err != nil {
-		return errors.Wrap(err, "failed to exchange request ticket with cache")
-	}
-	tt.Stop()
-	cl.l.WithFields(logrus.Fields{
-		"blockIdx": b.bundle.TicketRequest[b.idx].BlockIdx,
-		"len":      len(msgData.Data),
-	}).Infof("got data response from cache")
-
-	// Send L1 ticket to cache; await outer decryption key.
-	reqL1, err := b.bundle.BuildClientCacheRequest(b.bundle.TicketL1[b.idx])
-	if err != nil {
-		return errors.Wrap(err, "failed to build client-cache request")
-	}
-	tt = common.StartTelemetryTimer(cl.l, "exchangeTicketL1")
-	msgL1, err := cc.grpcClient.ExchangeTicketL1(ctx, reqL1)
-	if err != nil {
-		return errors.Wrap(err, "failed to exchange request ticket with cache")
-	}
-	tt.Stop()
-	cl.l.Infof("got L1 response from cache")
-
-	// Decrypt data.
-	encData, err := util.EncryptDataBlock(
-		b.bundle.TicketRequest[b.idx].BlockIdx,
-		b.bundle.Remainder.RequestSequenceNo,
-		msgL1.OuterKey.Key,
-		msgData.Data)
-	if err != nil {
-		return errors.Wrap(err, "failed to decrypt data")
-	}
-	b.encData = encData
-
-	// Done!
-	return nil
 }
