@@ -28,8 +28,9 @@ type cacheConnection struct {
 }
 
 type DownloadTask struct {
-	req    *blockRequest
-	notify chan DownloadResult
+	req             *blockRequest
+	clientNotify    chan DownloadResult
+	schedulerNotify chan bool
 }
 
 type DownloadResult struct {
@@ -78,10 +79,11 @@ func (cc *cacheConnection) Run(ctx context.Context) {
 		err := cc.requestBlock(ctx, blockRequest)
 		blockRequest.err = err
 		l.Debug("yielding download result")
-		task.notify <- DownloadResult{
+		task.clientNotify <- DownloadResult{
 			resp:  blockRequest,
 			cache: cc,
 		}
+		task.schedulerNotify <- true
 	}
 	l.Info("downloader successfully terminated")
 }

@@ -343,6 +343,10 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		ObjectSize: obj.ObjectSize(),
 	}
 
+	// TODO: don't hardcode those
+	bundle.MinimumBacklogDepth = 2
+	bundle.BundleRequestInterval = 5
+
 	p.l.Debug("done; returning bundle")
 	return bundle, nil
 }

@@ -56,6 +56,9 @@ message TicketBundle {
     repeated CacheInfo cache_info = 9;
 
     ObjectMetadata metadata = 12;
+
+    uint32 minimum_backlog_depth = 13;
+    uint32 bundle_request_interval = 14;
 }
 
 // XXX: This needs a better name.

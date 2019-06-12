@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"time"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
@@ -20,6 +21,10 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 	var blockSize uint64
 	var rangeBegin uint64
 
+	minimumBacklogDepth := 0
+	bundleRequestInterval := 0
+	schedulerNotify := make(chan bool, 64)
+
 	for {
 		cl.l.Info("enumerating backlog length")
 		for _, cc := range cl.cacheConns {
@@ -35,62 +40,99 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			break
 		}
 
-		chunks := len(bundle.TicketRequest)
-		cl.l.WithFields(logrus.Fields{
-			"len(chunks)": chunks,
-		}).Info("pushing bundle to downloader")
+		if bundle != nil {
+			chunks := len(bundle.TicketRequest)
+			cl.l.WithFields(logrus.Fields{
+				"len(chunks)": chunks,
+			}).Info("pushing bundle to downloader")
 
-		// For each chunk in TicketBundle, dispatch a request to the appropriate cache.
-		chunkResults := make([]*blockRequest, chunks)
+			// For each chunk in TicketBundle, dispatch a request to the appropriate cache.
+			chunkResults := make([]*blockRequest, chunks)
 
-		fetchGroup := &fetchGroup{
-			bundle: bundle,
-			notify: []chan DownloadResult{},
-		}
-
-		for i := 0; i < chunks; i++ {
-			b := &blockRequest{
+			fetchGroup := &fetchGroup{
 				bundle: bundle,
-				idx:    i,
+				notify: []chan DownloadResult{},
 			}
-			chunkResults[i] = b
 
-			cid := (cacheID)(bundle.CacheInfo[i].Addr.ConnectionString())
-			cc, ok := cl.cacheConns[cid]
-			if !ok {
-				var err error
-				ci := bundle.CacheInfo[i]
+			for i := 0; i < chunks; i++ {
+				b := &blockRequest{
+					bundle: bundle,
+					idx:    i,
+				}
+				chunkResults[i] = b
 
-				// XXX: It's problematic to pass ctx here, because canceling the context will destroy the cache connections!
-				// (It should only cancel this particular block-group request.)
-				cc, err = newCacheConnection(ctx, cl.l, ci.Addr.ConnectionString(), ci.Pubkey.GetPublicKey())
-				if err != nil {
-					cc.l.WithError(err).Error("failed to connect to cache")
-					b.err = err
+				cid := (cacheID)(bundle.CacheInfo[i].Addr.ConnectionString())
+				cc, ok := cl.cacheConns[cid]
+				if !ok {
+					var err error
+					ci := bundle.CacheInfo[i]
+
+					// XXX: It's problematic to pass ctx here, because canceling the context will destroy the cache connections!
+					// (It should only cancel this particular block-group request.)
+					cc, err = newCacheConnection(ctx, cl.l, ci.Addr.ConnectionString(), ci.Pubkey.GetPublicKey())
+					if err != nil {
+						cc.l.WithError(err).Error("failed to connect to cache")
+						b.err = err
+					}
+
+					cl.cacheConns[cid] = cc
+					go cc.Run(ctx)
 				}
 
-				cl.cacheConns[cid] = cc
-				go cc.Run(ctx)
+				clientNotify := make(chan DownloadResult, 128)
+				fetchGroup.notify = append(fetchGroup.notify, clientNotify)
+				cc.QueueRequest(DownloadTask{
+					req:             b,
+					clientNotify:    clientNotify,
+					schedulerNotify: schedulerNotify,
+				})
 			}
 
-			notify := make(chan DownloadResult, 128)
-			fetchGroup.notify = append(fetchGroup.notify, notify)
-			cc.QueueRequest(DownloadTask{
-				req:    b,
-				notify: notify,
-			})
+			queue <- fetchGroup
+			rangeBegin += uint64(chunks)
+
+			if rangeBegin >= bundle.Metadata.BlockCount() {
+				cl.l.Info("got all bundles")
+				break
+			}
+			blockSize = bundle.Metadata.BlockSize
+
+			minimumBacklogDepth = int(bundle.MinimumBacklogDepth)
+			bundleRequestInterval = int(bundle.BundleRequestInterval)
 		}
 
-		queue <- fetchGroup
-		rangeBegin += uint64(chunks)
-
-		if rangeBegin >= bundle.Metadata.BlockCount() {
-			cl.l.Info("got all bundles")
-			break
-		}
-		blockSize = bundle.Metadata.BlockSize
+		cl.waitUntilNextRequest(schedulerNotify, minimumBacklogDepth, bundleRequestInterval)
 	}
 	cl.l.Info("scheduler successfully terminated")
+}
+
+func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklogDepth int, bundleRequestInterval int) {
+	for {
+		select {
+		case <-schedulerNotify:
+			cl.l.WithFields(logrus.Fields{
+				"minimumBacklogDepth": minimumBacklogDepth,
+			}).Debug("checking cache backlog depth")
+			if cl.checkBacklogDepth(minimumBacklogDepth) {
+				cl.l.Info("cache backlog is running low, requesting new bundle")
+				return
+			}
+		case <-time.After(time.Duration(bundleRequestInterval) * time.Second):
+			cl.l.WithFields(logrus.Fields{
+				"interval": bundleRequestInterval,
+			}).Info("interval reached, requesting new bundles")
+			return
+		}
+	}
+}
+
+func (cl *client) checkBacklogDepth(n int) bool {
+	for _, c := range cl.cacheConns {
+		if len(c.backlog) <= n {
+			return true
+		}
+	}
+	return false
 }
 
 type blockRequest struct {
