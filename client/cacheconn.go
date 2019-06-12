@@ -60,7 +60,6 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubk
 
 func (cc *cacheConnection) Close(ctx context.Context) error {
 	cc.l.WithField("cache", cc.pubkey).Info("cacheConnection.Close() - enter")
-	close(cc.backlog)
 	if err := cc.conn.Close(); err != nil {
 		return errors.Wrap(err, "failed to close connection")
 	}
