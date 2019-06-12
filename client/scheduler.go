@@ -24,7 +24,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 		cl.l.Info("enumerating backlog length")
 		for _, cc := range cl.cacheConns {
 			cl.l.WithFields(logrus.Fields{
-				"cache": cc.addr,
+				"cache": cc.pubkey,
 			}).Info("backlog length: ", len(cc.backlog))
 		}
 
@@ -36,7 +36,9 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 		}
 
 		chunks := len(bundle.TicketRequest)
-		cl.l.Infof("pushing bundle with %d chunks to downloader", chunks)
+		cl.l.WithFields(logrus.Fields{
+			"len(chunks)": chunks,
+		}).Info("pushing bundle to downloader")
 
 		// For each chunk in TicketBundle, dispatch a request to the appropriate cache.
 		chunkResults := make([]*blockRequest, chunks)
@@ -57,13 +59,16 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			cc, ok := cl.cacheConns[cid]
 			if !ok {
 				var err error
+				ci := bundle.CacheInfo[i]
+
 				// XXX: It's problematic to pass ctx here, because canceling the context will destroy the cache connections!
 				// (It should only cancel this particular block-group request.)
-				cc, err = newCacheConnection(ctx, cl.l, bundle.CacheInfo[i].Addr.ConnectionString())
+				cc, err = newCacheConnection(ctx, cl.l, ci.Addr.ConnectionString(), ci.Pubkey.GetPublicKey())
 				if err != nil {
 					cc.l.WithError(err).Error("failed to connect to cache")
 					b.err = err
 				}
+
 				cl.cacheConns[cid] = cc
 				go cc.Run(ctx)
 			}

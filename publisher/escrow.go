@@ -180,6 +180,9 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 				Inet6Addr: bep.Cache.Inet6Addr(),
 				Port:      bep.Cache.Port(),
 			},
+			Pubkey: &ccmsg.PublicKey{
+				PublicKey: bep.Cache.PublicKey(),
+			},
 		})
 
 		// Generate a lottery ticket 1 for each cache.

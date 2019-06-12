@@ -74,6 +74,7 @@ message TicketBundleRemainder {
 
 message CacheInfo {
     NetworkAddress addr = 1;
+    PublicKey pubkey = 2;
 }
 
 // XXX: Is this a good name if this message includes a port number?

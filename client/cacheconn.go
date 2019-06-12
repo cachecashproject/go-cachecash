@@ -2,12 +2,14 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/util"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
 
@@ -15,8 +17,8 @@ import (
 // - Routes replies by matching sequence numbers.
 // - How do we handle the consumer of a reply exiting/terminating/canceling?
 type cacheConnection struct {
-	l    *logrus.Logger
-	addr string
+	l      *logrus.Logger
+	pubkey string
 
 	nextSequenceNo uint64
 
@@ -35,7 +37,7 @@ type DownloadResult struct {
 	cache *cacheConnection
 }
 
-func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string) (*cacheConnection, error) {
+func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (*cacheConnection, error) {
 	// XXX: No transport security!
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
@@ -45,8 +47,8 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string) (*ca
 	grpcClient := ccmsg.NewClientCacheClient(conn)
 
 	return &cacheConnection{
-		l:    l,
-		addr: addr,
+		l:      l,
+		pubkey: base64.StdEncoding.EncodeToString(pubkey),
 
 		nextSequenceNo: 4000, // XXX: Make this easier to pick out of logs.
 
@@ -57,7 +59,7 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string) (*ca
 }
 
 func (cc *cacheConnection) Close(ctx context.Context) error {
-	cc.l.WithField("cache", cc.addr).Info("cacheConnection.Close() - enter")
+	cc.l.WithField("cache", cc.pubkey).Info("cacheConnection.Close() - enter")
 	close(cc.backlog)
 	if err := cc.conn.Close(); err != nil {
 		return errors.Wrap(err, "failed to close connection")
@@ -67,10 +69,12 @@ func (cc *cacheConnection) Close(ctx context.Context) error {
 
 func (cc *cacheConnection) Run(ctx context.Context) {
 	l := cc.l.WithFields(logrus.Fields{
-		"cache": cc.addr,
+		"cache": cc.pubkey,
 	})
 	for task := range cc.backlog {
-		l.Debugf("got download request (%d in backlog)", len(cc.backlog))
+		l.WithFields(logrus.Fields{
+			"len(backlog)": len(cc.backlog),
+		}).Debug("got download request")
 		blockRequest := task.req
 		err := cc.requestBlock(ctx, blockRequest)
 		blockRequest.err = err
@@ -105,10 +109,10 @@ func (cc *cacheConnection) requestBlock(ctx context.Context, b *blockRequest) er
 	}
 	tt.Stop()
 	cc.l.WithFields(logrus.Fields{
-		"cache":    cc.addr,
+		"cache":    cc.pubkey,
 		"blockIdx": b.bundle.TicketRequest[b.idx].BlockIdx,
 		"len":      len(msgData.Data),
-	}).Infof("got data response from cache")
+	}).Info("got data response from cache")
 
 	// Send L1 ticket to cache; await outer decryption key.
 	reqL1, err := b.bundle.BuildClientCacheRequest(b.bundle.TicketL1[b.idx])
@@ -121,7 +125,7 @@ func (cc *cacheConnection) requestBlock(ctx context.Context, b *blockRequest) er
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
 	tt.Stop()
-	cc.l.WithField("cache", cc.addr).Infof("got L1 response from cache")
+	cc.l.WithField("cache", cc.pubkey).Info("got L1 response from cache")
 
 	// Decrypt data.
 	encData, err := util.EncryptDataBlock(
