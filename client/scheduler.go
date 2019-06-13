@@ -26,13 +26,6 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 	schedulerNotify := make(chan bool, 64)
 
 	for {
-		cl.l.Info("enumerating backlog length")
-		for _, cc := range cl.cacheConns {
-			cl.l.WithFields(logrus.Fields{
-				"cache": cc.pubkey,
-			}).Info("backlog length: ", len(cc.backlog))
-		}
-
 		cl.l.Info("requesting bundle")
 		bundle, err := cl.requestBundle(ctx, path, rangeBegin*blockSize)
 		if err != nil {
@@ -144,11 +137,22 @@ type blockRequest struct {
 }
 
 func (cl *client) requestBundle(ctx context.Context, path string, rangeBegin uint64) (*ccmsg.TicketBundle, error) {
+	cl.l.Info("enumerating backlog length")
+
+	backlogs := make(map[string]uint64)
+	for _, cc := range cl.cacheConns {
+		cl.l.WithFields(logrus.Fields{
+			"cache": cc.pubkey,
+		}).Info("backlog length: ", len(cc.backlog))
+		backlogs[string(cc.pubkeyBytes)] = uint64(len(cc.backlog))
+	}
+
 	req := &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            path,
 		RangeBegin:      rangeBegin,
 		RangeEnd:        0, // "continue to the end of the object"
+		BacklogDepth:    backlogs,
 	}
 	cl.l.Infof("sending content request to publisher: %v", req)
 

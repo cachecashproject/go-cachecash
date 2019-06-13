@@ -232,6 +232,8 @@ message ContentRequest {
     uint64 range_end = 6;
 
     uint64 sequence_no = 4; // XXX: I'm not sure that this is required.  It's a unique-per-client value fed into the keyed PRF used to derive inner keys.
+
+    map<string, uint64> backlog_depth = 7;
 }
 
 // Response to a ContentRequest.

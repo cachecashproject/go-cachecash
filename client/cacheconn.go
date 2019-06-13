@@ -17,8 +17,9 @@ import (
 // - Routes replies by matching sequence numbers.
 // - How do we handle the consumer of a reply exiting/terminating/canceling?
 type cacheConnection struct {
-	l      *logrus.Logger
-	pubkey string
+	l           *logrus.Logger
+	pubkey      string
+	pubkeyBytes []byte
 
 	nextSequenceNo uint64
 
@@ -48,8 +49,9 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubk
 	grpcClient := ccmsg.NewClientCacheClient(conn)
 
 	return &cacheConnection{
-		l:      l,
-		pubkey: base64.StdEncoding.EncodeToString(pubkey),
+		l:           l,
+		pubkey:      base64.StdEncoding.EncodeToString(pubkey),
+		pubkeyBytes: pubkey,
 
 		nextSequenceNo: 4000, // XXX: Make this easier to pick out of logs.
 
