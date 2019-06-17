@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/cachecashproject/go-cachecash/batchsignature"
@@ -185,6 +186,13 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		"rangeEnd":   req.RangeEnd,
 	}).Info("content request")
 
+	for cache, depth := range req.BacklogDepth {
+		p.l.WithFields(logrus.Fields{
+			"cache":   base64.StdEncoding.EncodeToString([]byte(cache)),
+			"backlog": depth,
+		}).Debug("received cache backlog length")
+	}
+
 	// - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and
 	//   valid.  (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A
 	//   future enhancement might require that the publisher fetch only the cipher-blocks that will be used in puzzle
@@ -342,6 +350,10 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		BlockSize:  obj.PolicyBlockSize(),
 		ObjectSize: obj.ObjectSize(),
 	}
+
+	// TODO: don't hardcode those
+	bundle.MinimumBacklogDepth = 2
+	bundle.BundleRequestInterval = 5
 
 	p.l.Debug("done; returning bundle")
 	return bundle, nil

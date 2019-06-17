@@ -103,6 +103,7 @@ func mainC() error {
 		LogLevelStr: *logLevelStr,
 		LogCaller:   *logCaller,
 		LogFile:     *logFile,
+		Json:        true,
 	}); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}

@@ -14,6 +14,7 @@ type LoggerConfig struct {
 	LogLevelStr string
 	LogCaller   bool
 	LogFile     string
+	Json        bool
 }
 
 func ConfigureLogger(l *logrus.Logger, c *LoggerConfig) error {
@@ -24,7 +25,9 @@ func ConfigureLogger(l *logrus.Logger, c *LoggerConfig) error {
 	l.SetLevel(logLevel)
 	l.SetReportCaller(c.LogCaller)
 
-	l.SetFormatter(&logrus.JSONFormatter{})
+	if c.Json {
+		l.SetFormatter(&logrus.JSONFormatter{})
+	}
 
 	if c.LogFile != "" {
 		if c.LogFile == "-" {

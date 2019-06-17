@@ -56,6 +56,9 @@ message TicketBundle {
     repeated CacheInfo cache_info = 9;
 
     ObjectMetadata metadata = 12;
+
+    uint32 minimum_backlog_depth = 13;
+    uint32 bundle_request_interval = 14;
 }
 
 // XXX: This needs a better name.
@@ -74,6 +77,7 @@ message TicketBundleRemainder {
 
 message CacheInfo {
     NetworkAddress addr = 1;
+    PublicKey pubkey = 2;
 }
 
 // XXX: Is this a good name if this message includes a port number?
@@ -228,6 +232,8 @@ message ContentRequest {
     uint64 range_end = 6;
 
     uint64 sequence_no = 4; // XXX: I'm not sure that this is required.  It's a unique-per-client value fed into the keyed PRF used to derive inner keys.
+
+    map<string, uint64> backlog_depth = 7;
 }
 
 // Response to a ContentRequest.
