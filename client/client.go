@@ -89,6 +89,10 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	var data []byte
 
 	for group := range queue {
+		if group.err != nil {
+			return nil, group.err
+		}
+
 		bundle := group.bundle
 		cacheQty := len(group.notify)
 		chunkResults := make([]*blockRequest, cacheQty)

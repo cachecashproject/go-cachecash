@@ -12,6 +12,7 @@ import (
 
 type fetchGroup struct {
 	bundle *ccmsg.TicketBundle
+	err    error
 	notify []chan DownloadResult
 }
 
@@ -29,8 +30,12 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 		cl.l.Info("requesting bundle")
 		bundle, err := cl.requestBundle(ctx, path, rangeBegin*chunkSize)
 		if err != nil {
-			cl.l.Error("failed to fetch block-group at offset ", rangeBegin, ": ", err)
-			break
+			err = errors.Wrap(err, "failed to fetch block-group at offset "+string(rangeBegin))
+			queue <- &fetchGroup{
+				err: err,
+			}
+			cl.l.Error("encountered an error, shutting down scheduler")
+			return
 		}
 
 		if bundle != nil {
