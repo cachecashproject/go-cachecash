@@ -1,6 +1,6 @@
 package colocationpuzzle
 
-// XXX: I don't like the name "offset" for "sub-block index", or "cipher block index".
+// XXX: I don't like the name "offset" for "piece index", or "cipher block index".
 //
 // XXX: Is there any use in also having an IV for each block?
 
@@ -50,7 +50,7 @@ func (p *Puzzle) Key() []byte {
 	return p.Secret[IVSize : IVSize+KeySize]
 }
 
-type getBlockFnT func(blockIdx, offset uint32) ([]byte, error)
+type getChunkFnT func(chunkIdx, offset uint32) ([]byte, error)
 
 func init() {
 	// XXX: Is this the right place to put this?
@@ -58,52 +58,52 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-// params, raw-blocks, keys -> secret, goal, offset
+// params, raw-chunks, keys -> secret, goal, offset
 // (offset is not shared with the client)
-func Generate(params Parameters, blocks [][]byte, innerKeys [][]byte, innerIVs [][]byte) (*Puzzle, error) {
+func Generate(params Parameters, chunks [][]byte, innerKeys [][]byte, innerIVs [][]byte) (*Puzzle, error) {
 	if err := params.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid parameters")
 	}
-	if len(blocks) == 0 {
-		return nil, errors.New("must have at least one data block")
+	if len(chunks) == 0 {
+		return nil, errors.New("must have at least one chunk")
 	}
-	if len(blocks) != len(innerKeys) || len(blocks) != len(innerIVs) {
-		return nil, errors.New("must have same numer of blocks, keys, and IVs")
+	if len(chunks) != len(innerKeys) || len(chunks) != len(innerIVs) {
+		return nil, errors.New("must have same numer of chunks, keys, and IVs")
 	}
 
-	if params.Rounds*uint32(len(blocks)) <= 1 {
+	if params.Rounds*uint32(len(chunks)) <= 1 {
 		// XXX: Using a single ruond and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
 		// With e.g. two rounds over a single cache, it won't fail, but will return an all-zero secret.
 		return nil, errors.New("must use at least two puzzle iterations; increase number of rounds or caches")
 	}
 
-	// XXX: It doesn't look like we're really using blockSize!  Can we remove it?  If we can't, we should probably
-	//   rename it--"blockCount", maybe?
-	// Compute, in advance, how many cipher blocks each data block contains.
-	blockSize := make([]int, len(blocks))
-	for i := 0; i < len(blocks); i++ {
-		blockLen := len(blocks[i])
+	// XXX: It doesn't look like we're really using chunkSize!  Can we remove it?  If we can't, we should probably
+	//   rename it--"chunkCount", maybe?
+	// Compute, in advance, how many cipher blocks each chunk contains.
+	chunkSize := make([]int, len(chunks))
+	for i := 0; i < len(chunks); i++ {
+		chunkLen := len(chunks[i])
 		// XXX: This is almost certainly a problem: what do we do when we get objects that are not a multiple of the
 		// cipher block size?
-		blockSize[i] = blockLen / aes.BlockSize
+		chunkSize[i] = chunkLen / aes.BlockSize
 	}
 
 	// Now let's pick a place to start.  We randomly select this value and don't tell the client what we choose; the
 	// client having to perform a brute-force search for the correct value is what makes the puzzle "hard" in the sense
 	// that we want.
-	startOffset := uint32(rand.Intn(blockSize[0]))
+	startOffset := uint32(rand.Intn(chunkSize[0]))
 
-	getBlockFn := func(i, offset uint32) ([]byte, error) {
-		blockLen := len(blocks[i])
-		offset = offset % uint32(blockLen/aes.BlockSize)
-		plaintext, err := getCipherBlock(blocks[i], offset)
+	getChunkFn := func(i, offset uint32) ([]byte, error) {
+		chunkLen := len(chunks[i])
+		offset = offset % uint32(chunkLen/aes.BlockSize)
+		plaintext, err := getCipherBlock(chunks[i], offset)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get sub-block")
+			return nil, errors.Wrap(err, "failed to get piece")
 		}
-		return util.EncryptBlock(plaintext, innerKeys[i], innerIVs[i], offset)
+		return util.EncryptCipherBlock(plaintext, innerKeys[i], innerIVs[i], offset)
 	}
 
-	goal, secret, err := runPuzzle(params.Rounds, uint32(len(blocks)), startOffset, getBlockFn)
+	goal, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), startOffset, getChunkFn)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate outputs of colocation puzzle")
 	}
@@ -116,31 +116,31 @@ func Generate(params Parameters, blocks [][]byte, innerKeys [][]byte, innerIVs [
 	}, nil
 }
 
-// params, enc-blocks, goal -> secret, offset
+// params, enc-chunks, goal -> secret, offset
 // (offset is not necessary, but having it is useful for testing/debugging)
-func Solve(params Parameters, blocks [][]byte, goal []byte) ([]byte, uint32, error) {
+func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, error) {
 	if err := params.Validate(); err != nil {
 		return nil, 0, errors.Wrap(err, "invalid parameters")
 	}
-	if len(blocks) == 0 {
-		return nil, 0, errors.New("must have at least one data block")
+	if len(chunks) == 0 {
+		return nil, 0, errors.New("must have at least one chunk")
 	}
 	if len(goal) != sha512.Size384 {
 		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
-	if params.Rounds*uint32(len(blocks)) <= 1 {
+	if params.Rounds*uint32(len(chunks)) <= 1 {
 		// XXX: Using a single ruond and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
 		return nil, 0, errors.New("must use at least two puzzle iterations; increase number of rounds or caches")
 	}
 
-	getBlockFn := func(blockIdx, offset uint32) ([]byte, error) {
-		offset = offset % uint32(len(blocks[blockIdx])/aes.BlockSize)
-		return blocks[blockIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
+	getChunkFn := func(chunkIdx, offset uint32) ([]byte, error) {
+		offset = offset % uint32(len(chunks[chunkIdx])/aes.BlockSize)
+		return chunks[chunkIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
 	}
 
 	// Try all possible starting offsets and look for one that produces the result/goal value we're looking for.
-	for offset := uint32(0); offset < uint32(len(blocks[0])/aes.BlockSize); offset++ {
-		result, secret, err := runPuzzle(params.Rounds, uint32(len(blocks)), offset, getBlockFn)
+	for offset := uint32(0); offset < uint32(len(chunks[0])/aes.BlockSize); offset++ {
+		result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getChunkFn)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to run puzzle")
 		}
@@ -153,27 +153,27 @@ func Solve(params Parameters, blocks [][]byte, goal []byte) ([]byte, uint32, err
 
 }
 
-func VerifySolution(params Parameters, blocks [][]byte, goal []byte, offset uint32) ([]byte, uint32, error) {
+func VerifySolution(params Parameters, chunks [][]byte, goal []byte, offset uint32) ([]byte, uint32, error) {
 	if err := params.Validate(); err != nil {
 		return nil, 0, errors.Wrap(err, "invalid parameters")
 	}
-	if len(blocks) == 0 {
-		return nil, 0, errors.New("must have at least one data block")
+	if len(chunks) == 0 {
+		return nil, 0, errors.New("must have at least one chunk")
 	}
 	if len(goal) != sha512.Size384 {
 		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
-	if params.Rounds*uint32(len(blocks)) <= 1 {
+	if params.Rounds*uint32(len(chunks)) <= 1 {
 		// XXX: Using a single ruond and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
 		return nil, 0, errors.New("must use at least two puzzle iterations; increase number of rounds or caches")
 	}
 
-	getBlockFn := func(blockIdx, offset uint32) ([]byte, error) {
-		offset = offset % uint32(len(blocks[blockIdx])/aes.BlockSize)
-		return blocks[blockIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
+	getChunkFn := func(chunkIdx, offset uint32) ([]byte, error) {
+		offset = offset % uint32(len(chunks[chunkIdx])/aes.BlockSize)
+		return chunks[chunkIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
 	}
 
-	result, secret, err := runPuzzle(params.Rounds, uint32(len(blocks)), offset, getBlockFn)
+	result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getChunkFn)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "failed to run puzzle")
 	}
@@ -185,8 +185,8 @@ func VerifySolution(params Parameters, blocks [][]byte, goal []byte, offset uint
 
 }
 
-func runPuzzle(rounds, blockQty, offset uint32, getBlockFn getBlockFnT) ([]byte, []byte, error) {
-	// XXX: Do we actually need to compute this 'curLoc'?  I think that we can just check that rounds and len(blocks)
+func runPuzzle(rounds, chunkQty, offset uint32, getChunkFn getChunkFnT) ([]byte, []byte, error) {
+	// XXX: Do we actually need to compute this 'curLoc'?  I think that we can just check that rounds and len(chunks)
 	//   are large enough that we'll never return it as prevLoc.
 	// XXX: Is 'location' the best name for curLoc/prevLoc?
 	var curLoc, prevLoc []byte // = hash(startblock, startoffset)
@@ -195,17 +195,17 @@ func runPuzzle(rounds, blockQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 	// that situation the puzzle does not do anything anyhow, so having a predictable secret does not hurt us.
 	curLoc = make([]byte, sha512.Size384)
 
-	for i := uint32(0); i < uint32((rounds*blockQty)-1); i++ {
-		blockIdx := i % blockQty
-		subblock, err := getBlockFn(blockIdx, offset)
+	for i := uint32(0); i < uint32((rounds*chunkQty)-1); i++ {
+		chunkIdx := i % chunkQty
+		piece, err := getChunkFn(chunkIdx, offset)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to get data sub-block")
+			return nil, nil, errors.Wrap(err, "failed to get piece")
 		}
-		// subblock := p.blocks[blockIdx].data[offset*aes.BlockSize : (offset+1)*aes.BlockSize]
-		// assert len(subblock) == aes.BlockSize
+		// piece := p.chunks[chunkIdx].data[offset*aes.BlockSize : (offset+1)*aes.BlockSize]
+		// assert len(piece) == aes.BlockSize
 
 		prevLoc = curLoc
-		digest := sha512.Sum384(append(curLoc, subblock...))
+		digest := sha512.Sum384(append(curLoc, piece...))
 		curLoc = digest[:]
 		offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 	}
@@ -213,8 +213,8 @@ func runPuzzle(rounds, blockQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 	return curLoc, prevLoc, nil
 }
 
-func getCipherBlock(dataBlock []byte, cipherBlockIdx uint32) ([]byte, error) {
-	cipherBlockIdx = cipherBlockIdx % uint32(len(dataBlock)/aes.BlockSize)
-	cipherBlock := dataBlock[cipherBlockIdx*aes.BlockSize : (cipherBlockIdx+1)*aes.BlockSize]
+func getCipherBlock(chunk []byte, cipherBlockIdx uint32) ([]byte, error) {
+	cipherBlockIdx = cipherBlockIdx % uint32(len(chunk)/aes.BlockSize)
+	cipherBlock := chunk[cipherBlockIdx*aes.BlockSize : (cipherBlockIdx+1)*aes.BlockSize]
 	return cipherBlock, nil
 }

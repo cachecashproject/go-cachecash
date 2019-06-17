@@ -139,7 +139,7 @@ The process of satisfying a request
   - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and valid.
     (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A future
     enhancement might require that the publisher fetch only the cipher-blocks that will be used in puzzle generation,
-    instead of all of the cipher-blocks in the data blocks.)
+    instead of all of the cipher-blocks in the chunks.)
 
   - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by the
     publisher.  (Our implementation uses the block's digest.)
@@ -196,7 +196,7 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	// - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and
 	//   valid.  (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A
 	//   future enhancement might require that the publisher fetch only the cipher-blocks that will be used in puzzle
-	//   generation, instead of all of the cipher-blocks in the data blocks.)
+	//   generation, instead of all of the cipher-blocks in the chunks.)
 	p.l.Debug("pulling metadata and blocks into catalog")
 	obj, err := p.catalog.GetData(ctx, &ccmsg.ContentRequest{Path: req.Path})
 	if err != nil {
@@ -214,17 +214,17 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		// TODO: Return 4xx, since this is a bad request from the client.
 		return nil, errors.New("invalid range")
 	}
-	rangeBegin := uint64(req.RangeBegin / obj.PolicyBlockSize())
+	rangeBegin := uint64(req.RangeBegin / obj.PolicyChunkSize())
 
 	// XXX: this doesn't work with empty files
-	if rangeBegin >= uint64(obj.BlockCount()) {
+	if rangeBegin >= uint64(obj.ChunkCount()) {
 		return nil, errors.New("rangeBegin beyond last block")
 	}
 
 	// TODO: Return multiple block-groups if appropriate.
 	rangeEnd := rangeBegin + blocksPerGroup
-	if rangeEnd > uint64(obj.BlockCount()) {
-		rangeEnd = uint64(obj.BlockCount())
+	if rangeEnd > uint64(obj.ChunkCount()) {
+		rangeEnd = uint64(obj.ChunkCount())
 	}
 
 	p.l.WithFields(logrus.Fields{
@@ -235,16 +235,16 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	// - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by
 	// the publisher.  (Our implementation uses the block's digest.)
 	p.l.Debug("mapping block indices into block identifiers")
-	blockIndices := make([]uint64, 0, rangeEnd-rangeBegin)
-	blockIDs := make([]common.BlockID, 0, rangeEnd-rangeBegin)
-	for blockIdx := rangeBegin; blockIdx < rangeEnd; blockIdx++ {
-		blockID, err := p.getBlockID(obj, blockIdx)
+	chunkIndices := make([]uint64, 0, rangeEnd-rangeBegin)
+	chunkIDs := make([]common.ChunkID, 0, rangeEnd-rangeBegin)
+	for chunkIdx := rangeBegin; chunkIdx < rangeEnd; chunkIdx++ {
+		chunkID, err := p.getChunkID(obj, chunkIdx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get block ID")
 		}
 
-		blockIDs = append(blockIDs, blockID)
-		blockIndices = append(blockIndices, blockIdx)
+		chunkIDs = append(chunkIDs, chunkID)
+		chunkIndices = append(chunkIndices, chunkIdx)
 	}
 
 	// - The publisher selects a single escrow that will be used to service the request.
@@ -273,10 +273,10 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		})
 	}
 
-	if len(caches) < len(blockIndices) {
-		return nil, errors.New(fmt.Sprintf("not enough caches: have %v; need %v", len(caches), len(blockIndices)))
+	if len(caches) < len(chunkIndices) {
+		return nil, errors.New(fmt.Sprintf("not enough caches: have %v; need %v", len(caches), len(chunkIndices)))
 	}
-	caches = caches[0:len(blockIndices)]
+	caches = caches[0:len(chunkIndices)]
 
 	// - For each cache, the publisher chooses a logical slot index.  (For details, see documentation on the logical
 	//   cache model.)  This slot index should be consistent between requests for the cache to serve the same block.
@@ -317,18 +317,18 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		ClientPublicKey:   ed25519.PublicKey(req.ClientPublicKey.PublicKey),
 		ObjectID:          objID,
 	}
-	for i, blockIdx := range blockIndices {
+	for i, chunkIdx := range chunkIndices {
 		// XXX: Need this to be non-zero; otherwise all of our blocks collide!
 		bp.Entries = append(bp.Entries, BundleEntryParams{
 			TicketNo: ticketNos[i],
-			BlockIdx: uint32(blockIdx),
-			BlockID:  blockIDs[i],
+			ChunkIdx: uint32(chunkIdx),
+			ChunkID:  chunkIDs[i],
 			Cache:    caches[i],
 		})
 
-		b, err := obj.GetBlock(uint32(blockIdx))
+		b, err := obj.GetChunk(uint32(chunkIdx))
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get data block")
+			return nil, errors.Wrap(err, "failed to get chunk")
 		}
 		bp.PlaintextBlocks = append(bp.PlaintextBlocks, b)
 	}
@@ -347,7 +347,7 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	// Attach metadata.
 	// XXX: This needs to be covered by unit tests.
 	bundle.Metadata = &ccmsg.ObjectMetadata{
-		BlockSize:  obj.PolicyBlockSize(),
+		ChunkSize:  obj.PolicyChunkSize(),
 		ObjectSize: obj.ObjectSize(),
 	}
 
@@ -359,32 +359,32 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	return bundle, nil
 }
 
-func (p *ContentPublisher) assignSlot(path string, blockIdx uint64, blockID uint64) uint64 {
+func (p *ContentPublisher) assignSlot(path string, chunkIdx uint64, chunkID uint64) uint64 {
 	// XXX: should depend on number of slots available to cache, etc.
-	return blockIdx
+	return chunkIdx
 }
 
 // TODO: XXX: Since object policy is, by definition, something that the publisher can set arbitrarily on a per-object
 // basis, this should be the only place that these values are hardcoded.
 func (p *ContentPublisher) objectPolicy(path string) (*catalog.ObjectPolicy, error) {
 	return &catalog.ObjectPolicy{
-		BlockSize: 128 * 1024,
+		ChunkSize: 128 * 1024,
 	}, nil
 }
 
-func (p *ContentPublisher) getBlockID(obj *catalog.ObjectMetadata, blockIdx uint64) (common.BlockID, error) {
-	data, err := obj.GetBlock(uint32(blockIdx))
+func (p *ContentPublisher) getChunkID(obj *catalog.ObjectMetadata, chunkIdx uint64) (common.ChunkID, error) {
+	data, err := obj.GetChunk(uint32(chunkIdx))
 	if err != nil {
-		return common.BlockID{}, errors.Wrap(err, "failed to get block data to generate ID")
+		return common.ChunkID{}, errors.Wrap(err, "failed to get block data to generate ID")
 	}
 
-	var id common.BlockID
+	var id common.ChunkID
 	digest := sha512.Sum384(data)
-	copy(id[:], digest[0:common.BlockIDSize])
+	copy(id[:], digest[0:common.ChunkIDSize])
 
 	p.l.WithFields(logrus.Fields{
-		"blockIdx": blockIdx,
-		"blockID":  id,
+		"chunkIdx": chunkIdx,
+		"chunkID":  id,
 	}).Debug("generating block ID")
 
 	return id, nil
@@ -429,15 +429,15 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 
 	// Select logical cache slot for each block.
 	for i := req.RangeBegin; i < req.RangeEnd; i++ {
-		blockID := i // XXX: Not true!
-		slotIdx := p.assignSlot(path, i, blockID)
+		chunkID := i // XXX: Not true!
+		slotIdx := p.assignSlot(path, i, chunkID)
 		chunk, err := p.catalog.BlockSource(ctx, req, path, objMeta)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get block source")
 		}
 
 		// TODO: we shouldn't need to modify the chunk afterwards
-		// chunk.BlockId = BlockID,
+		// chunk.ChunkId = ChunkID,
 		chunk.SlotIdx = slotIdx
 
 		resp.Chunks = append(resp.Chunks, chunk)
@@ -445,7 +445,7 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 
 	resp.Metadata = &ccmsg.ObjectMetadata{
 		ObjectSize: objMeta.ObjectSize(),
-		BlockSize:  uint64(pol.BlockSize),
+		ChunkSize:  uint64(pol.ChunkSize),
 	}
 
 	return &resp, nil

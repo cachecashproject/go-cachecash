@@ -7,9 +7,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// EncryptBlock encrypts a single plaintext block using AES in the CTR mode.  Unusually, it lets the caller specify the
+// EncryptCipherBlock encrypts a single plaintext block using AES in the CTR mode.  Unusually, it lets the caller specify the
 // counter's value; the counter is added to the IV.
-func EncryptBlock(plaintext []byte, key []byte, iv []byte, counter uint32) ([]byte, error) {
+func EncryptCipherBlock(plaintext []byte, key []byte, iv []byte, counter uint32) ([]byte, error) {
 	if len(plaintext) != aes.BlockSize {
 		return nil, errors.New("cleartext must be exactly one block in length")
 	}

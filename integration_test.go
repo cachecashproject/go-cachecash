@@ -48,7 +48,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 	ctx := context.Background()
 
 	scen, err := testdatagen.GenerateTestScenario(l, &testdatagen.TestScenarioParams{
-		BlockSize:      128 * 1024,
+		ChunkSize:      128 * 1024,
 		ObjectSize:     128 * 1024 * 16,
 		MockUpstream:   true,
 		GenerateObject: true,
@@ -65,11 +65,11 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 	// // scen.Catalog.
 	// l.Infof("pulling metadata into publisher catalog: done")
 	l.Infof("pulling data into publisher catalog: start")
-	for i := 0; i < int(scen.BlockCount()); i++ {
+	for i := 0; i < int(scen.ChunkCount()); i++ {
 		_, err = scen.Catalog.GetData(ctx, &ccmsg.ContentRequest{
 			Path:       "/foo/bar",
-			RangeBegin: uint64(i) * scen.Params.BlockSize,
-			RangeEnd:   uint64(i+1) * scen.Params.BlockSize,
+			RangeBegin: uint64(i) * scen.Params.ChunkSize,
+			RangeEnd:   uint64(i+1) * scen.Params.ChunkSize,
 		})
 		if err != nil {
 			return err
@@ -105,7 +105,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 	fmt.Printf("ticket bundle:\n%s\n", bundleJSON)
 
 	// Exchange request tickets with each cache.
-	var doubleEncryptedBlocks [][]byte
+	var doubleEncryptedChunks [][]byte
 	for i, cache := range caches {
 		msg, err := bundle.BuildClientCacheRequest(bundle.TicketRequest[i])
 		if err != nil {
@@ -120,7 +120,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 		if !ok {
 			return errors.Wrap(err, "unexpected response type from request message")
 		}
-		doubleEncryptedBlocks = append(doubleEncryptedBlocks, subMsg.DataResponse.Data)
+		doubleEncryptedChunks = append(doubleEncryptedChunks, subMsg.DataResponse.Data)
 	}
 
 	// Give each cache its L1 ticket; receive the outer session key for that cache's block in exchange.
@@ -143,10 +143,10 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 	}
 
 	// Decrypt once to reveal singly-encrypted blocks.
-	var singleEncryptedBlocks [][]byte
-	for i, ciphertext := range doubleEncryptedBlocks {
-		plaintext, err := util.EncryptDataBlock(
-			bundle.TicketRequest[i].BlockIdx,
+	var singleEncryptedChunks [][]byte
+	for i, ciphertext := range doubleEncryptedChunks {
+		plaintext, err := util.EncryptChunk(
+			bundle.TicketRequest[i].ChunkIdx,
 			bundle.Remainder.RequestSequenceNo,
 			outerSessionKeys[i].Key,
 			ciphertext)
@@ -154,7 +154,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 			return errors.Wrap(err, "failed to decrypt doubly-encrypted block")
 		}
 
-		singleEncryptedBlocks = append(singleEncryptedBlocks, plaintext)
+		singleEncryptedChunks = append(singleEncryptedChunks, plaintext)
 	}
 
 	// Solve colocation puzzle.
@@ -163,7 +163,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 		Rounds:      pi.Rounds,
 		StartOffset: uint32(pi.StartOffset),
 		StartRange:  uint32(pi.StartRange),
-	}, singleEncryptedBlocks, pi.Goal)
+	}, singleEncryptedChunks, pi.Goal)
 	if err != nil {
 		return err
 	}
@@ -197,23 +197,23 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 		_ = subMsg
 	}
 
-	// Decrypt singly-encrypted data blocks to reveal plaintext data.
-	var plaintextBlocks [][]byte
-	for i, ciphertext := range doubleEncryptedBlocks {
-		plaintext, err := util.EncryptDataBlock(
-			bundle.TicketRequest[i].BlockIdx,
+	// Decrypt singly-encrypted chunks to reveal plaintext data.
+	var plaintextChunks [][]byte
+	for i, ciphertext := range doubleEncryptedChunks {
+		plaintext, err := util.EncryptChunk(
+			bundle.TicketRequest[i].ChunkIdx,
 			bundle.Remainder.RequestSequenceNo,
 			ticketL2.InnerSessionKey[i].Key,
 			ciphertext)
 		if err != nil {
 			return errors.Wrap(err, "failed to decrypt singly-encrypted block")
 		}
-		plaintextBlocks = append(plaintextBlocks, plaintext)
+		plaintextChunks = append(plaintextChunks, plaintext)
 	}
 
 	// Verify that the plaintext data the client has received matches what the publisher and caches have.
-	for i, b := range plaintextBlocks {
-		expected := scen.DataBlocks[bundle.TicketRequest[i].BlockIdx]
+	for i, b := range plaintextChunks {
+		expected := scen.Chunks[bundle.TicketRequest[i].ChunkIdx]
 		if !bytes.Equal(expected, b) {
 			return errors.New("plaintext data received by client does not match expected value")
 		}

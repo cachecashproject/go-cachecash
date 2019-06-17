@@ -69,7 +69,7 @@ func (r *FetchResult) ObjectSize() (int, error) {
 
 type Upstream interface {
 	// FetchData ensures that metadata is fresh, and also that the indicated blocks are available in the cache.  An
-	// empty list of block indices is allowed; this ensures metadata freshness but does not pull any data blocks.
+	// empty list of block indices is allowed; this ensures metadata freshness but does not pull any chunks.
 	//
 	// forceMetadata requires that object metadata be fetched even if it would not otherwise be fetched.
 	//

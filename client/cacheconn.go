@@ -106,14 +106,14 @@ func (cc *cacheConnection) requestBlock(ctx context.Context, b *blockRequest) er
 		return errors.Wrap(err, "failed to build client-cache request")
 	}
 	tt := common.StartTelemetryTimer(cc.l, "getBlock")
-	msgData, err := cc.grpcClient.GetBlock(ctx, reqData)
+	msgData, err := cc.grpcClient.GetChunk(ctx, reqData)
 	if err != nil {
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
 	tt.Stop()
 	cc.l.WithFields(logrus.Fields{
 		"cache":    cc.pubkey,
-		"blockIdx": b.bundle.TicketRequest[b.idx].BlockIdx,
+		"chunkIdx": b.bundle.TicketRequest[b.idx].ChunkIdx,
 		"len":      len(msgData.Data),
 	}).Info("got data response from cache")
 
@@ -131,8 +131,8 @@ func (cc *cacheConnection) requestBlock(ctx context.Context, b *blockRequest) er
 	cc.l.WithField("cache", cc.pubkey).Info("got L1 response from cache")
 
 	// Decrypt data.
-	encData, err := util.EncryptDataBlock(
-		b.bundle.TicketRequest[b.idx].BlockIdx,
+	encData, err := util.EncryptChunk(
+		b.bundle.TicketRequest[b.idx].ChunkIdx,
 		b.bundle.Remainder.RequestSequenceNo,
 		msgL1.OuterKey.Key,
 		msgData.Data)

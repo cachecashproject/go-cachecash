@@ -15,7 +15,7 @@ import (
 
 /*
 
-- The publisher can decide how each object is split into blocks; the cache must accept whatever decision the publisher
+- The publisher can decide how each object is split into chunks; the cache must accept whatever decision the publisher
   made.
 
 - The publisher won't use a CacheCash upstream; caches may be told to.
@@ -25,7 +25,7 @@ Things that need to be extended here:
 - Upstream may not be HTTP.  Need interface.
 - Fetches may time out or return transient/permanent errors.
 - Periodically, we need to revalidate the metadata (and data) we have.
-- Once we know that metadata is valid, we need to fetch any necessary blocks.
+- Once we know that metadata is valid, we need to fetch any necessary chunks.
   This will need the same coalescing logic.
 
 */
@@ -33,9 +33,9 @@ Things that need to be extended here:
 type ObjectMetadata struct {
 	c *catalog
 
-	// blockStrategy describes how the object has been split into blocks.  This is necessary to map byte positions into
-	// block positions and vice versa.
-	// blockStrategy ...
+	// chunkStrategy describes how the object has been split into chunks.  This is necessary to map byte positions into
+	// chunk positions and vice versa.
+	// chunkStrategy ...
 
 	Status      ObjectStatus
 	LastUpdate  time.Time
@@ -51,42 +51,42 @@ type ObjectMetadata struct {
 	// Covered by `mu`.
 	policy   *ObjectPolicy
 	metadata *ccmsg.ObjectMetadata
-	blocks   [][]byte
+	chunks   [][]byte
 }
 
-// ObjectPolicy contains publisher-determined metadata such as block size.  This is distinct from ccmsg.ObjectMetadata,
+// ObjectPolicy contains publisher-determined metadata such as chunk size.  This is distinct from ccmsg.ObjectMetadata,
 // which contains metadata cached from the upstream.
 type ObjectPolicy struct {
-	BlockSize            int
+	ChunkSize            int
 	DefaultCacheDuration time.Duration
 }
 
-func (policy *ObjectPolicy) ChunkIntoBlocks(buf []byte) [][]byte {
-	blockSize := policy.BlockSize
+func (policy *ObjectPolicy) SplitIntoChunks(buf []byte) [][]byte {
+	chunkSize := policy.ChunkSize
 
-	var block []byte
-	blockCount := BlockCount(uint64(len(buf)), blockSize)
-	blocks := make([][]byte, 0, blockCount)
+	var chunk []byte
+	chunkCount := ChunkCount(uint64(len(buf)), chunkSize)
+	chunks := make([][]byte, 0, chunkCount)
 
-	for len(buf) >= blockSize {
-		block, buf = buf[:blockSize], buf[blockSize:]
-		blocks = append(blocks, block)
+	for len(buf) >= chunkSize {
+		chunk, buf = buf[:chunkSize], buf[chunkSize:]
+		chunks = append(chunks, chunk)
 	}
 
 	// doing this afterwards so we don't need to branch inside the loop
 	if len(buf) > 0 {
-		blocks = append(blocks, buf)
+		chunks = append(chunks, buf)
 	}
 
-	return blocks
+	return chunks
 }
 
 func newObjectMetadata(c *catalog) *ObjectMetadata {
 	return &ObjectMetadata{
 		c:      c,
-		blocks: make([][]byte, 0),
+		chunks: make([][]byte, 0),
 		policy: &ObjectPolicy{
-			BlockSize:            128 * 1024,      // Fixed 128 KiB block size.  XXX: Don't hardwire this!
+			ChunkSize:            128 * 1024,      // Fixed 128 KiB chunk size.  XXX: Don't hardwire this!
 			DefaultCacheDuration: 5 * time.Minute, // XXX: Don't hardwire this!
 		},
 	}
@@ -117,76 +117,76 @@ func (m *ObjectMetadata) Fresh() bool {
 	return false
 }
 
-func (m *ObjectMetadata) PolicyBlockSize() uint64 {
-	return uint64(m.policy.BlockSize)
+func (m *ObjectMetadata) PolicyChunkSize() uint64 {
+	return uint64(m.policy.ChunkSize)
 }
 
-// BlockSize returns the size of a particular data block in bytes.
-// N.B.: It's important that this return the actual size of the indicated block; otherwise, if we are generating a
-//   puzzle that includes the last block in an object (which may be shorter than PolicyBlockSize() would suggest)
+// ChunkSize returns the size of a particular chunk in bytes.
+// N.B.: It's important that this return the actual size of the indicated chunk; otherwise, if we are generating a
+//   puzzle that includes the last chunk in an object (which may be shorter than PolicyChunkSize() would suggest)
 //   the colocation puzzle code may generate unsolvable puzzles (e.g. when the initial offset is chosen to be past
-//   the end of the actual block).
-func (m *ObjectMetadata) BlockSize(dataBlockIdx uint32) (int, error) {
+//   the end of the actual chunk).
+func (m *ObjectMetadata) ChunkSize(chunkIdx uint32) (int, error) {
 	// XXX: More integer-typecasting nonsense.  Straighten this out!
-	s := int(m.metadata.ObjectSize) - (int(m.policy.BlockSize) * int(dataBlockIdx))
-	if s > m.policy.BlockSize {
-		s = m.policy.BlockSize
+	s := int(m.metadata.ObjectSize) - (int(m.policy.ChunkSize) * int(chunkIdx))
+	if s > m.policy.ChunkSize {
+		s = m.policy.ChunkSize
 	}
 	return s, nil
 }
 
-func (m *ObjectMetadata) GetBlock(dataBlockIdx uint32) ([]byte, error) {
+func (m *ObjectMetadata) GetChunk(chunkIdx uint32) ([]byte, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	return m.getBlock(dataBlockIdx)
+	return m.getChunk(chunkIdx)
 }
 
-func (m *ObjectMetadata) getBlock(dataBlockIdx uint32) ([]byte, error) {
-	if int(dataBlockIdx) >= len(m.blocks) || m.blocks[dataBlockIdx] == nil {
-		return nil, errors.New("block not in cache")
+func (m *ObjectMetadata) getChunk(chunkIdx uint32) ([]byte, error) {
+	if int(chunkIdx) >= len(m.chunks) || m.chunks[chunkIdx] == nil {
+		return nil, errors.New("chunk not in cache")
 	}
 
-	return m.blocks[dataBlockIdx], nil
+	return m.chunks[chunkIdx], nil
 }
 
-func (m *ObjectMetadata) BlockRange(rangeBegin uint64, rangeEnd uint64) ([][]byte, error) {
-	if int(rangeEnd) > len(m.blocks) {
-		return nil, errors.New("block end out of range")
+func (m *ObjectMetadata) ChunkRange(rangeBegin uint64, rangeEnd uint64) ([][]byte, error) {
+	if int(rangeEnd) > len(m.chunks) {
+		return nil, errors.New("chunk end out of range")
 	} else if rangeEnd == 0 {
-		rangeEnd = uint64(len(m.blocks))
+		rangeEnd = uint64(len(m.chunks))
 	}
-	return m.blocks[rangeBegin:rangeEnd], nil
+	return m.chunks[rangeBegin:rangeEnd], nil
 }
 
-func BlockCount(size uint64, blockSize int) int {
-	return int(math.Ceil(float64(size) / float64(blockSize)))
+func ChunkCount(size uint64, chunkSize int) int {
+	return int(math.Ceil(float64(size) / float64(chunkSize)))
 }
 
-// BlockCount returns the number of blocks in this object.
+// ChunkCount returns the number of chunks in this object.
 // XXX: This is a problem; m.metadata may be nil if we don't know anything about the object.
-func (m *ObjectMetadata) BlockCount() int {
-	return BlockCount(m.metadata.ObjectSize, m.policy.BlockSize)
+func (m *ObjectMetadata) ChunkCount() int {
+	return ChunkCount(m.metadata.ObjectSize, m.policy.ChunkSize)
 }
 
 func (m *ObjectMetadata) ObjectSize() uint64 {
 	return m.metadata.ObjectSize
 }
 
-// Converts a byte range to a block range.  An end value of 0, which indicates that the range continues to the end of
+// Converts a byte range to a chunk range.  An end value of 0, which indicates that the range continues to the end of
 // the object, converts to a 0.
-func (m *ObjectMetadata) blockRange(rangeBegin, rangeEnd uint64) (uint64, uint64) {
-	blockRangeBegin := rangeBegin / uint64(m.policy.BlockSize)
+func (m *ObjectMetadata) chunkRange(rangeBegin, rangeEnd uint64) (uint64, uint64) {
+	chunkRangeBegin := rangeBegin / uint64(m.policy.ChunkSize)
 
-	var blockRangeEnd uint64
+	var chunkRangeEnd uint64
 	if rangeEnd != 0 {
-		blockRangeEnd = uint64(math.Ceil(float64(rangeEnd) / float64(m.policy.BlockSize)))
+		chunkRangeEnd = uint64(math.Ceil(float64(rangeEnd) / float64(m.policy.ChunkSize)))
 	}
 
-	return blockRangeBegin, blockRangeEnd
+	return chunkRangeBegin, chunkRangeEnd
 }
 
-// ensureFresh ensures that the object's metadata is valid (i.e. has not changed/expired), and that the block(s)
+// ensureFresh ensures that the object's metadata is valid (i.e. has not changed/expired), and that the chunk(s)
 // described by req are present in cache.
 func (m *ObjectMetadata) ensureFresh(ctx context.Context, req *ccmsg.ContentRequest) error {
 	m.mu.Lock()
@@ -232,8 +232,8 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	blockRangeBegin, blockRangeEnd := m.blockRange(req.RangeBegin, req.RangeEnd)
-	log.Debugf("fetchData for requested blockRange [%v, %v]", blockRangeBegin, blockRangeEnd)
+	chunkRangeBegin, chunkRangeEnd := m.chunkRange(req.RangeBegin, req.RangeEnd)
+	log.Debugf("fetchData for requested chunkRange [%v, %v]", chunkRangeBegin, chunkRangeEnd)
 
 	// Populate metadata.
 	if m.metadata == nil {
@@ -252,9 +252,9 @@ func (m *ObjectMetadata) fetchData(ctx context.Context, req *ccmsg.ContentReques
 
 	switch r.status {
 	case StatusOK:
-		log.Debugln("fetchData - got response, slicing into blocks")
-		m.blocks = m.policy.ChunkIntoBlocks(r.data)
-		log.Debugf("fetchData - populated cache with %v blocks", len(m.blocks))
+		log.Debugln("fetchData - got response, slicing into chunks")
+		m.chunks = m.policy.SplitIntoChunks(r.data)
+		log.Debugf("fetchData - populated cache with %v chunks", len(m.chunks))
 
 		size, err := r.ObjectSize()
 		if err != nil {

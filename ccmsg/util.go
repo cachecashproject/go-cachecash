@@ -67,6 +67,6 @@ func (a *NetworkAddress) ConnectionString() string {
 	return ""
 }
 
-func (m *ObjectMetadata) BlockCount() uint64 {
-	return uint64(math.Ceil(float64(m.ObjectSize) / float64(m.BlockSize)))
+func (m *ObjectMetadata) ChunkCount() uint64 {
+	return uint64(math.Ceil(float64(m.ObjectSize) / float64(m.ChunkSize)))
 }

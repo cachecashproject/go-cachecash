@@ -37,7 +37,7 @@ type cacheID string
 
 type blockGroup struct {
 	data     [][]byte
-	blockIdx []uint64
+	chunkIdx []uint64
 	metadata *ccmsg.ObjectMetadata
 }
 
@@ -117,14 +117,14 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 		}
 
 		for i, d := range bg.data {
-			if bg.blockIdx[i] != rangeBegin+uint64(i) {
+			if bg.chunkIdx[i] != rangeBegin+uint64(i) {
 				return nil, fmt.Errorf("block at position %v has index %v, but expected %v",
-					i, bg.blockIdx[i], rangeBegin+uint64(i))
+					i, bg.chunkIdx[i], rangeBegin+uint64(i))
 			}
 			cl.l.WithFields(logrus.Fields{
 				"len(outputBuffer)": len(data),
 				"len(newBlock)":     len(d),
-			}).Debug("appending data block to output buffer")
+			}).Debug("appending chunk to output buffer")
 			data = append(data, d...)
 		}
 
@@ -219,10 +219,10 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 	// Decrypt singly-encrypted blocks to produce final plaintext.
 	tt = common.StartTelemetryTimer(cl.l, "decryptData")
 	var plaintextBlocks [][]byte
-	var blockIdx []uint64
+	var chunkIdx []uint64
 	for i, ciphertext := range singleEncryptedBlocks {
-		plaintext, err := util.EncryptDataBlock(
-			bundle.TicketRequest[i].BlockIdx,
+		plaintext, err := util.EncryptChunk(
+			bundle.TicketRequest[i].ChunkIdx,
 			bundle.Remainder.RequestSequenceNo,
 			ticketL2.InnerSessionKey[i].Key,
 			ciphertext)
@@ -230,7 +230,7 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 			return nil, errors.Wrap(err, "failed to decrypt singly-encrypted block")
 		}
 		plaintextBlocks = append(plaintextBlocks, plaintext)
-		blockIdx = append(blockIdx, bundle.TicketRequest[i].BlockIdx)
+		chunkIdx = append(chunkIdx, bundle.TicketRequest[i].ChunkIdx)
 	}
 	tt.Stop()
 
@@ -238,7 +238,7 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 	cl.l.Info("block-group fetch completed without error")
 	return &blockGroup{
 		data:     plaintextBlocks,
-		blockIdx: blockIdx,
+		chunkIdx: chunkIdx,
 		metadata: bundle.Metadata,
 	}, nil
 }

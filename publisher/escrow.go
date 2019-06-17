@@ -99,8 +99,8 @@ type BundleParams struct {
 
 type BundleEntryParams struct {
 	TicketNo uint64
-	BlockIdx uint32
-	BlockID  common.BlockID
+	ChunkIdx uint32
+	ChunkID  common.ChunkID
 	Cache    ParticipatingCache
 }
 
@@ -138,7 +138,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 	}
 
 	if len(bp.Entries) == 0 {
-		return nil, errors.New("must serve client at least one block")
+		return nil, errors.New("must serve client at least one chunk")
 	}
 
 	// Generate inner keys (one per cache) using our keyed PRF.
@@ -151,22 +151,22 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 		}
 		innerKeys = append(innerKeys, k)
 
-		iv, err := util.KeyedPRF(util.Uint64ToLE(uint64(bep.BlockIdx)), uint32(bp.RequestSequenceNo), k)
+		iv, err := util.KeyedPRF(util.Uint64ToLE(uint64(bep.ChunkIdx)), uint32(bp.RequestSequenceNo), k)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate inner IV")
 		}
 		innerIVs = append(innerIVs, iv)
 	}
 
-	blockIndices := make([]uint32, len(bp.Entries))
+	chunkIndices := make([]uint32, len(bp.Entries))
 	for i := 0; i < len(bp.Entries); i++ {
 		bep := bp.Entries[i]
-		blockIndices[i] = bep.BlockIdx
+		chunkIndices[i] = bep.ChunkIdx
 
 		// Generate a ticket-request for each cache.
 		resp.TicketRequest = append(resp.TicketRequest, &ccmsg.TicketRequest{
-			BlockIdx:       uint64(bep.BlockIdx),
-			BlockId:        bep.BlockID[:],
+			ChunkIdx:       uint64(bep.ChunkIdx),
+			ChunkId:        bep.ChunkID[:],
 			CachePublicKey: cachecash.PublicKeyMessage(bep.Cache.PublicKey()),
 
 			// XXX: Why is 'inner_key' in this message?  Regardless, we need the submessage not to be nil, or we'll get
@@ -194,7 +194,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 
 	// Generate a colocation puzzle for the client to solve.
 	gen.l.WithFields(logrus.Fields{
-		"blockIdx": blockIndices,
+		"chunkIdx": chunkIndices,
 	}).Info("generating puzzle")
 	puzzle, err := colocationpuzzle.Generate(*gen.PuzzleParams, bp.PlaintextBlocks, innerKeys, innerIVs)
 	if err != nil {

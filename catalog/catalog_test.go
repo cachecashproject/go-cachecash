@@ -21,7 +21,7 @@ import (
 
 const (
 	dataSeed  = 0xDEADBEEF
-	blockSize = 128 * 1024 // in bytes; used to generate ObjectPolicy structs
+	chunkSize = 128 * 1024 // in bytes; used to generate ObjectPolicy structs
 )
 
 type CatalogTestSuite struct {
@@ -33,7 +33,7 @@ type CatalogTestSuite struct {
 	clock clockwork.FakeClock
 
 	upstreamResponseDelay time.Duration
-	blockSize             int
+	chunkSize             int
 	objectData            []byte
 	policy                ObjectPolicy
 
@@ -52,11 +52,11 @@ func (suite *CatalogTestSuite) SetupTest() {
 	suite.l.SetLevel(logrus.DebugLevel)
 	suite.clock = clockwork.NewFakeClock()
 
-	suite.objectData = testutil.RandBytesFromSource(rand.NewSource(dataSeed), 4*blockSize)
+	suite.objectData = testutil.RandBytesFromSource(rand.NewSource(dataSeed), 4*chunkSize)
 	suite.upstreamRequestQty = 0
-	suite.blockSize = 128 * 1024 // TODO: Ensure this is used everywhere.
+	suite.chunkSize = 128 * 1024 // TODO: Ensure this is used everywhere.
 	suite.policy = ObjectPolicy{
-		BlockSize: suite.blockSize,
+		ChunkSize: suite.chunkSize,
 	}
 
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
@@ -407,7 +407,7 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 
 	// XXX: TODO: These fields are not yet populated.
 	// // Test that slot_idx and block_id contain enough elements to cover the entire object.
-	// expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
+	// expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
 	// assert.Equal(t, expectedBlockCount, len(resp.BlockId))
 	// assert.Equal(t, expectedBlockCount, len(resp.SlotIdx))
 
@@ -416,7 +416,7 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 	// // TODO: Other fields, such as etag/last_modified, are not yet implemented.
 	// assert.NotNil(t, resp.Metadata)
 	// assert.Equal(t, uint64(len(suite.objectData)), resp.Metadata.ObjectSize)
-	// assert.Equal(t, uint64(suite.blockSize), resp.Metadata.BlockSize)
+	// assert.Equal(t, uint64(suite.chunkSize), resp.Metadata.ChunkSize)
 
 	switch blockSource {
 	case BlockSourceInline:
@@ -430,7 +430,7 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 			t.Fatalf("failed to cast expected blocksource result")
 		}
 
-		assert.Equal(t, expectedSrc.Block, bsrc.Inline.Block)
+		assert.Equal(t, expectedSrc.Chunk, bsrc.Inline.Chunk)
 	case BlockSourceHTTP:
 		bsrc, ok := chunk.Source.(*ccmsg.Chunk_Http)
 		if !ok {
@@ -453,7 +453,7 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 func (suite *CatalogTestSuite) TestBlockSource_Inline_WholeObject() {
 	suite.testBlockSource(&ccmsg.CacheMissRequest{}, BlockSourceInline,
 		&ccmsg.BlockSourceInline{
-			Block: suite.policy.ChunkIntoBlocks(suite.objectData[:]),
+			Chunk: suite.policy.SplitIntoChunks(suite.objectData[:]),
 		})
 }
 
@@ -471,7 +471,7 @@ func (suite *CatalogTestSuite) TestBlockSource_Inline_FirstBlock() {
 		RangeBegin: 0,
 		RangeEnd:   1,
 	}, BlockSourceInline, &ccmsg.BlockSourceInline{
-		Block: suite.policy.ChunkIntoBlocks(suite.objectData[:blockSize]),
+		Chunk: suite.policy.SplitIntoChunks(suite.objectData[:chunkSize]),
 	})
 }
 
@@ -482,7 +482,7 @@ func (suite *CatalogTestSuite) TestBlockSource_HTTP_FirstBlock() {
 	}, BlockSourceHTTP, &ccmsg.BlockSourceHTTP{
 		Url:        suite.ts.URL + "/foo/bar",
 		RangeBegin: 0,
-		RangeEnd:   uint64(suite.blockSize),
+		RangeEnd:   uint64(suite.chunkSize),
 	})
 }
 
@@ -490,16 +490,16 @@ func (suite *CatalogTestSuite) TestBlockSource_HTTP_FirstBlock() {
 // the block would end were it full-size.
 func (suite *CatalogTestSuite) TestBlockSource_Inline_PartialFinalBlock() {
 	// Remove the last half-block.
-	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.blockSize/2)]
+	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.chunkSize/2)]
 
-	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
+	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
 
-	blocks := suite.policy.ChunkIntoBlocks(suite.objectData[:])
+	chunks := suite.policy.SplitIntoChunks(suite.objectData[:])
 	suite.testBlockSource(&ccmsg.CacheMissRequest{
 		RangeBegin: uint64(expectedBlockCount - 1),
 		RangeEnd:   uint64(expectedBlockCount),
 	}, BlockSourceInline, &ccmsg.BlockSourceInline{
-		Block: blocks[len(blocks)-1:],
+		Chunk: chunks[len(chunks)-1:],
 	})
 }
 
@@ -507,18 +507,18 @@ func (suite *CatalogTestSuite) TestBlockSource_Inline_PartialFinalBlock() {
 // the block would end were it full-size.
 func (suite *CatalogTestSuite) TestBlockSource_HTTP_PartialFinalBlock() {
 	// Remove the last half-block.
-	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.blockSize/2)]
+	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.chunkSize/2)]
 
-	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
+	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
 
 	suite.testBlockSource(&ccmsg.CacheMissRequest{
 		RangeBegin: uint64(expectedBlockCount - 1),
 		RangeEnd:   uint64(expectedBlockCount),
 	}, BlockSourceHTTP, &ccmsg.BlockSourceHTTP{
 		Url:        suite.ts.URL + "/foo/bar",
-		RangeBegin: uint64((expectedBlockCount - 1) * suite.blockSize),
+		RangeBegin: uint64((expectedBlockCount - 1) * suite.chunkSize),
 		RangeEnd:   uint64(len(suite.objectData)),
 	})
 }
 
-// TODO: Test with different blockSize.  See issue #17.
+// TODO: Test with different chunkSize.  See issue #17.

@@ -26,7 +26,7 @@ type LogicalCacheMapping struct {
 	Txid          common.EscrowID `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
 	SlotIdx       uint64          `boil:"slot_idx" json:"slot_idx" toml:"slot_idx" yaml:"slot_idx"`
 	BlockEscrowID string          `boil:"block_escrow_id" json:"block_escrow_id" toml:"block_escrow_id" yaml:"block_escrow_id"`
-	BlockID       common.BlockID  `boil:"block_id" json:"block_id" toml:"block_id" yaml:"block_id"`
+	ChunkID       common.ChunkID  `boil:"chunk_id" json:"chunk_id" toml:"chunk_id" yaml:"chunk_id"`
 
 	R *logicalCacheMappingR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L logicalCacheMappingL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -36,34 +36,34 @@ var LogicalCacheMappingColumns = struct {
 	Txid          string
 	SlotIdx       string
 	BlockEscrowID string
-	BlockID       string
+	ChunkID       string
 }{
 	Txid:          "txid",
 	SlotIdx:       "slot_idx",
 	BlockEscrowID: "block_escrow_id",
-	BlockID:       "block_id",
+	ChunkID:       "chunk_id",
 }
 
 // Generated where
 
-type whereHelpercommon_BlockID struct{ field string }
+type whereHelpercommon_ChunkID struct{ field string }
 
-func (w whereHelpercommon_BlockID) EQ(x common.BlockID) qm.QueryMod {
+func (w whereHelpercommon_ChunkID) EQ(x common.ChunkID) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.EQ, x)
 }
-func (w whereHelpercommon_BlockID) NEQ(x common.BlockID) qm.QueryMod {
+func (w whereHelpercommon_ChunkID) NEQ(x common.ChunkID) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.NEQ, x)
 }
-func (w whereHelpercommon_BlockID) LT(x common.BlockID) qm.QueryMod {
+func (w whereHelpercommon_ChunkID) LT(x common.ChunkID) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
-func (w whereHelpercommon_BlockID) LTE(x common.BlockID) qm.QueryMod {
+func (w whereHelpercommon_ChunkID) LTE(x common.ChunkID) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
-func (w whereHelpercommon_BlockID) GT(x common.BlockID) qm.QueryMod {
+func (w whereHelpercommon_ChunkID) GT(x common.ChunkID) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
-func (w whereHelpercommon_BlockID) GTE(x common.BlockID) qm.QueryMod {
+func (w whereHelpercommon_ChunkID) GTE(x common.ChunkID) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
@@ -71,12 +71,12 @@ var LogicalCacheMappingWhere = struct {
 	Txid          whereHelpercommon_EscrowID
 	SlotIdx       whereHelperuint64
 	BlockEscrowID whereHelperstring
-	BlockID       whereHelpercommon_BlockID
+	ChunkID       whereHelpercommon_ChunkID
 }{
 	Txid:          whereHelpercommon_EscrowID{field: `txid`},
 	SlotIdx:       whereHelperuint64{field: `slot_idx`},
 	BlockEscrowID: whereHelperstring{field: `block_escrow_id`},
-	BlockID:       whereHelpercommon_BlockID{field: `block_id`},
+	ChunkID:       whereHelpercommon_ChunkID{field: `chunk_id`},
 }
 
 // LogicalCacheMappingRels is where relationship names are stored.
@@ -96,8 +96,8 @@ func (*logicalCacheMappingR) NewStruct() *logicalCacheMappingR {
 type logicalCacheMappingL struct{}
 
 var (
-	logicalCacheMappingColumns               = []string{"txid", "slot_idx", "block_escrow_id", "block_id"}
-	logicalCacheMappingColumnsWithoutDefault = []string{"txid", "slot_idx", "block_escrow_id", "block_id"}
+	logicalCacheMappingColumns               = []string{"txid", "slot_idx", "block_escrow_id", "chunk_id"}
+	logicalCacheMappingColumnsWithoutDefault = []string{"txid", "slot_idx", "block_escrow_id", "chunk_id"}
 	logicalCacheMappingColumnsWithDefault    = []string{}
 	logicalCacheMappingPrimaryKeyColumns     = []string{"txid", "slot_idx"}
 )

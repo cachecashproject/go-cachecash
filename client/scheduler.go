@@ -18,7 +18,7 @@ type fetchGroup struct {
 func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGroup) {
 	defer close(queue)
 
-	var blockSize uint64
+	var chunkSize uint64
 	var rangeBegin uint64
 
 	minimumBacklogDepth := 0
@@ -27,7 +27,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 
 	for {
 		cl.l.Info("requesting bundle")
-		bundle, err := cl.requestBundle(ctx, path, rangeBegin*blockSize)
+		bundle, err := cl.requestBundle(ctx, path, rangeBegin*chunkSize)
 		if err != nil {
 			cl.l.Error("failed to fetch block-group at offset ", rangeBegin, ": ", err)
 			break
@@ -84,11 +84,11 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			queue <- fetchGroup
 			rangeBegin += uint64(chunks)
 
-			if rangeBegin >= bundle.Metadata.BlockCount() {
+			if rangeBegin >= bundle.Metadata.ChunkCount() {
 				cl.l.Info("got all bundles")
 				break
 			}
-			blockSize = bundle.Metadata.BlockSize
+			chunkSize = bundle.Metadata.ChunkSize
 
 			minimumBacklogDepth = int(bundle.MinimumBacklogDepth)
 			bundleRequestInterval = int(bundle.BundleRequestInterval)

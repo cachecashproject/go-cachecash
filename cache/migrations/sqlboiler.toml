@@ -37,9 +37,9 @@
 
 [[types]]
   [types.match]
-    name = "block_id"
+    name = "chunk_id"
   [types.replace]
-    type = "common.BlockID"
+    type = "common.ChunkID"
   [types.imports]
     third_party = ['"github.com/cachecashproject/go-cachecash/common"']
 

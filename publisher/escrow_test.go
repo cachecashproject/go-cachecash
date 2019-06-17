@@ -111,8 +111,8 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 		Escrow:            suite.escrow,
 		ObjectID:          objectID,
 		Entries: []BundleEntryParams{
-			{TicketNo: 0, BlockIdx: 0, Cache: caches[0]},
-			{TicketNo: 1, BlockIdx: 1, Cache: caches[1]},
+			{TicketNo: 0, ChunkIdx: 0, Cache: caches[0]},
+			{TicketNo: 1, ChunkIdx: 1, Cache: caches[1]},
 		},
 		PlaintextBlocks: plaintextBlocks,
 	}

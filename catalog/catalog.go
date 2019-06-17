@@ -43,7 +43,7 @@ func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, 
 	switch c.blockSource {
 	case BlockSourceInline:
 
-		block, err := metadata.BlockRange(req.RangeBegin, req.RangeEnd)
+		chunk, err := metadata.ChunkRange(req.RangeBegin, req.RangeEnd)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +51,7 @@ func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, 
 		return &ccmsg.Chunk{
 			Source: &ccmsg.Chunk_Inline{
 				Inline: &ccmsg.BlockSourceInline{
-					Block: block,
+					Chunk: chunk,
 				},
 			},
 		}, nil
@@ -68,7 +68,7 @@ func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, 
 
 		var rangeEnd uint64
 		if req.RangeEnd != 0 {
-			rangeEnd = req.RangeEnd * uint64(metadata.policy.BlockSize)
+			rangeEnd = req.RangeEnd * uint64(metadata.policy.ChunkSize)
 
 			if rangeEnd > metadata.ObjectSize() {
 				rangeEnd = metadata.ObjectSize()
@@ -79,7 +79,7 @@ func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, 
 			Source: &ccmsg.Chunk_Http{
 				Http: &ccmsg.BlockSourceHTTP{
 					Url:        u,
-					RangeBegin: req.RangeBegin * uint64(metadata.policy.BlockSize),
+					RangeBegin: req.RangeBegin * uint64(metadata.policy.ChunkSize),
 					RangeEnd:   rangeEnd,
 				},
 			},

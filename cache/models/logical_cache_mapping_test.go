@@ -570,7 +570,7 @@ func testLogicalCacheMappingsSelect(t *testing.T) {
 }
 
 var (
-	logicalCacheMappingDBTypes = map[string]string{`Txid`: `BYTEA`, `SlotIdx`: `BIGINT`, `BlockEscrowID`: `BYTEA`, `BlockID`: `BYTEA`}
+	logicalCacheMappingDBTypes = map[string]string{`Txid`: `BYTEA`, `SlotIdx`: `BIGINT`, `BlockEscrowID`: `BYTEA`, `ChunkID`: `BYTEA`}
 	_                          = bytes.MinRead
 )
 
