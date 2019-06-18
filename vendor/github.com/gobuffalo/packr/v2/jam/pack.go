@@ -11,7 +11,6 @@ import (
 	"github.com/gobuffalo/packr/v2/jam/parser"
 	"github.com/gobuffalo/packr/v2/jam/store"
 	"github.com/gobuffalo/packr/v2/plog"
-	"github.com/pkg/errors"
 )
 
 // PackOptions ...
@@ -20,29 +19,36 @@ type PackOptions struct {
 	Legacy        bool
 	StoreCmd      string
 	Roots         []string
+	RootsOptions  *parser.RootsOptions
 }
 
 // Pack the roots given + PWD
 func Pack(opts PackOptions) error {
 	pwd, err := os.Getwd()
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	opts.Roots = append(opts.Roots, pwd)
 	if err := Clean(opts.Roots...); err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
-	p, err := parser.NewFromRoots(opts.Roots, &parser.RootsOptions{
-		IgnoreImports: opts.IgnoreImports,
-	})
+	if opts.RootsOptions == nil {
+		opts.RootsOptions = &parser.RootsOptions{}
+	}
+
+	if opts.IgnoreImports {
+		opts.RootsOptions.IgnoreImports = true
+	}
+
+	p, err := parser.NewFromRoots(opts.Roots, opts.RootsOptions)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 	boxes, err := p.Run()
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	// reduce boxes - remove ones we don't want
@@ -67,7 +73,7 @@ func Pack(opts PackOptions) error {
 			continue
 		}
 		if err := st.Pack(b); err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 	}
 	if cl, ok := st.(io.Closer); ok {
@@ -80,7 +86,7 @@ func Pack(opts PackOptions) error {
 func ShellPack(opts PackOptions, boxes parser.Boxes) error {
 	b, err := json.Marshal(boxes)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -95,12 +101,12 @@ func ShellPack(opts PackOptions, boxes parser.Boxes) error {
 func Clean(args ...string) error {
 	pwd, err := os.Getwd()
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 	args = append(args, pwd)
 	for _, root := range args {
 		if err := store.Clean(root); err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 	}
 	return nil

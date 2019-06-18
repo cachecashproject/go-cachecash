@@ -3,7 +3,6 @@ package store
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/md5"
 	"fmt"
 	"go/build"
@@ -19,15 +18,14 @@ import (
 	"sync"
 
 	"github.com/gobuffalo/envy"
-	"github.com/gobuffalo/genny"
-	"github.com/gobuffalo/gogen"
 	"github.com/gobuffalo/packr/v2/file/resolver/encoding/hex"
 	"github.com/gobuffalo/packr/v2/plog"
 	"github.com/rogpeppe/go-internal/modfile"
 
+	"github.com/pkg/errors"
+
 	"github.com/gobuffalo/packr/v2/jam/parser"
 	"github.com/karrick/godirwalk"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -88,12 +86,12 @@ func (d *Disk) Files(box *parser.Box) ([]*parser.File, error) {
 	var files []*parser.File
 	names, err := d.FileNames(box)
 	if err != nil {
-		return files, errors.WithStack(err)
+		return files, err
 	}
 	for _, n := range names {
 		b, err := ioutil.ReadFile(n)
 		if err != nil {
-			return files, errors.WithStack(err)
+			return files, err
 		}
 		f := parser.NewFile(n, bytes.NewReader(b))
 		files = append(files, f)
@@ -106,7 +104,7 @@ func (d *Disk) Pack(box *parser.Box) error {
 	d.boxes[box.Name] = box
 	names, err := d.FileNames(box)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 	for _, n := range names {
 		_, ok := d.global[n]
@@ -141,10 +139,10 @@ type optsBox struct {
 	Path string
 }
 
-func (d *Disk) Generator() (*genny.Generator, error) {
-	g := genny.New()
+// Close ...
+func (d *Disk) Close() error {
 	if len(d.boxes) == 0 {
-		return g, nil
+		return nil
 	}
 
 	xb := &parser.Box{Name: DISK_GLOBAL_KEY}
@@ -163,12 +161,12 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 				zw := gzip.NewWriter(enc)
 				f, err := os.Open(k)
 				if err != nil {
-					return errors.WithStack(err)
+					return err
 				}
 				defer f.Close()
 				io.Copy(zw, f)
 				if err := zw.Close(); err != nil {
-					return errors.WithStack(err)
+					return err
 				}
 				d.moot.Lock()
 				opts.GlobalFiles[makeKey(xb, k)] = bb.String()
@@ -179,7 +177,7 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 	}
 
 	if err := wg.Wait(); err != nil {
-		return g, errors.WithStack(err)
+		return err
 	}
 
 	for _, b := range d.boxes {
@@ -193,7 +191,7 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 		return opts.Boxes[a].Name < opts.Boxes[b].Name
 	})
 
-	t := gogen.TemplateTransformer(opts, template.FuncMap{
+	fm := template.FuncMap{
 		"printBox": func(ob optsBox) (template.HTML, error) {
 			box := d.boxes[ob.Name]
 			if box == nil {
@@ -201,7 +199,7 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 			}
 			fn, err := d.FileNames(box)
 			if err != nil {
-				return "", errors.WithStack(err)
+				return "", err
 			}
 			if len(fn) == 0 {
 				return "", nil
@@ -212,7 +210,11 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 				ForwardPath string
 			}
 
-			gf := genny.NewFile("box.go.tmpl", strings.NewReader(diskGlobalBoxTmpl))
+			tmpl, err := template.New("box.go").Parse(diskGlobalBoxTmpl)
+			if err != nil {
+				return "", err
+			}
+
 			var files []file
 			for _, s := range fn {
 				p := strings.TrimPrefix(s, box.AbsPath)
@@ -226,29 +228,32 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 				"Box":   box,
 				"Files": files,
 			}
-			t := gogen.TemplateTransformer(opts, nil)
-			gf, err = t.Transform(gf)
-			if err != nil {
-				return "", errors.WithStack(err)
+
+			bb := &bytes.Buffer{}
+			if err := tmpl.Execute(bb, opts); err != nil {
+				return "", err
 			}
-			return template.HTML(gf.String()), nil
+			return template.HTML(bb.String()), nil
 		},
-	})
-	g.Transformer(t)
-
-	fp := filepath.Join(d.DBPath, "packed-packr.go.tmpl")
-	global := genny.NewFile(fp, strings.NewReader(diskGlobalTmpl))
-	global, err := t.Transform(global)
-	if err != nil {
-		return g, errors.WithStack(err)
 	}
 
-	ft := gogen.FmtTransformer()
-	global, err = ft.Transform(global)
+	os.MkdirAll(d.DBPath, 0755)
+	fp := filepath.Join(d.DBPath, "packed-packr.go")
+	global, err := os.Create(fp)
 	if err != nil {
-		return g, errors.WithStack(err)
+		return err
 	}
-	g.File(global)
+	defer global.Close()
+
+	tmpl := template.New(fp).Funcs(fm)
+	tmpl, err = tmpl.Parse(diskGlobalTmpl)
+	if err != nil {
+		return err
+	}
+
+	if err := tmpl.Execute(global, opts); err != nil {
+		return err
+	}
 
 	var ip string
 	if envy.Mods() {
@@ -258,7 +263,7 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 		cmd := exec.Command("go", "env", "GOMOD")
 		out, err := cmd.Output()
 		if err != nil {
-			return g, errors.New("go.mod cannot be read or does not exist while go module is enabled")
+			return errors.New("go.mod cannot be read or does not exist while go module is enabled")
 		}
 		mp := strings.TrimSpace(string(out))
 		if mp == "" {
@@ -272,13 +277,14 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 
 		moddata, err := ioutil.ReadFile(mp)
 		if err != nil {
-			return g, errors.New("go.mod cannot be read or does not exist while go module is enabled.")
+			return errors.New("go.mod cannot be read or does not exist while go module is enabled")
 		}
 		ip = modfile.ModulePath(moddata)
 		if ip == "" {
-			return g, errors.New("go.mod is malformed.")
+			return errors.New("go.mod is malformed")
 		}
 		ip = filepath.Join(ip, strings.TrimPrefix(filepath.Dir(d.DBPath), filepath.Dir(mp)))
+		ip = strings.Replace(ip, "\\", "/", -1)
 	} else {
 		ip = filepath.Dir(d.DBPath)
 		srcs := envy.GoPaths()
@@ -300,8 +306,12 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 		if b == nil {
 			continue
 		}
-		p := filepath.Join(b.PackageDir, b.Package+"-packr.go.tmpl")
-		f := genny.NewFile(p, strings.NewReader(diskImportTmpl))
+		p := filepath.Join(b.PackageDir, b.Package+"-packr.go")
+		f, err := os.Create(p)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
 
 		o := struct {
 			Package string
@@ -311,25 +321,17 @@ func (d *Disk) Generator() (*genny.Generator, error) {
 			Import:  ip,
 		}
 
-		t := gogen.TemplateTransformer(o, template.FuncMap{})
-		f, err := t.Transform(f)
+		tmpl, err := template.New(p).Parse(diskImportTmpl)
 		if err != nil {
-			return g, nil
+			return err
 		}
-		g.File(f)
+		if err := tmpl.Execute(f, o); err != nil {
+			return err
+		}
+
 	}
 
-	return g, nil
-}
-
-func (d *Disk) Close() error {
-	plog.Debug(d, "Close")
-	run := genny.WetRunner(context.Background())
-	run.Logger = plog.Logger
-	if err := run.WithNew(d.Generator()); err != nil {
-		return errors.WithStack(err)
-	}
-	return run.Run()
+	return nil
 }
 
 // resolve file paths (only) for the boxes

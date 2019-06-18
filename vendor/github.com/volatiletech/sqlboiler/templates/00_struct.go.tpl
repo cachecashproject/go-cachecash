@@ -4,9 +4,11 @@
 type {{$alias.UpSingular}} struct {
 	{{- range $column := .Table.Columns -}}
 	{{- $colAlias := $alias.Column $column.Name -}}
-	{{- if eq $.StructTagCasing "camel"}}
+	{{if eq $.StructTagCasing "title" -}}
+	{{$colAlias}} {{$column.Type}} `{{generateTags $.Tags $column.Name}}boil:"{{$column.Name}}" json:"{{$column.Name | titleCase}}{{if $column.Nullable}},omitempty{{end}}" toml:"{{$column.Name | titleCase}}" yaml:"{{$column.Name | titleCase}}{{if $column.Nullable}},omitempty{{end}}"`
+	{{else if eq $.StructTagCasing "camel" -}}
 	{{$colAlias}} {{$column.Type}} `{{generateTags $.Tags $column.Name}}boil:"{{$column.Name}}" json:"{{$column.Name | camelCase}}{{if $column.Nullable}},omitempty{{end}}" toml:"{{$column.Name | camelCase}}" yaml:"{{$column.Name | camelCase}}{{if $column.Nullable}},omitempty{{end}}"`
-	{{- else -}}
+	{{else -}}
 	{{$colAlias}} {{$column.Type}} `{{generateTags $.Tags $column.Name}}boil:"{{$column.Name}}" json:"{{$column.Name}}{{if $column.Nullable}},omitempty{{end}}" toml:"{{$column.Name}}" yaml:"{{$column.Name}}{{if $column.Nullable}},omitempty{{end}}"`
 	{{end -}}
 	{{end -}}
@@ -56,7 +58,7 @@ var {{$alias.UpSingular}}Where = struct {
 }{
 	{{range $column := .Table.Columns -}}
 	{{- $colAlias := $alias.Column $column.Name -}}
-	{{$colAlias}}: whereHelper{{goVarname $column.Type}}{field: `{{$column.Name}}`},
+	{{$colAlias}}: whereHelper{{goVarname $column.Type}}{field: "{{$.Table.Name | $.SchemaTable}}.{{$column.Name | $.Quotes}}"},
 	{{end -}}
 }
 

@@ -9,7 +9,8 @@ var (
 	defaultOptions = &options{
 		allowedRequestHeaders:          []string{"*"},
 		corsForRegisteredEndpointsOnly: true,
-		originFunc:                     func(origin string) bool { return true },
+		originFunc:                     func(origin string) bool { return false },
+		allowNonRootResources:          false,
 	}
 )
 
@@ -19,6 +20,7 @@ type options struct {
 	originFunc                     func(origin string) bool
 	enableWebsockets               bool
 	websocketOriginFunc            func(req *http.Request) bool
+	allowNonRootResources          bool
 }
 
 func evaluateOptions(opts []Option) *options {
@@ -38,7 +40,7 @@ type Option func(*options)
 // availability of the APIs based on the domain name of the calling website (Origin). You can provide a function that
 // filters the allowed Origin values.
 //
-// The default behaviour is `*`, i.e. to allow all calling websites.
+// The default behaviour is to deny all requests from remote origins.
 //
 // The relevant CORS pre-flight docs:
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
@@ -93,9 +95,22 @@ func WithWebsockets(enableWebsockets bool) Option {
 // WithWebsocketOriginFunc allows for customizing the acceptance of Websocket requests - usually to check that the origin
 // is valid.
 //
-// The default behaviour is to check that the origin of the request matches the host of the request.
+// The default behaviour is to check that the origin of the request matches the host of the request and deny all requests from remote origins.
 func WithWebsocketOriginFunc(websocketOriginFunc func(req *http.Request) bool) Option {
 	return func(o *options) {
 		o.websocketOriginFunc = websocketOriginFunc
+	}
+}
+
+// WithAllowNonRootResource enables the gRPC wrapper to serve requests that have a path prefix
+// added to the URL, before the service name and method placeholders.
+//
+// This should be set to false when exposing the endpoint as the root resource, to avoid
+// the performance cost of path processing for every request.
+//
+// The default behaviour is `false`, i.e. always serves requests assuming there is no prefix to the gRPC endpoint.
+func WithAllowNonRootResource(allowNonRootResources bool) Option {
+	return func(o *options) {
+		o.allowNonRootResources = allowNonRootResources
 	}
 }

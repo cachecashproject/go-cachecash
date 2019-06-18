@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gobuffalo/genny"
+	"github.com/gobuffalo/envy"
 	"github.com/gobuffalo/packr/v2/plog"
-	"github.com/pkg/errors"
 )
 
 func goCmd(name string, args ...string) error {
@@ -21,7 +20,7 @@ func goCmd(name string, args ...string) error {
 
 			pwd, err := os.Getwd()
 			if err != nil {
-				return errors.WithStack(err)
+				return err
 			}
 
 			if fi, err := os.Stat(filepath.Join(pwd, args[len(args)-1])); err == nil {
@@ -37,12 +36,12 @@ func goCmd(name string, args ...string) error {
 
 			path, err = filepath.Abs(filepath.Dir(path))
 			if err != nil {
-				return errors.WithStack(err)
+				return err
 			}
 
 			files, err := ioutil.ReadDir(path)
 			if err != nil {
-				return errors.WithStack(err)
+				return err
 			}
 			for _, f := range files {
 				if strings.HasSuffix(f.Name(), "-packr.go") {
@@ -52,10 +51,11 @@ func goCmd(name string, args ...string) error {
 			return nil
 		}()
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 	}
-	cp := exec.Command(genny.GoBin(), cargs...)
+
+	cp := exec.Command(envy.Get("GO_BIN", "go"), cargs...)
 	plog.Logger.Debug(strings.Join(cp.Args, " "))
 	cp.Stderr = os.Stderr
 	cp.Stdin = os.Stdin

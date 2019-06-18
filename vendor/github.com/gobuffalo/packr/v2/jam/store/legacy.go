@@ -2,19 +2,15 @@ package store
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
+	"html/template"
 	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/pkg/errors"
-
-	"github.com/gobuffalo/genny"
-	"github.com/gobuffalo/gogen"
 	"github.com/gobuffalo/packr/v2/jam/parser"
-	"github.com/gobuffalo/packr/v2/plog"
 )
 
 var _ Store = &Legacy{}
@@ -34,7 +30,7 @@ func NewLegacy() *Legacy {
 func (l *Legacy) Pack(box *parser.Box) error {
 	files, err := l.Files(box)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	var fcs []legacyFile
@@ -43,7 +39,7 @@ func (l *Legacy) Pack(box *parser.Box) error {
 		n := strings.TrimPrefix(f.Name(), box.AbsPath+string(filepath.Separator))
 		c, err := l.prepFile(f)
 		if err != nil {
-			return errors.WithStack(err)
+			return err
 		}
 		fcs = append(fcs, legacyFile{Name: n, Contents: c})
 	}
@@ -59,29 +55,22 @@ func (l *Legacy) Pack(box *parser.Box) error {
 	})
 	l.boxes[box.PackageDir] = lbs
 	return nil
-
-	// run := genny.WetRunner(context.Background())
-	// if err := run.WithNew(l.Generator(box)); err != nil {
-	// 	return errors.WithStack(err)
-	// }
-	// run.Logger = plog.Logger
-	// return run.Run()
 }
 
 func (l *Legacy) prepFile(r io.Reader) (string, error) {
 	bb := &bytes.Buffer{}
 	if _, err := io.Copy(bb, r); err != nil {
-		return "", errors.WithStack(err)
+		return "", err
 	}
 	b, err := json.Marshal(bb.Bytes())
 	if err != nil {
-		return "", errors.WithStack(err)
+		return "", err
 	}
 	return strings.Replace(string(b), "\"", "\\\"", -1), nil
 }
 
-func (l *Legacy) Generator() (*genny.Generator, error) {
-	g := genny.New()
+// Close ...
+func (l *Legacy) Close() error {
 	for _, b := range l.boxes {
 		if len(b) == 0 {
 			continue
@@ -92,24 +81,24 @@ func (l *Legacy) Generator() (*genny.Generator, error) {
 			"Package": pkg,
 			"Boxes":   b,
 		}
-		f := genny.NewFile(filepath.Join(bx.PackageDir, "a_"+bx.Package+"-packr.go.tmpl"), strings.NewReader(legacyTmpl))
-		t := gogen.TemplateTransformer(opts, nil)
-		f, err := t.Transform(f)
-		if err != nil {
-			return g, errors.WithStack(err)
-		}
-		g.File(f)
-	}
-	return g, nil
-}
+		p := filepath.Join(bx.PackageDir, "a_"+bx.Package+"-packr.go.tmpl")
+		tmpl, err := template.New(p).Parse(legacyTmpl)
 
-func (l *Legacy) Close() error {
-	run := genny.WetRunner(context.Background())
-	if err := run.WithNew(l.Generator()); err != nil {
-		return errors.WithStack(err)
+		if err != nil {
+			return err
+		}
+
+		f, err := os.Create(p)
+		if err != nil {
+			return err
+		}
+
+		if err := tmpl.Execute(f, opts); err != nil {
+			return err
+		}
+
 	}
-	run.Logger = plog.Logger
-	return run.Run()
+	return nil
 }
 
 type legacyBox struct {

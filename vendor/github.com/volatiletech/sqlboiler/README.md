@@ -21,7 +21,7 @@ v3 has been released, please upgrade when possible, v2 is on life support only n
 
 ## Why another ORM
 
-While attempting to migrate a legacy Rails database, we realized how much ActiveRecord benefitted us in terms of development velocity.
+While attempting to migrate a legacy Rails database, we realized how much ActiveRecord benefited us in terms of development velocity.
 Coming over to the Go `database/sql` package after using ActiveRecord feels extremely repetitive, super long-winded and down-right boring.
 Being Go veterans we knew the state of ORMs was shaky, and after a quick review we found what our fears confirmed. Most packages out
 there are code-first, reflect-based and have a very weak story around relationships between models. So with that we set out with these goals:
@@ -261,7 +261,7 @@ available.
 ```shell
 go get -u -t github.com/volatiletech/sqlboiler
 
-# Also install the driver of your choice, there exists pqsl, mysql, mssql
+# Also install the driver of your choice, there exists psql, mysql, mssql
 # These are separate binaries.
 go get github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql
 ```
@@ -446,7 +446,7 @@ available via the config file and can use some explanation.
 ##### Aliases
 
 In sqlboiler, names are automatically generated for you. If you name your database
-nice things you will likely have nice names in the end. However in the case where your
+entities properly you will likely have descriptive names generated in the end. However in the case where the
 names in your database are bad AND unchangeable, or sqlboiler's inference doesn't understand
 the names you do have (even though they are good and correct) you can use aliases to
 change the name of your tables, columns and relationships in the generated Go code.
@@ -467,21 +467,31 @@ down_singular = "teamName"
   team_name = "OurTeamName"
 ```
 
-When creating aliases for relationships, it's important to know how the concept of local/foreign
-map to what is used for generation. First off, everything is renamed using the foreign key as a
+When creating aliases for relationships, it's important to know how the concept of *local*/*foreign* 
+map to what is used by sqlboiler for generation. First off, everything is renamed using the foreign key as a
 unique identifier (namespaced to the table). If you don't know your foreign key names, it's likely
 you have not been naming them manually and it's possible they change suddenly for whatever reason.
 If you're going to rename relationships it's recommended that you use manually named foreign keys
 for stability. Therefore to rename a relationship based on a foreign key on the `videos` table
-you would use the key `[aliases.tables.videos.relationships.fk_name]`.
+you would use the key `[aliases.tables.videos.relationships.fk_name]`. From here you can use
+the *local* and *foreign* attributes to define how you'll refer to each side of a relationship.
 
-In terms of how to understand what local and foreign are in the context of renaming relationships,
-local simply means "the side with the foreign key". For example in a `users <-> videos` relationship
-where we have a `author_id` on the video that refers to the id of the `users` table, the foreign key
-is on the `videos` table itself, so the `local` key refers to how we refer to the `videos` side 
-of the relationship. In the example below we're naming the local side (how we refer to the videos) 
-`AuthoredVideos`. The table foreign to the foreign key is the `users` table and we want to
-refer to that side of the relationship as the `Author`.
+In terms of understanding what *local* and *foreign* denote in the context of renaming relationships,
+*local* simply stands for the name that will be generated for the property on "the side of the foreign key entity".
+
+For example - let's have a `users <-> videos` one to many relationship where we have a `user_id`
+in the `videos` table that refers to an id of the `users` table. Defining the relationship will
+look something like this: `[aliases.tables.videos.relationships.videos_user_id_fkey]`.
+
+In this instance `local` simply defines the name of the properety with which we'll refer to the `videos`
+on the side of the generated `User` entity ("the foreign key entity") - in essence, the name of the
+property with which we'll be able to fetch a given user's videos. In the example below we've named
+the *local* side (how we refer to the videos from the user's side) `AuthoredVideos`. 
+
+Now that we've defined how we'll refer to videos on the user's side, we can define how we'll look
+at the relationship the other way around - how will a `Video` entity refer to it's author? Here's where 
+the *foreign* attribute comes into the picture - it allows us to define exatly that side of the relationship. 
+In the example below we've set the *foreign* attribute to `Author`:
 
 ```toml
 [aliases.tables.videos.relationships.videos_author_id_fkey]
@@ -493,8 +503,8 @@ local   = "AuthoredVideos"
 foreign = "Author"
 ```
 
-In a many-to-many relationship it's a bit more complicated. In an example where `videos <-> tags`
-with a join table in the middle. Imagine if the join table didn't exist, and instead both of the
+In a many-to-many relationship it's a bit more complicated. Let's look at an example relationship between
+`videos <-> tags` with a join table in the middle. Imagine if the join table didn't exist, and instead both of the
 id columns in the join table were slapped on to the tables themselves. You'd have `videos.tag_id`
 and `tags.video_id`. Using a similar method to the above (the side with the foreign key) we can rename
 the relationships. To change `Videos.Tags` to `Videos.Rags` we can use the example below.
@@ -507,6 +517,10 @@ side will be automatically mirrored, though you can specify both if you so choos
 local   = "Rags"
 foreign = "Videos"
 ```
+
+The above definition will specify `Rags` as the name of the property with which a given `Video` entity will be able to
+access all of it's tags. If we look the other way around - a single `Tag` entity will refer to all videos that
+have that specific tag with the `Videos` property.
 
 There is an alternative syntax available for those who are challenged by the key syntax of
 toml or challenged by viper lowercasing all of your keys. Instead of using a regular table
@@ -525,7 +539,7 @@ down_singular = "teamName"
   name  = "team_name"
   alias = "OurTeamName"
 
-  [[aliases.tables.video_tags.relationships]]
+  [[aliases.tables.relationships]]
   name    = "fk_video_id"
   local   = "Rags"
   foreign = "Videos"
@@ -614,7 +628,7 @@ wish to generate code for. With this flag you specify root directories, that is 
 directories.
 
 If root directories have a `_test` suffix in the name, this folder is considered a folder
-full of templates for testing only and will be ommitted when `--no-tests` is specified and
+full of templates for testing only and will be omitted when `--no-tests` is specified and
 its templates will be generated into files with a `_test` suffix.
 
 Each root directory is recursively walked. Each template found will be merged into table_name.ext
@@ -1016,6 +1030,9 @@ Offset(5)
 // Explicit locking
 For("update nowait")
 
+// Common Table Expressions
+With("cte_0 AS (SELECT * FROM table_0 WHERE thing=$1 AND stuff=$2)")
+
 // Eager Loading -- Load takes the relationship name, ie the struct field name of the
 // Relationship struct field you want to load. Optionally also takes query mods to filter on that query.
 Load("Languages", Where(...)) // If it's a ToOne relationship it's in singular form, ToMany is plural.
@@ -1083,7 +1100,7 @@ We provide `queries.Raw()` for executing raw queries. Generally you will want to
 this, like the following:
 
 ```go
-err := queries.Raw(db, "select * from pilots where id=$1", 5).Bind(ctx, db, &obj)
+err := queries.Raw("select * from pilots where id=$1", 5).Bind(ctx, db, &obj)
 ```
 
 You can use your own structs or a generated struct as a parameter to Bind. Bind supports both
@@ -1223,7 +1240,7 @@ jets, _ := models.Jets(Load("Pilot.Languages")).All(ctx, db)
 // Note that each level of a nested Load call will be loaded. No need to call Load() multiple times.
 
 // Type safe queries exist for this too!
-jets, _ := models.Jets(LoadRels(models.JetRels.Pilot, models.PilotRels.Languages)).All(ctx, db)
+jets, _ := models.Jets(Load(Rels(models.JetRels.Pilot, models.PilotRels.Languages))).All(ctx, db)
 
 // A larger example. In the below scenario, Pets will only be queried one time, despite
 // showing up twice because they're the same query (the user's pets)
@@ -1481,7 +1498,7 @@ for a collection of rows.
 whitelist is to specify which columns in your object should be updated in the database.
 
 Like `Insert`, this method also takes a `Columns` type, but the behavior is
-slighty different. Although the descriptions below look similar the full
+slightly different. Although the descriptions below look similar the full
 documentation reveals the differences. Note that all inference is based on
 the Go types zero value and not the database default value, read the `Insert`
 documentation above for more details.
@@ -1602,10 +1619,10 @@ you will need to call the `Reload` methods on those yourself.
 jet, err := models.FindJet(ctx, db, 1)
 
 // Check if the pilot assigned to this jet exists.
-exists, err := jet.Pilot(ctx, db).Exists()
+exists, err := jet.Pilot().Exists(ctx, db)
 
 // Check if the pilot with ID 5 exists
-exists, err := models.Pilots(ctx, db, Where("id=?", 5)).Exists()
+exists, err := models.Pilots(Where("id=?", 5)).Exists(ctx, db)
 ```
 
 ### Enums

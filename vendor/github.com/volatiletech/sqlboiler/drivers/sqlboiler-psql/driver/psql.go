@@ -145,7 +145,7 @@ func (p *PostgresDriver) TableNames(schema string, whitelist, blacklist []string
 	if len(whitelist) > 0 {
 		tables := drivers.TablesFromList(whitelist)
 		if len(tables) > 0 {
-			query += fmt.Sprintf(" and table_name in (%s);", strmangle.Placeholders(true, len(tables), 2, 1))
+			query += fmt.Sprintf(" and table_name in (%s)", strmangle.Placeholders(true, len(tables), 2, 1))
 			for _, w := range tables {
 				args = append(args, w)
 			}
@@ -153,12 +153,14 @@ func (p *PostgresDriver) TableNames(schema string, whitelist, blacklist []string
 	} else if len(blacklist) > 0 {
 		tables := drivers.TablesFromList(blacklist)
 		if len(tables) > 0 {
-			query += fmt.Sprintf(" and table_name not in (%s);", strmangle.Placeholders(true, len(tables), 2, 1))
+			query += fmt.Sprintf(" and table_name not in (%s)", strmangle.Placeholders(true, len(tables), 2, 1))
 			for _, b := range tables {
 				args = append(args, b)
 			}
 		}
 	}
+
+	query += ` order by table_name;`
 
 	rows, err := p.conn.Query(query, args...)
 
@@ -189,38 +191,28 @@ func (p *PostgresDriver) Columns(schema, tableName string, whitelist, blacklist 
 	query := `
 	select
 		c.column_name,
+		ct.column_type,
 		(
-			case when pgt.typtype = 'e'
+			case when c.character_maximum_length != 0
 			then
 			(
-				select 'enum.' || c.udt_name || '(''' || string_agg(labels.label, ''',''') || ''')'
-				from (
-					select pg_enum.enumlabel as label
-					from pg_enum
-					where pg_enum.enumtypid =
-					(
-						select typelem
-						from pg_type
-						where pg_type.typtype = 'b' and pg_type.typname = ('_' || c.udt_name)
-						limit 1
-					)
-					order by pg_enum.enumsortorder
-				) as labels
+				ct.column_type || '(' || c.character_maximum_length || ')'
 			)
-			else c.data_type
+			else c.udt_name
 			end
-		) as column_type,
+		) as column_full_type,
 
 		c.udt_name,
 		e.data_type as array_type,
+		c.domain_name,
 		c.column_default,
 
 		c.is_nullable = 'YES' as is_nullable,
 		(case
-			when (select 
+			when (select
 		    case
 			    when column_name = 'is_identity' then (select c.is_identity = 'YES' as is_identity)
-		    else 
+		    else
 			    false
 		    end as is_identity from information_schema.columns
 		    WHERE table_schema='information_schema' and table_name='columns' and column_name='is_identity') IS NULL then 'NO' else is_identity end) = 'YES' as is_identity,
@@ -246,7 +238,30 @@ func (p *PostgresDriver) Columns(schema, tableName string, whitelist, blacklist 
 		left join pg_type pgt on c.data_type = 'USER-DEFINED' and pgn.oid = pgt.typnamespace and c.udt_name = pgt.typname
 		left join information_schema.element_types e
 			on ((c.table_catalog, c.table_schema, c.table_name, 'TABLE', c.dtd_identifier)
-			= (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
+			= (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier)),
+		lateral (select
+			(
+				case when pgt.typtype = 'e'
+				then
+				(
+					select 'enum.' || c.udt_name || '(''' || string_agg(labels.label, ''',''') || ''')'
+					from (
+						select pg_enum.enumlabel as label
+						from pg_enum
+						where pg_enum.enumtypid =
+						(
+							select typelem
+							from pg_type
+							where pg_type.typtype = 'b' and pg_type.typname = ('_' || c.udt_name)
+							limit 1
+						)
+						order by pg_enum.enumsortorder
+					) as labels
+				)
+				else c.data_type
+				end
+			) as column_type
+		) ct
 		where c.table_name = $2 and c.table_schema = $1`
 
 	if len(whitelist) > 0 {
@@ -267,6 +282,8 @@ func (p *PostgresDriver) Columns(schema, tableName string, whitelist, blacklist 
 		}
 	}
 
+	query += ` order by c.ordinal_position;`
+
 	rows, err := p.conn.Query(query, args...)
 
 	if err != nil {
@@ -275,20 +292,22 @@ func (p *PostgresDriver) Columns(schema, tableName string, whitelist, blacklist 
 	defer rows.Close()
 
 	for rows.Next() {
-		var colName, colType, udtName string
-		var defaultValue, arrayType *string
+		var colName, colType, colFullType, udtName string
+		var defaultValue, arrayType, domainName *string
 		var nullable, identity, unique bool
-		if err := rows.Scan(&colName, &colType, &udtName, &arrayType, &defaultValue, &nullable, &identity, &unique); err != nil {
+		if err := rows.Scan(&colName, &colType, &colFullType, &udtName, &arrayType, &domainName, &defaultValue, &nullable, &identity, &unique); err != nil {
 			return nil, errors.Wrapf(err, "unable to scan for table %s", tableName)
 		}
 
 		column := drivers.Column{
-			Name:     colName,
-			DBType:   colType,
-			ArrType:  arrayType,
-			UDTName:  udtName,
-			Nullable: nullable,
-			Unique:   unique,
+			Name:       colName,
+			DBType:     colType,
+			FullDBType: colFullType,
+			ArrType:    arrayType,
+			DomainName: domainName,
+			UDTName:    udtName,
+			Nullable:   nullable,
+			Unique:     unique,
 		}
 		if defaultValue != nil {
 			column.Default = *defaultValue
@@ -371,7 +390,8 @@ func (p *PostgresDriver) ForeignKeyInfo(schema, tableName string) ([]drivers.For
 		inner join pg_class dstlookupname on pgcon.confrelid = dstlookupname.oid
 		inner join pg_attribute pgasrc on pgc.oid = pgasrc.attrelid and pgasrc.attnum = ANY(pgcon.conkey)
 		inner join pg_attribute pgadst on pgcon.confrelid = pgadst.attrelid and pgadst.attnum = ANY(pgcon.confkey)
-	where pgn.nspname = $2 and pgc.relname = $1 and pgcon.contype = 'f'`
+	where pgn.nspname = $2 and pgc.relname = $1 and pgcon.contype = 'f'
+	order by pgcon.conname, source_table, source_column, dest_table, dest_column`
 
 	var rows *sql.Rows
 	var err error
@@ -444,12 +464,10 @@ func (p *PostgresDriver) TranslateColumnType(c drivers.Column) drivers.Column {
 		case "circle":
 			c.Type = "pgeo.NullCircle"
 		case "ARRAY":
-			if c.ArrType == nil {
-				panic("unable to get postgres ARRAY underlying type")
-			}
-			c.Type = getArrayType(c)
+			var dbType string
+			c.Type, dbType = getArrayType(c)
 			// Make DBType something like ARRAYinteger for parsing with randomize.Struct
-			c.DBType = c.DBType + *c.ArrType
+			c.DBType = c.DBType + dbType
 		case "USER-DEFINED":
 			switch c.UDTName {
 			case "hstore":
@@ -505,9 +523,10 @@ func (p *PostgresDriver) TranslateColumnType(c drivers.Column) drivers.Column {
 		case "circle":
 			c.Type = "pgeo.Circle"
 		case "ARRAY":
-			c.Type = getArrayType(c)
+			var dbType string
+			c.Type, dbType = getArrayType(c)
 			// Make DBType something like ARRAYinteger for parsing with randomize.Struct
-			c.DBType = c.DBType + *c.ArrType
+			c.DBType = c.DBType + dbType
 		case "USER-DEFINED":
 			switch c.UDTName {
 			case "hstore":
@@ -528,22 +547,48 @@ func (p *PostgresDriver) TranslateColumnType(c drivers.Column) drivers.Column {
 }
 
 // getArrayType returns the correct boil.Array type for each database type
-func getArrayType(c drivers.Column) string {
-	switch *c.ArrType {
-	case "bigint", "bigserial", "integer", "serial", "smallint", "smallserial":
-		return "types.Int64Array"
-	case "bytea":
-		return "types.BytesArray"
-	case "bit", "interval", "uuint", "bit varying", "character", "money", "character varying", "cidr", "inet", "macaddr", "text", "uuid", "xml":
-		return "types.StringArray"
-	case "boolean":
-		return "types.BoolArray"
-	case "decimal", "numeric":
-		return "types.DecimalArray"
-	case "double precision", "real":
-		return "types.Float64Array"
-	default:
-		return "types.StringArray"
+func getArrayType(c drivers.Column) (string, string) {
+	// If a domain is created with a statement like this: "CREATE DOMAIN
+	// text_array AS TEXT[] CHECK ( ... )" then the array type will be null,
+	// but the udt name will be whatever the underlying type is with a leading
+	// underscore. Note that this code handles some types, but not nearly all
+	// the possibities. Notably, an array of a user-defined type ("CREATE
+	// DOMAIN my_array AS my_type[]") will be treated as an array of strings,
+	// which is not guaranteed to be correct.
+	if c.ArrType != nil {
+		switch *c.ArrType {
+		case "bigint", "bigserial", "integer", "serial", "smallint", "smallserial":
+			return "types.Int64Array", *c.ArrType
+		case "bytea":
+			return "types.BytesArray", *c.ArrType
+		case "bit", "interval", "uuint", "bit varying", "character", "money", "character varying", "cidr", "inet", "macaddr", "text", "uuid", "xml":
+			return "types.StringArray", *c.ArrType
+		case "boolean":
+			return "types.BoolArray", *c.ArrType
+		case "decimal", "numeric":
+			return "types.DecimalArray", *c.ArrType
+		case "double precision", "real":
+			return "types.Float64Array", *c.ArrType
+		default:
+			return "types.StringArray", *c.ArrType
+		}
+	} else {
+		switch c.UDTName {
+		case "_int4", "_int8":
+			return "types.Int64Array", c.UDTName
+		case "_bytea":
+			return "types.BytesArray", c.UDTName
+		case "_bit", "_interval", "_varbit", "_char", "_money", "_varchar", "_cidr", "_inet", "_macaddr", "_citext", "_text", "_uuid", "_xml":
+			return "types.StringArray", c.UDTName
+		case "_bool":
+			return "types.BoolArray", c.UDTName
+		case "_numeric":
+			return "types.DecimalArray", c.UDTName
+		case "_float4", "_float8":
+			return "types.Float64Array", c.UDTName
+		default:
+			return "types.StringArray", c.UDTName
+		}
 	}
 }
 
@@ -675,7 +720,7 @@ func (p PostgresDriver) Imports() (importers.Collection, error) {
 		"types.DecimalArray": {
 			ThirdParty: importers.List{`"github.com/volatiletech/sqlboiler/types"`},
 		},
-		"types.Hstore": {
+		"types.HStore": {
 			ThirdParty: importers.List{`"github.com/volatiletech/sqlboiler/types"`},
 		},
 		"pgeo.Point": {

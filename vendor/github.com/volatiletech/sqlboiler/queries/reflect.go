@@ -68,6 +68,12 @@ func (q *Query) BindG(ctx context.Context, obj interface{}) error {
 // If you neglect checking the rows.Err silent failures may occur in your
 // application.
 //
+// Valid types to bind to are: *Struct, []*Struct, and []Struct. Keep in mind
+// if you use []Struct that Bind will be doing copy-by-value as a method
+// of keeping heap memory usage low which means if your Struct contains
+// reference types/pointers you will see incorrect results, do not use
+// []Struct with a Struct with reference types.
+//
 // Bind rules:
 //   - Struct tags control bind, in the form of: `boil:"name,bind"`
 //   - If "name" is omitted the sql column names that come back are TitleCased
@@ -231,13 +237,13 @@ func bind(rows *sql.Rows, obj interface{}, structType, sliceType reflect.Type, b
 	var mapping []uint64
 	var ok bool
 
-	typStr := structType.String()
+	typKey := makeTypeKey(structType)
+	colsKey := makeColsKey(structType, cols)
 
-	mapKey := makeCacheKey(typStr, cols)
 	mut.RLock()
-	mapping, ok = bindingMaps[mapKey]
+	mapping, ok = bindingMaps[colsKey]
 	if !ok {
-		if strMapping, sok = structMaps[typStr]; !sok {
+		if strMapping, sok = structMaps[typKey]; !sok {
 			strMapping = MakeStructMapping(structType)
 		}
 	}
@@ -251,9 +257,9 @@ func bind(rows *sql.Rows, obj interface{}, structType, sliceType reflect.Type, b
 
 		mut.Lock()
 		if !sok {
-			structMaps[typStr] = strMapping
+			structMaps[typKey] = strMapping
 		}
-		bindingMaps[mapKey] = mapping
+		bindingMaps[colsKey] = mapping
 		mut.Unlock()
 	}
 
@@ -433,16 +439,30 @@ func getBoilTag(field reflect.StructField) (name string, recurse bool) {
 	return nameFragment, true
 }
 
-func makeCacheKey(typ string, cols []string) string {
+func makeTypeKey(typ reflect.Type) string {
 	buf := strmangle.GetBuffer()
-	buf.WriteString(typ)
+	buf.WriteString(typ.String())
+	for i, n := 0, typ.NumField(); i < n; i++ {
+		field := typ.Field(i)
+		buf.WriteString(field.Name)
+		buf.WriteString(field.Type.String())
+	}
+	hash := buf.String()
+	strmangle.PutBuffer(buf)
+
+	return hash
+}
+
+func makeColsKey(typ reflect.Type, cols []string) string {
+	buf := strmangle.GetBuffer()
+	buf.WriteString(typ.String())
 	for _, s := range cols {
 		buf.WriteString(s)
 	}
-	mapKey := buf.String()
+	hash := buf.String()
 	strmangle.PutBuffer(buf)
 
-	return mapKey
+	return hash
 }
 
 // Equal is different to reflect.DeepEqual in that it's both less efficient

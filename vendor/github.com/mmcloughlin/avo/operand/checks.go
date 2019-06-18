@@ -1,8 +1,6 @@
 package operand
 
-import (
-	"github.com/mmcloughlin/avo/reg"
-)
+import "github.com/mmcloughlin/avo/reg"
 
 // Pure type assertion checks:
 
@@ -132,7 +130,7 @@ func IsYMM(op Op) bool {
 // IsRegisterKindSize returns true if op is a register of the given kind and size in bytes.
 func IsRegisterKindSize(op Op, k reg.Kind, n uint) bool {
 	r, ok := op.(reg.Register)
-	return ok && r.Kind() == k && r.Bytes() == n
+	return ok && r.Kind() == k && r.Size() == n
 }
 
 // IsRegisterKind returns true if op is a register of the given kind.

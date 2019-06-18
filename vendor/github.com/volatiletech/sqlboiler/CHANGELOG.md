@@ -3,6 +3,63 @@
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v3.4.0] - 2019-05-27
+
+### Added
+
+- Add domain name to psql column data from driver (thanks @natsukagami)
+- Add full_db_type to psql column data from driver (thanks @vincentserpoul)
+
+### Fixed
+
+- Fix problems with idempotency patch messing up the lists of columns, now to
+  achieve idempotency in column lists we sort based on information_schema's
+  ordinal index for columns.
+- Fix code compilation failure due to whitespace when certain struct tag
+  options were used.
+
+## [v3.3.0] - 2019-05-20
+
+### Added
+
+- Add title as an option for struct tag casing configuration
+- CTE Support for query-mod built queries: see With query mod (thanks @lucaslsl)
+- Extra documentation to explain how local/foreign work in aliases
+  (thanks @NickyMateev).
+- When re-running the sqlboiler command to dump a schema, all tables, columns,
+  and foreign keys are now selected in a predictable sorted order. This means
+  that if you run the command against the same schema twice you should get
+  exactly the same output each time. This is useful if you want to check in
+  your generated code, as it avoids pointless churn. It is also helpful if you
+  want to test that the checked-in generated code is up to date. You can now
+  regenerate the code and simply check that nothing has changed. Note that
+  with MS SQL this only works if you provide explicit names for all of your
+  foreign keys, as MS SQL generates names with a random component
+  otherwise. (thanks @autarch)
+
+### Changed
+
+- Change error return on ModelSlice.DeleteAll when ModelSlice is nil to simply
+  return 0, nil. This is not really an error state and is burdensome to users.
+
+### Fixed
+
+- Fix identifiers in Where helpers not being quoted nor having table
+  specifications.
+- Fix a bug where types declared within a non-global scope could cause cache
+  key collisions and create undesirable behavior within Bind().
+- Fix a bug where decimal types in the database without decimal points
+  would be provided by the driver as an int64 which failed to Scan() into
+  a types.Decimal
+- A Postgres domain that was created from an array ("CREATE DOMAIN foo AS
+  INT[]") would cause a runtime panic when trying to generate model
+  code. These are now handled correctly when the array's type is a
+  built-in. If the array type is itself a UDT then this will be treated as a
+  string, which will not be correct in some cases. (thanks @autarch)
+- Fix doc typo around qm.Load/qm.Rels (thanks @KopiasCsaba)
+- Fix a bug where hstore did not Value() properly
+- Fix an issue related to interface{} keys from yaml type replacements
+
 ## [v3.2.0] - 2019-01-22
 
 ### Added
