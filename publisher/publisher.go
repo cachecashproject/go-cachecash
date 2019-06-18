@@ -431,7 +431,7 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 	for i := req.RangeBegin; i < req.RangeEnd; i++ {
 		chunkID := i // XXX: Not true!
 		slotIdx := p.assignSlot(path, i, chunkID)
-		chunk, err := p.catalog.BlockSource(ctx, req, path, objMeta)
+		chunk, err := p.catalog.ChunkSource(ctx, req, path, objMeta)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get block source")
 		}

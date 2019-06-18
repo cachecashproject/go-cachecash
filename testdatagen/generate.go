@@ -250,8 +250,8 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			}
 			for j := 0; j < int(ts.ChunkCount()); j++ {
 				data := ts.Chunks[j]
-				blockID := generateChunkID(data)
-				if err := c.Storage.PutData(ts.EscrowID, blockID, data); err != nil {
+				chunkID := generateChunkID(data)
+				if err := c.Storage.PutData(ts.EscrowID, chunkID, data); err != nil {
 					return nil, err
 				}
 			}

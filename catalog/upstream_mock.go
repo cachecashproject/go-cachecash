@@ -72,8 +72,8 @@ func (up *MockUpstream) AddRandomObject(path string, size uint) {
 	up.Objects[path] = data
 }
 
-func (up *MockUpstream) BlockSource(req *ccmsg.CacheMissRequest, path string, meta *ccmsg.ObjectMetadata,
+func (up *MockUpstream) ChunkSource(req *ccmsg.CacheMissRequest, path string, meta *ccmsg.ObjectMetadata,
 	policy *ObjectPolicy) (*ccmsg.CacheMissResponse, error) {
 
-	return nil, errors.New("mock upstream does not support BlockSource()")
+	return nil, errors.New("mock upstream does not support ChunkSource()")
 }

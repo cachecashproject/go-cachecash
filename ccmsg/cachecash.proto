@@ -332,18 +332,18 @@ message Chunk {
     uint64 slot_idx = 1;
 
     oneof source {
-        BlockSourceHTTP http = 10;
-        BlockSourceInline inline = 20;
+        ChunkSourceHTTP http = 10;
+        ChunkSourceInline inline = 20;
     }
 }
 
-message BlockSourceHTTP {
+message ChunkSourceHTTP {
     string url = 1;
     uint64 range_begin = 2;
     uint64 range_end = 3;
 }
 
-message BlockSourceInline {
+message ChunkSourceInline {
     repeated bytes chunk = 1;
 }
 

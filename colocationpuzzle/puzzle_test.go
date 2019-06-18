@@ -16,8 +16,8 @@ import (
 type ColocationPuzzleTestSuite struct {
 	suite.Suite
 
-	plaintextBlocks  [][]byte
-	ciphertextBlocks [][]byte
+	plaintextChunks  [][]byte
+	ciphertextChunks [][]byte
 	innerKeys        [][]byte
 	innerIVs         [][]byte
 	params           Parameters
@@ -25,7 +25,7 @@ type ColocationPuzzleTestSuite struct {
 
 const (
 	BlockQty  = 8
-	BlockSize = aes.BlockSize * 1024
+	ChunkSize = aes.BlockSize * 1024
 )
 
 func TestColocationPuzzleTestSuite(t *testing.T) {
@@ -51,8 +51,8 @@ func (suite *ColocationPuzzleTestSuite) SetupSuite() {
 		suite.innerIVs = append(suite.innerIVs, iv)
 
 		// TODO: The blocks need not all be the same size.
-		b := testutil.RandBytes(BlockSize)
-		suite.plaintextBlocks = append(suite.plaintextBlocks, b)
+		b := testutil.RandBytes(ChunkSize)
+		suite.plaintextChunks = append(suite.plaintextChunks, b)
 
 		// Set up our AES-CTR encryption gizmo.
 		block, err := aes.NewCipher(k)
@@ -64,10 +64,10 @@ func (suite *ColocationPuzzleTestSuite) SetupSuite() {
 		// Encrypt the plaintext block.
 		cb := make([]byte, len(b))
 		stream.XORKeyStream(cb, b)
-		suite.ciphertextBlocks = append(suite.ciphertextBlocks, cb)
+		suite.ciphertextChunks = append(suite.ciphertextChunks, cb)
 	}
 
-	fmt.Printf("ciphertextblocks len=%v", len(suite.ciphertextBlocks))
+	fmt.Printf("ciphertextblocks len=%v", len(suite.ciphertextChunks))
 }
 
 func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolve() {
@@ -87,7 +87,7 @@ func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolveSingleBlock() {
 func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEnd int) {
 	t := suite.T()
 
-	puzzle, err := Generate(suite.params, suite.plaintextBlocks[rangeBegin:rangeEnd],
+	puzzle, err := Generate(suite.params, suite.plaintextChunks[rangeBegin:rangeEnd],
 		suite.innerKeys[rangeBegin:rangeEnd], suite.innerIVs[rangeBegin:rangeEnd])
 	if !assert.Nil(t, err, "failed to generate puzzle") {
 		return
@@ -96,7 +96,7 @@ func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEn
 	assert.Equal(t, sha512.Size384, len(puzzle.Secret), "unexpected secret length")
 	assert.Equal(t, sha512.Size384, len(puzzle.Goal), "unxpected goal length")
 
-	secret, offset, err := Solve(suite.params, suite.ciphertextBlocks[rangeBegin:rangeEnd], puzzle.Goal)
+	secret, offset, err := Solve(suite.params, suite.ciphertextChunks[rangeBegin:rangeEnd], puzzle.Goal)
 	if !assert.Nil(t, err, "failed to solve puzzle") {
 		return
 	}
@@ -155,7 +155,7 @@ func (suite *ColocationPuzzleTestSuite) TestSolutionVerify() {
 func (suite *ColocationPuzzleTestSuite) TestKeyAndIVFromSecret() {
 	t := suite.T()
 
-	puzzle, err := Generate(suite.params, suite.plaintextBlocks, suite.innerKeys, suite.innerIVs)
+	puzzle, err := Generate(suite.params, suite.plaintextChunks, suite.innerKeys, suite.innerIVs)
 	if !assert.Nil(t, err, "failed to generate puzzle") {
 		return
 	}
