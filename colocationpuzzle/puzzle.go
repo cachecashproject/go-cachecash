@@ -50,7 +50,7 @@ func (p *Puzzle) Key() []byte {
 	return p.Secret[IVSize : IVSize+KeySize]
 }
 
-type getChunkFnT func(chunkIdx, offset uint32) ([]byte, error)
+type getBlockFnT func(chunkIdx, offset uint32) ([]byte, error)
 
 func init() {
 	// XXX: Is this the right place to put this?
@@ -93,7 +93,7 @@ func Generate(params Parameters, chunks [][]byte, innerKeys [][]byte, innerIVs [
 	// that we want.
 	startOffset := uint32(rand.Intn(chunkSize[0]))
 
-	getChunkFn := func(i, offset uint32) ([]byte, error) {
+	getBlockFn := func(i, offset uint32) ([]byte, error) {
 		chunkLen := len(chunks[i])
 		offset = offset % uint32(chunkLen/aes.BlockSize)
 		plaintext, err := getCipherBlock(chunks[i], offset)
@@ -103,7 +103,7 @@ func Generate(params Parameters, chunks [][]byte, innerKeys [][]byte, innerIVs [
 		return util.EncryptCipherBlock(plaintext, innerKeys[i], innerIVs[i], offset)
 	}
 
-	goal, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), startOffset, getChunkFn)
+	goal, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), startOffset, getBlockFn)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate outputs of colocation puzzle")
 	}
@@ -133,14 +133,14 @@ func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, err
 		return nil, 0, errors.New("must use at least two puzzle iterations; increase number of rounds or caches")
 	}
 
-	getChunkFn := func(chunkIdx, offset uint32) ([]byte, error) {
+	getBlockFn := func(chunkIdx, offset uint32) ([]byte, error) {
 		offset = offset % uint32(len(chunks[chunkIdx])/aes.BlockSize)
 		return chunks[chunkIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
 	}
 
 	// Try all possible starting offsets and look for one that produces the result/goal value we're looking for.
 	for offset := uint32(0); offset < uint32(len(chunks[0])/aes.BlockSize); offset++ {
-		result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getChunkFn)
+		result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getBlockFn)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to run puzzle")
 		}
@@ -168,12 +168,12 @@ func VerifySolution(params Parameters, chunks [][]byte, goal []byte, offset uint
 		return nil, 0, errors.New("must use at least two puzzle iterations; increase number of rounds or caches")
 	}
 
-	getChunkFn := func(chunkIdx, offset uint32) ([]byte, error) {
+	getBlockFn := func(chunkIdx, offset uint32) ([]byte, error) {
 		offset = offset % uint32(len(chunks[chunkIdx])/aes.BlockSize)
 		return chunks[chunkIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
 	}
 
-	result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getChunkFn)
+	result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getBlockFn)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "failed to run puzzle")
 	}
@@ -185,7 +185,7 @@ func VerifySolution(params Parameters, chunks [][]byte, goal []byte, offset uint
 
 }
 
-func runPuzzle(rounds, chunkQty, offset uint32, getChunkFn getChunkFnT) ([]byte, []byte, error) {
+func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte, []byte, error) {
 	// XXX: Do we actually need to compute this 'curLoc'?  I think that we can just check that rounds and len(chunks)
 	//   are large enough that we'll never return it as prevLoc.
 	// XXX: Is 'location' the best name for curLoc/prevLoc?
@@ -197,7 +197,7 @@ func runPuzzle(rounds, chunkQty, offset uint32, getChunkFn getChunkFnT) ([]byte,
 
 	for i := uint32(0); i < uint32((rounds*chunkQty)-1); i++ {
 		chunkIdx := i % chunkQty
-		piece, err := getChunkFn(chunkIdx, offset)
+		piece, err := getBlockFn(chunkIdx, offset)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to get piece")
 		}
