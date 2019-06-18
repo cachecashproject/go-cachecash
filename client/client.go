@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/colocationpuzzle"
@@ -48,10 +49,11 @@ type client struct {
 	publicKey  ed25519.PublicKey
 	privateKey ed25519.PrivateKey
 
-	publisherConn *publisherConnection
+	publisherConn     publisherConnection
+	lastBundleRequest time.Time
 
 	// Unclear what key type should be.
-	cacheConns map[cacheID]*cacheConnection
+	cacheConns map[cacheID]cacheConnection
 }
 
 var _ Client = (*client)(nil)
@@ -75,7 +77,7 @@ func New(l *logrus.Logger, addr string) (Client, error) {
 
 		publisherConn: pc,
 
-		cacheConns: make(map[cacheID]*cacheConnection),
+		cacheConns: make(map[cacheID]cacheConnection),
 	}, nil
 }
 
@@ -96,7 +98,7 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 		bundle := group.bundle
 		cacheQty := len(group.notify)
 		chunkResults := make([]*chunkRequest, cacheQty)
-		cacheConns := make([]*cacheConnection, cacheQty)
+		cacheConns := make([]cacheConnection, cacheQty)
 
 		// We receive either an error (in which case we abort the other requests and return an error to our parent) or we
 		// receive singly-encrypted data from each cache.
@@ -155,7 +157,7 @@ func (cl *client) Close(ctx context.Context) error {
 			retErr = err
 		}
 	}
-	cl.cacheConns = make(map[cacheID]*cacheConnection)
+	cl.cacheConns = make(map[cacheID]cacheConnection)
 
 	if err := cl.publisherConn.Close(ctx); err != nil {
 		retErr = err
@@ -175,7 +177,7 @@ func (o *object) Data() []byte {
 	return o.data
 }
 
-func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*chunkRequest, cacheConns []*cacheConnection) (*chunkGroup, error) {
+func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*chunkRequest, cacheConns []cacheConnection) (*chunkGroup, error) {
 	// Solve colocation puzzle.
 	tt := common.StartTelemetryTimer(cl.l, "solvePuzzle")
 	var singleEncryptedChunks [][]byte

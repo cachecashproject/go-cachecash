@@ -16,7 +16,7 @@ import (
 // - Assigns sequence numbers to outbound messages.
 // - Routes replies by matching sequence numbers.
 // - How do we handle the consumer of a reply exiting/terminating/canceling?
-type cacheConnection struct {
+type cacheGrpc struct {
 	l           *logrus.Logger
 	pubkey      string
 	pubkeyBytes []byte
@@ -28,6 +28,16 @@ type cacheConnection struct {
 	backlog    chan DownloadTask
 }
 
+type cacheConnection interface {
+	Run(context.Context)
+	QueueRequest(DownloadTask)
+	ExchangeTicketL2(context.Context, *ccmsg.ClientCacheRequest) error
+	Close(context.Context) error
+	BacklogLength() uint64
+	PublicKey() string
+	PublicKeyBytes() []byte
+}
+
 type DownloadTask struct {
 	req             *chunkRequest
 	clientNotify    chan DownloadResult
@@ -36,10 +46,12 @@ type DownloadTask struct {
 
 type DownloadResult struct {
 	resp  *chunkRequest
-	cache *cacheConnection
+	cache cacheConnection
 }
 
-func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (*cacheConnection, error) {
+var _ cacheConnection = (*cacheGrpc)(nil)
+
+func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (*cacheGrpc, error) {
 	// XXX: No transport security!
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
@@ -48,7 +60,7 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubk
 
 	grpcClient := ccmsg.NewClientCacheClient(conn)
 
-	return &cacheConnection{
+	return &cacheGrpc{
 		l:           l,
 		pubkey:      base64.StdEncoding.EncodeToString(pubkey),
 		pubkeyBytes: pubkey,
@@ -61,15 +73,15 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubk
 	}, nil
 }
 
-func (cc *cacheConnection) Close(ctx context.Context) error {
-	cc.l.WithField("cache", cc.pubkey).Info("cacheConnection.Close() - enter")
+func (cc *cacheGrpc) Close(ctx context.Context) error {
+	cc.l.WithField("cache", cc.pubkey).Info("cacheGrpc.Close() - enter")
 	if err := cc.conn.Close(); err != nil {
 		return errors.Wrap(err, "failed to close connection")
 	}
 	return nil
 }
 
-func (cc *cacheConnection) Run(ctx context.Context) {
+func (cc *cacheGrpc) Run(ctx context.Context) {
 	l := cc.l.WithFields(logrus.Fields{
 		"cache": cc.pubkey,
 	})
@@ -90,16 +102,16 @@ func (cc *cacheConnection) Run(ctx context.Context) {
 	l.Info("downloader successfully terminated")
 }
 
-func (cc *cacheConnection) QueueRequest(task DownloadTask) {
+func (cc *cacheGrpc) QueueRequest(task DownloadTask) {
 	cc.backlog <- task
 }
 
-func (cc *cacheConnection) ExchangeTicketL2(ctx context.Context, req *ccmsg.ClientCacheRequest) error {
+func (cc *cacheGrpc) ExchangeTicketL2(ctx context.Context, req *ccmsg.ClientCacheRequest) error {
 	_, err := cc.grpcClient.ExchangeTicketL2(ctx, req)
 	return err
 }
 
-func (cc *cacheConnection) requestChunk(ctx context.Context, b *chunkRequest) error {
+func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 	// Send request ticket to cache; await data.
 	reqData, err := b.bundle.BuildClientCacheRequest(b.bundle.TicketRequest[b.idx])
 	if err != nil {
@@ -143,4 +155,16 @@ func (cc *cacheConnection) requestChunk(ctx context.Context, b *chunkRequest) er
 
 	// Done!
 	return nil
+}
+
+func (cc *cacheGrpc) BacklogLength() uint64 {
+	return uint64(len(cc.backlog))
+}
+
+func (cc *cacheGrpc) PublicKey() string {
+	return cc.pubkey
+}
+
+func (cc *cacheGrpc) PublicKeyBytes() []byte {
+	return cc.pubkeyBytes
 }
