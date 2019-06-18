@@ -92,7 +92,7 @@ type BundleParams struct {
 	Escrow            *Escrow         // XXX: Do we need this?
 	ObjectID          common.ObjectID // This is a per-escrow value.
 	Entries           []BundleEntryParams
-	PlaintextBlocks   [][]byte
+	PlaintextChunks   [][]byte
 	RequestSequenceNo uint64
 	ClientPublicKey   ed25519.PublicKey
 }
@@ -196,7 +196,7 @@ func (gen *BundleGenerator) GenerateTicketBundle(bp *BundleParams) (*ccmsg.Ticke
 	gen.l.WithFields(logrus.Fields{
 		"chunkIdx": chunkIndices,
 	}).Info("generating puzzle")
-	puzzle, err := colocationpuzzle.Generate(*gen.PuzzleParams, bp.PlaintextBlocks, innerKeys, innerIVs)
+	puzzle, err := colocationpuzzle.Generate(*gen.PuzzleParams, bp.PlaintextChunks, innerKeys, innerIVs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate colocation puzzle")
 	}

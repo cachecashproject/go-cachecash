@@ -330,7 +330,7 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get chunk")
 		}
-		bp.PlaintextBlocks = append(bp.PlaintextBlocks, b)
+		bp.PlaintextChunks = append(bp.PlaintextChunks, b)
 	}
 
 	p.l.Debug("generating and signing bundle")

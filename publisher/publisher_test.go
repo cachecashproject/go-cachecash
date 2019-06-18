@@ -23,7 +23,7 @@ type PublisherTestSuite struct {
 
 	publisher *ContentPublisher
 
-	blockSize int
+	chunkSize int
 
 	clientPublic ed25519.PublicKey
 }
@@ -51,8 +51,8 @@ func (suite *PublisherTestSuite) SetupTest() {
 	}
 
 	// Create a content object.
-	suite.blockSize = 128 * 1024
-	upstream.Objects["/foo/bar"] = testutil.RandBytes(5 * suite.blockSize)
+	suite.chunkSize = 128 * 1024
+	upstream.Objects["/foo/bar"] = testutil.RandBytes(5 * suite.chunkSize)
 
 	cat, err := catalog.NewCatalog(l, upstream)
 	if err != nil {
@@ -113,7 +113,7 @@ func (suite *PublisherTestSuite) TestContentRequest() {
 	_, err := suite.publisher.HandleContentRequest(context.TODO(), &ccmsg.ContentRequest{
 		Path:            "/foo/bar",
 		RangeBegin:      uint64(0),
-		RangeEnd:        uint64(suite.blockSize),
+		RangeEnd:        uint64(suite.chunkSize),
 		ClientPublicKey: &ccmsg.PublicKey{PublicKey: suite.clientPublic},
 	})
 	assert.Nil(t, err, "failed to get bundle")
@@ -124,8 +124,8 @@ func (suite *PublisherTestSuite) TestContentRequestBeginBeyondObject() {
 
 	_, err := suite.publisher.HandleContentRequest(context.TODO(), &ccmsg.ContentRequest{
 		Path:            "/foo/bar",
-		RangeBegin:      uint64(300 * suite.blockSize),
-		RangeEnd:        uint64(301 * suite.blockSize),
+		RangeBegin:      uint64(300 * suite.chunkSize),
+		RangeEnd:        uint64(301 * suite.chunkSize),
 		ClientPublicKey: &ccmsg.PublicKey{PublicKey: suite.clientPublic},
 	})
 	assert.NotNil(t, err, "request should have caused an error but didn't")
@@ -136,8 +136,8 @@ func (suite *PublisherTestSuite) TestContentRequestEndBeyondObject() {
 
 	_, err := suite.publisher.HandleContentRequest(context.TODO(), &ccmsg.ContentRequest{
 		Path:            "/foo/bar",
-		RangeBegin:      uint64(1 * suite.blockSize),
-		RangeEnd:        uint64(100 * suite.blockSize),
+		RangeBegin:      uint64(1 * suite.chunkSize),
+		RangeEnd:        uint64(100 * suite.chunkSize),
 		ClientPublicKey: &ccmsg.PublicKey{PublicKey: suite.clientPublic},
 	})
 	assert.Nil(t, err, "failed to get bundle")
@@ -148,8 +148,8 @@ func (suite *PublisherTestSuite) TestContentRequestEndBeforeBegin() {
 
 	_, err := suite.publisher.HandleContentRequest(context.TODO(), &ccmsg.ContentRequest{
 		Path:            "/foo/bar",
-		RangeBegin:      uint64(3 * suite.blockSize),
-		RangeEnd:        uint64(1 * suite.blockSize),
+		RangeBegin:      uint64(3 * suite.chunkSize),
+		RangeEnd:        uint64(1 * suite.chunkSize),
 		ClientPublicKey: &ccmsg.PublicKey{PublicKey: suite.clientPublic},
 	})
 	assert.NotNil(t, err, "request should have caused an error but didn't")
