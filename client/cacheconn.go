@@ -29,13 +29,13 @@ type cacheConnection struct {
 }
 
 type DownloadTask struct {
-	req             *blockRequest
+	req             *chunkRequest
 	clientNotify    chan DownloadResult
 	schedulerNotify chan bool
 }
 
 type DownloadResult struct {
-	resp  *blockRequest
+	resp  *chunkRequest
 	cache *cacheConnection
 }
 
@@ -77,12 +77,12 @@ func (cc *cacheConnection) Run(ctx context.Context) {
 		l.WithFields(logrus.Fields{
 			"len(backlog)": len(cc.backlog),
 		}).Debug("got download request")
-		blockRequest := task.req
-		err := cc.requestBlock(ctx, blockRequest)
-		blockRequest.err = err
+		chunkRequest := task.req
+		err := cc.requestChunk(ctx, chunkRequest)
+		chunkRequest.err = err
 		l.Debug("yielding download result")
 		task.clientNotify <- DownloadResult{
-			resp:  blockRequest,
+			resp:  chunkRequest,
 			cache: cc,
 		}
 		task.schedulerNotify <- true
@@ -99,13 +99,13 @@ func (cc *cacheConnection) ExchangeTicketL2(ctx context.Context, req *ccmsg.Clie
 	return err
 }
 
-func (cc *cacheConnection) requestBlock(ctx context.Context, b *blockRequest) error {
+func (cc *cacheConnection) requestChunk(ctx context.Context, b *chunkRequest) error {
 	// Send request ticket to cache; await data.
 	reqData, err := b.bundle.BuildClientCacheRequest(b.bundle.TicketRequest[b.idx])
 	if err != nil {
 		return errors.Wrap(err, "failed to build client-cache request")
 	}
-	tt := common.StartTelemetryTimer(cc.l, "getBlock")
+	tt := common.StartTelemetryTimer(cc.l, "getChunk")
 	msgData, err := cc.grpcClient.GetChunk(ctx, reqData)
 	if err != nil {
 		return errors.Wrap(err, "failed to exchange request ticket with cache")

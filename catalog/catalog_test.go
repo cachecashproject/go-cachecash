@@ -406,10 +406,10 @@ func (suite *CatalogTestSuite) testChunkSource(req *ccmsg.CacheMissRequest, chun
 	assert.NotNil(t, chunk)
 
 	// XXX: TODO: These fields are not yet populated.
-	// // Test that slot_idx and block_id contain enough elements to cover the entire object.
-	// expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
-	// assert.Equal(t, expectedBlockCount, len(resp.BlockId))
-	// assert.Equal(t, expectedBlockCount, len(resp.SlotIdx))
+	// // Test that slot_idx and chunk_id contain enough elements to cover the entire object.
+	// expectedChunkCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
+	// assert.Equal(t, expectedChunkCount, len(resp.ChunkId))
+	// assert.Equal(t, expectedChunkCount, len(resp.SlotIdx))
 
 	// XXX: TODO: Test fails; metadata is not populated.
 	// // Test that object metadata was correctly passed along.
@@ -466,7 +466,7 @@ func (suite *CatalogTestSuite) TestChunkSource_HTTP_WholeObject() {
 		})
 }
 
-func (suite *CatalogTestSuite) TestChunkSource_Inline_FirstBlock() {
+func (suite *CatalogTestSuite) TestChunkSource_Inline_FirstChunk() {
 	suite.testChunkSource(&ccmsg.CacheMissRequest{
 		RangeBegin: 0,
 		RangeEnd:   1,
@@ -475,7 +475,7 @@ func (suite *CatalogTestSuite) TestChunkSource_Inline_FirstBlock() {
 	})
 }
 
-func (suite *CatalogTestSuite) TestChunkSource_HTTP_FirstBlock() {
+func (suite *CatalogTestSuite) TestChunkSource_HTTP_FirstChunk() {
 	suite.testChunkSource(&ccmsg.CacheMissRequest{
 		RangeBegin: 0,
 		RangeEnd:   1,
@@ -486,37 +486,37 @@ func (suite *CatalogTestSuite) TestChunkSource_HTTP_FirstBlock() {
 	})
 }
 
-// Tests that the publisher/catalog returns the actual end of a partial final block instead of simply computing where
-// the block would end were it full-size.
-func (suite *CatalogTestSuite) TestChunkSource_Inline_PartialFinalBlock() {
-	// Remove the last half-block.
+// Tests that the publisher/catalog returns the actual end of a partial final chunk instead of simply computing where
+// the chunk would end were it full-size.
+func (suite *CatalogTestSuite) TestChunkSource_Inline_PartialFinalChunk() {
+	// Remove the last half-chunk.
 	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.chunkSize/2)]
 
-	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
+	expectedChunkCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
 
 	chunks := suite.policy.SplitIntoChunks(suite.objectData[:])
 	suite.testChunkSource(&ccmsg.CacheMissRequest{
-		RangeBegin: uint64(expectedBlockCount - 1),
-		RangeEnd:   uint64(expectedBlockCount),
+		RangeBegin: uint64(expectedChunkCount - 1),
+		RangeEnd:   uint64(expectedChunkCount),
 	}, ChunkSourceInline, &ccmsg.ChunkSourceInline{
 		Chunk: chunks[len(chunks)-1:],
 	})
 }
 
-// Tests that the publisher/catalog returns the actual end of a partial final block instead of simply computing where
-// the block would end were it full-size.
-func (suite *CatalogTestSuite) TestChunkSource_HTTP_PartialFinalBlock() {
-	// Remove the last half-block.
+// Tests that the publisher/catalog returns the actual end of a partial final chunk instead of simply computing where
+// the chunk would end were it full-size.
+func (suite *CatalogTestSuite) TestChunkSource_HTTP_PartialFinalChunk() {
+	// Remove the last half-chunk.
 	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.chunkSize/2)]
 
-	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
+	expectedChunkCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
 
 	suite.testChunkSource(&ccmsg.CacheMissRequest{
-		RangeBegin: uint64(expectedBlockCount - 1),
-		RangeEnd:   uint64(expectedBlockCount),
+		RangeBegin: uint64(expectedChunkCount - 1),
+		RangeEnd:   uint64(expectedChunkCount),
 	}, ChunkSourceHTTP, &ccmsg.ChunkSourceHTTP{
 		Url:        suite.ts.URL + "/foo/bar",
-		RangeBegin: uint64((expectedBlockCount - 1) * suite.chunkSize),
+		RangeBegin: uint64((expectedChunkCount - 1) * suite.chunkSize),
 		RangeEnd:   uint64(len(suite.objectData)),
 	})
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBlockCount(t *testing.T) {
+func TestChunkCount(t *testing.T) {
 	assert.Equal(t, 2, ChunkCount(20, 10))
 	assert.Equal(t, 3, ChunkCount(25, 10))
 	assert.Equal(t, 1, ChunkCount(1, 10))

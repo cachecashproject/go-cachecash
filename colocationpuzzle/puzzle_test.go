@@ -109,7 +109,7 @@ func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEn
 func (suite *ColocationPuzzleTestSuite) TestRunPuzzle() {
 	t := suite.T()
 
-	blocks := [][]byte{
+	chunks := [][]byte{
 		{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		{16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31},
 		{32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47},
@@ -121,11 +121,11 @@ func (suite *ColocationPuzzleTestSuite) TestRunPuzzle() {
 	expectedGoal := []byte{0x11, 0x88, 0x53, 0xf9, 0x6d, 0xc6, 0x70, 0xe9, 0xd6, 0x6a, 0xab, 0xee, 0xf3, 0x4a, 0xed, 0x53, 0x5d, 0x2, 0xd2, 0xa9, 0x2b, 0xf0, 0xe0, 0x80, 0x9e, 0xc9, 0xb3, 0x12, 0xcd, 0xa0, 0x83, 0xfc, 0x5a, 0x5c, 0x94, 0x7c, 0xef, 0xba, 0xd7, 0x68, 0xe2, 0x3f, 0x64, 0xef, 0xd8, 0x8, 0x87, 0x20}
 	expectedSecret := []byte{0x58, 0x72, 0x17, 0xdd, 0x1e, 0xfd, 0x61, 0x12, 0xb2, 0xb5, 0xb6, 0x41, 0xd2, 0x7a, 0xa5, 0xfd, 0x47, 0x2f, 0x27, 0xb6, 0x8f, 0x19, 0x4b, 0x8c, 0x2f, 0x9, 0x2, 0x9e, 0xdb, 0x63, 0xca, 0x5f, 0x2b, 0xf4, 0xd0, 0x91, 0x6b, 0xbc, 0x26, 0xa2, 0x92, 0x92, 0xe3, 0x11, 0xae, 0x5a, 0xb5, 0x18}
 
-	getBlockFn := func(blockIdx, offset uint32) ([]byte, error) {
-		offset = offset % uint32(len(blocks[blockIdx])/aes.BlockSize)
-		return blocks[blockIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
+	getBlockFn := func(chunkIdx, offset uint32) ([]byte, error) {
+		offset = offset % uint32(len(chunks[chunkIdx])/aes.BlockSize)
+		return chunks[chunkIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
 	}
-	goal, secret, err := runPuzzle(rounds, uint32(len(blocks)), offset, getBlockFn)
+	goal, secret, err := runPuzzle(rounds, uint32(len(chunks)), offset, getBlockFn)
 
 	assert.Nil(t, err)
 	assert.Equal(t, expectedGoal, goal, "goal mismatched")
@@ -135,7 +135,7 @@ func (suite *ColocationPuzzleTestSuite) TestRunPuzzle() {
 func (suite *ColocationPuzzleTestSuite) TestSolutionVerify() {
 	t := suite.T()
 
-	blocks := [][]byte{
+	chunks := [][]byte{
 		{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		{16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31},
 		{32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47},
@@ -145,7 +145,7 @@ func (suite *ColocationPuzzleTestSuite) TestSolutionVerify() {
 	expectedSecret := []byte{0x58, 0x72, 0x17, 0xdd, 0x1e, 0xfd, 0x61, 0x12, 0xb2, 0xb5, 0xb6, 0x41, 0xd2, 0x7a, 0xa5, 0xfd, 0x47, 0x2f, 0x27, 0xb6, 0x8f, 0x19, 0x4b, 0x8c, 0x2f, 0x9, 0x2, 0x9e, 0xdb, 0x63, 0xca, 0x5f, 0x2b, 0xf4, 0xd0, 0x91, 0x6b, 0xbc, 0x26, 0xa2, 0x92, 0x92, 0xe3, 0x11, 0xae, 0x5a, 0xb5, 0x18}
 	offset := uint32(2)
 
-	secret, offset, err := VerifySolution(suite.params, blocks, expectedGoal, offset)
+	secret, offset, err := VerifySolution(suite.params, chunks, expectedGoal, offset)
 	assert.Equal(t, expectedSecret, secret)
 	assert.Equal(t, uint32(2), offset)
 	assert.Nil(t, err, "solution is invalid")

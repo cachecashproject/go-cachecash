@@ -35,13 +35,13 @@ type Object interface {
 // XXX:
 type cacheID string
 
-type blockGroup struct {
+type chunkGroup struct {
 	data     [][]byte
 	chunkIdx []uint64
 	metadata *ccmsg.ObjectMetadata
 }
 
-// What if one block is a member of multiple block-groups?
+// What if one chunk is a member of multiple chunk-groups?
 type client struct {
 	l *logrus.Logger
 
@@ -95,7 +95,7 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 
 		bundle := group.bundle
 		cacheQty := len(group.notify)
-		chunkResults := make([]*blockRequest, cacheQty)
+		chunkResults := make([]*chunkRequest, cacheQty)
 		cacheConns := make([]*cacheConnection, cacheQty)
 
 		// We receive either an error (in which case we abort the other requests and return an error to our parent) or we
@@ -109,7 +109,7 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 				chunkResults[i] = b
 				cacheConns[i] = result.cache
 				if b.err != nil {
-					return nil, errors.Wrap(b.err, "got error in block request; aborting any that remain in group")
+					return nil, errors.Wrap(b.err, "got error in chunk request; aborting any that remain in group")
 				}
 			}
 		}
@@ -122,12 +122,12 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 
 		for i, d := range bg.data {
 			if bg.chunkIdx[i] != rangeBegin+uint64(i) {
-				return nil, fmt.Errorf("block at position %v has index %v, but expected %v",
+				return nil, fmt.Errorf("chunk at position %v has index %v, but expected %v",
 					i, bg.chunkIdx[i], rangeBegin+uint64(i))
 			}
 			cl.l.WithFields(logrus.Fields{
 				"len(outputBuffer)": len(data),
-				"len(newBlock)":     len(d),
+				"len(newChunk)":     len(d),
 			}).Debug("appending chunk to output buffer")
 			data = append(data, d...)
 		}
@@ -175,19 +175,19 @@ func (o *object) Data() []byte {
 	return o.data
 }
 
-func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*blockRequest, cacheConns []*cacheConnection) (*blockGroup, error) {
+func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*chunkRequest, cacheConns []*cacheConnection) (*chunkGroup, error) {
 	// Solve colocation puzzle.
 	tt := common.StartTelemetryTimer(cl.l, "solvePuzzle")
-	var singleEncryptedBlocks [][]byte
+	var singleEncryptedChunks [][]byte
 	for _, result := range chunkResults {
-		singleEncryptedBlocks = append(singleEncryptedBlocks, result.encData)
+		singleEncryptedChunks = append(singleEncryptedChunks, result.encData)
 	}
 	pi := bundle.Remainder.PuzzleInfo
 	secret, _, err := colocationpuzzle.Solve(colocationpuzzle.Parameters{
 		Rounds:      pi.Rounds,
 		StartOffset: uint32(pi.StartOffset),
 		StartRange:  uint32(pi.StartRange),
-	}, singleEncryptedBlocks, pi.Goal)
+	}, singleEncryptedChunks, pi.Goal)
 	tt.Stop()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to solve colocation puzzle")
@@ -220,28 +220,28 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 		}
 	}
 
-	// Decrypt singly-encrypted blocks to produce final plaintext.
+	// Decrypt singly-encrypted chunks to produce final plaintext.
 	tt = common.StartTelemetryTimer(cl.l, "decryptData")
-	var plaintextBlocks [][]byte
+	var plaintextChunks [][]byte
 	var chunkIdx []uint64
-	for i, ciphertext := range singleEncryptedBlocks {
+	for i, ciphertext := range singleEncryptedChunks {
 		plaintext, err := util.EncryptChunk(
 			bundle.TicketRequest[i].ChunkIdx,
 			bundle.Remainder.RequestSequenceNo,
 			ticketL2.InnerSessionKey[i].Key,
 			ciphertext)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to decrypt singly-encrypted block")
+			return nil, errors.Wrap(err, "failed to decrypt singly-encrypted chunk")
 		}
-		plaintextBlocks = append(plaintextBlocks, plaintext)
+		plaintextChunks = append(plaintextChunks, plaintext)
 		chunkIdx = append(chunkIdx, bundle.TicketRequest[i].ChunkIdx)
 	}
 	tt.Stop()
 
 	// Return data to parent.
-	cl.l.Info("block-group fetch completed without error")
-	return &blockGroup{
-		data:     plaintextBlocks,
+	cl.l.Info("chunk-group fetch completed without error")
+	return &chunkGroup{
+		data:     plaintextChunks,
 		chunkIdx: chunkIdx,
 		metadata: bundle.Metadata,
 	}, nil

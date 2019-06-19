@@ -131,28 +131,28 @@ The process of satisfying a request
     implementation, they're HTTP-like paths.)  It (optionally) includes a _byte range_, which may be open-ended (which
     means "continue until the end of the object").
 
-  - The _byte range_ is translated to a _block range_ depending on how the publisher would like to chunk the object.
-    (Right now, we only support fixed-size blocks, but this is not inherent.)  The publisher may also choose how many
-    blocks it would like to serve, and how many block-groups they will be divided into.  (The following steps are
-    repeated for each block-group; the results are returned together in a single response to the client.)
+  - The _byte range_ is translated to a _chunk range_ depending on how the publisher would like to split the object.
+    (Right now, we only support fixed-size chunks, but this is not inherent.)  The publisher may also choose how many
+    chunks it would like to serve, and how many chunk-groups they will be divided into.  (The following steps are
+    repeated for each chunk-group; the results are returned together in a single response to the client.)
 
-  - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and valid.
+  - The object's _path_ is used to ensure that the object exists, and that the specified chunks are in-cache and valid.
     (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A future
     enhancement might require that the publisher fetch only the cipher-blocks that will be used in puzzle generation,
     instead of all of the cipher-blocks in the chunks.)
 
-  - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by the
-    publisher.  (Our implementation uses the block's digest.)
+  - The _path_ and _chunk range_ are mapped to a list of _chunk identifiers_.  These are arbitrarily assigned by the
+    publisher.  (Our implementation uses the chunk's digest.)
 
   - The publisher selects a single escrow that will be used to service the request.
 
   - The publisher selects a set of caches that are enrolled in that escrow.  This selection should be designed to place
-    the same blocks on the same caches (expanding the number in rotation as demand for the chunks grows), and to reuse
-    the same caches for consecutive block-groups served to a single client (so that connection reuse and pipelining can
+    the same chunks on the same caches (expanding the number in rotation as demand for the chunks grows), and to reuse
+    the same caches for consecutive chunk-groups served to a single client (so that connection reuse and pipelining can
     improve performance, once implemented).
 
   - For each cache, the publisher chooses a logical slot index.  (For details, see documentation on the logical cache
-    model.)  This slot index should be consistent between requests for the cache to serve the same block.
+    model.)  This slot index should be consistent between requests for the cache to serve the same chunk.
 
 ***************************************************************
 
@@ -170,13 +170,13 @@ Object identifier (path) -> escrow-object (escrow & ID pair; do the IDs really m
 The publisher must also ensure that the metadata and data required to generate the puzzle is available
 in the local catalog.  (The publisher doesn't use the catalog yet; that needs to be implemented.)
 
-The publisher will also need to decide on LCM slot IDs for each block it asks a cache to serve.  These can vary per
+The publisher will also need to decide on LCM slot IDs for each chunk it asks a cache to serve.  These can vary per
 cache, per escrow.  They should also be designed to support escrow rollover.
 
 */
 
 const (
-	blocksPerGroup = 4
+	chunksPerGroup = 4
 )
 
 func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
@@ -193,23 +193,23 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		}).Debug("received cache backlog length")
 	}
 
-	// - The object's _path_ is used to ensure that the object exists, and that the specified blocks are in-cache and
+	// - The object's _path_ is used to ensure that the object exists, and that the specified chunks are in-cache and
 	//   valid.  (This may be satisfied by the content catalog's cache, or may require contacting an upstream.)  (A
 	//   future enhancement might require that the publisher fetch only the cipher-blocks that will be used in puzzle
 	//   generation, instead of all of the cipher-blocks in the chunks.)
-	p.l.Debug("pulling metadata and blocks into catalog")
+	p.l.Debug("pulling metadata and chunks into catalog")
 	obj, err := p.catalog.GetData(ctx, &ccmsg.ContentRequest{Path: req.Path})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get metadata for requested object")
 	}
 	p.l.WithFields(logrus.Fields{
 		"size": obj.ObjectSize(),
-	}).Debug("received metadata and blocks")
+	}).Debug("received metadata and chunks")
 
-	// - The _byte range_ is translated to a _block range_ depending on how the publisher would like to chunk the object.
-	//   (Right now, we only support fixed-size blocks, but this is not inherent.)  The publisher may also choose how
-	//   many blocks it would like to serve, and how many block-groups they will be divided into.  (The following steps
-	//   are repeated for each block-group; the results are returned together in a single response to the client.)
+	// - The _byte range_ is translated to a _chunk range_ depending on how the publisher would like to chunk the object.
+	//   (Right now, we only support fixed-size chunks, but this is not inherent.)  The publisher may also choose how
+	//   many chunks it would like to serve, and how many chunk-groups they will be divided into.  (The following steps
+	//   are repeated for each chunk-group; the results are returned together in a single response to the client.)
 	if req.RangeEnd != 0 && req.RangeEnd <= req.RangeBegin {
 		// TODO: Return 4xx, since this is a bad request from the client.
 		return nil, errors.New("invalid range")
@@ -218,29 +218,29 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 
 	// XXX: this doesn't work with empty files
 	if rangeBegin >= uint64(obj.ChunkCount()) {
-		return nil, errors.New("rangeBegin beyond last block")
+		return nil, errors.New("rangeBegin beyond last chunk")
 	}
 
-	// TODO: Return multiple block-groups if appropriate.
-	rangeEnd := rangeBegin + blocksPerGroup
+	// TODO: Return multiple chunk-groups if appropriate.
+	rangeEnd := rangeBegin + chunksPerGroup
 	if rangeEnd > uint64(obj.ChunkCount()) {
 		rangeEnd = uint64(obj.ChunkCount())
 	}
 
 	p.l.WithFields(logrus.Fields{
-		"blockRangeBegin": rangeBegin,
-		"blockRangeEnd":   rangeEnd,
+		"chunkRangeBegin": rangeBegin,
+		"chunkRangeEnd":   rangeEnd,
 	}).Info("content request")
 
-	// - The _path_ and _block range_ are mapped to a list of _block identifiers_.  These are arbitrarily assigned by
-	// the publisher.  (Our implementation uses the block's digest.)
-	p.l.Debug("mapping block indices into block identifiers")
+	// - The _path_ and _chunk range_ are mapped to a list of _chunk identifiers_.  These are arbitrarily assigned by
+	// the publisher.  (Our implementation uses the chunk's digest.)
+	p.l.Debug("mapping chunk indices into chunk identifiers")
 	chunkIndices := make([]uint64, 0, rangeEnd-rangeBegin)
 	chunkIDs := make([]common.ChunkID, 0, rangeEnd-rangeBegin)
 	for chunkIdx := rangeBegin; chunkIdx < rangeEnd; chunkIdx++ {
 		chunkID, err := p.getChunkID(obj, chunkIdx)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get block ID")
+			return nil, errors.Wrap(err, "failed to get chunk ID")
 		}
 
 		chunkIDs = append(chunkIDs, chunkID)
@@ -255,8 +255,8 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	}
 
 	// - The publisher selects a set of caches that are enrolled in that escrow.  This selection should be designed to
-	//   place the same blocks on the same caches (expanding the number in rotation as demand for the chunks grows), and
-	//   to reuse the same caches for consecutive block-groups served to a single client (so that connection reuse and
+	//   place the same chunks on the same caches (expanding the number in rotation as demand for the chunks grows), and
+	//   to reuse the same caches for consecutive chunk-groups served to a single client (so that connection reuse and
 	//   pipelining can improve performance, once implemented).
 	p.l.Debug("selecting caches")
 
@@ -279,7 +279,7 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	caches = caches[0:len(chunkIndices)]
 
 	// - For each cache, the publisher chooses a logical slot index.  (For details, see documentation on the logical
-	//   cache model.)  This slot index should be consistent between requests for the cache to serve the same block.
+	//   cache model.)  This slot index should be consistent between requests for the cache to serve the same chunk.
 
 	// *********************************************************
 
@@ -318,7 +318,7 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		ObjectID:          objID,
 	}
 	for i, chunkIdx := range chunkIndices {
-		// XXX: Need this to be non-zero; otherwise all of our blocks collide!
+		// XXX: Need this to be non-zero; otherwise all of our chunks collide!
 		bp.Entries = append(bp.Entries, BundleEntryParams{
 			TicketNo: ticketNos[i],
 			ChunkIdx: uint32(chunkIdx),
@@ -375,7 +375,7 @@ func (p *ContentPublisher) objectPolicy(path string) (*catalog.ObjectPolicy, err
 func (p *ContentPublisher) getChunkID(obj *catalog.ObjectMetadata, chunkIdx uint64) (common.ChunkID, error) {
 	data, err := obj.GetChunk(uint32(chunkIdx))
 	if err != nil {
-		return common.ChunkID{}, errors.Wrap(err, "failed to get block data to generate ID")
+		return common.ChunkID{}, errors.Wrap(err, "failed to get chunk data to generate ID")
 	}
 
 	var id common.ChunkID
@@ -385,7 +385,7 @@ func (p *ContentPublisher) getChunkID(obj *catalog.ObjectMetadata, chunkIdx uint
 	p.l.WithFields(logrus.Fields{
 		"chunkIdx": chunkIdx,
 		"chunkID":  id,
-	}).Debug("generating block ID")
+	}).Debug("generating chunk ID")
 
 	return id, nil
 }
@@ -407,14 +407,14 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 	if req.RangeEnd != 0 && req.RangeEnd <= req.RangeBegin {
 		return nil, errors.New("invalid range")
 	}
-	// if req.RangeEnd <= number-of-blocks-in-object ... invalid range
+	// if req.RangeEnd <= number-of-chunks-in-object ... invalid range
 
 	objMeta, err := p.catalog.GetMetadata(ctx, path)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get metadata for object")
 	}
 
-	// Convert object policy, which is required to convert block range into byte range.
+	// Convert object policy, which is required to convert chunk range into byte range.
 	pol, err := p.objectPolicy(path)
 	if err != nil {
 		return nil, errors.New("failed to get object policy")
@@ -424,16 +424,16 @@ func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRe
 		Chunks: []*ccmsg.Chunk{},
 	}
 
-	// XXX: Shouldn't we be telling the cache what block IDs it should expect, and providing enough information for it
+	// XXX: Shouldn't we be telling the cache what chunk IDs it should expect, and providing enough information for it
 	// to verify that it's getting the right data (e.g. a digest)?
 
-	// Select logical cache slot for each block.
+	// Select logical cache slot for each chunk.
 	for i := req.RangeBegin; i < req.RangeEnd; i++ {
 		chunkID := i // XXX: Not true!
 		slotIdx := p.assignSlot(path, i, chunkID)
 		chunk, err := p.catalog.ChunkSource(ctx, req, path, objMeta)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get block source")
+			return nil, errors.Wrap(err, "failed to get chunk source")
 		}
 
 		// TODO: we shouldn't need to modify the chunk afterwards

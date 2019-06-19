@@ -90,7 +90,7 @@ func (c *catalog) ChunkSource(ctx context.Context, req *ccmsg.CacheMissRequest, 
 }
 
 func (c *catalog) GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {
-	// XXX: This works, but is NOT a good long-term solution: it may cause a fetch of the first block of the object.
+	// XXX: This works, but is NOT a good long-term solution: it may cause a fetch of the first chunk of the object.
 	// XXX: This should trigger a HEAD request instead of a range request
 	return c.GetData(ctx, &ccmsg.ContentRequest{
 		Path:       path,

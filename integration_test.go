@@ -123,7 +123,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 		doubleEncryptedChunks = append(doubleEncryptedChunks, subMsg.DataResponse.Data)
 	}
 
-	// Give each cache its L1 ticket; receive the outer session key for that cache's block in exchange.
+	// Give each cache its L1 ticket; receive the outer session key for that cache's chunk in exchange.
 	var outerSessionKeys []*ccmsg.BlockKey
 	for i, cache := range caches {
 		msg, err := bundle.BuildClientCacheRequest(bundle.TicketL1[i])
@@ -142,7 +142,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 		outerSessionKeys = append(outerSessionKeys, subMsg.L1Response.OuterKey)
 	}
 
-	// Decrypt once to reveal singly-encrypted blocks.
+	// Decrypt once to reveal singly-encrypted chunks.
 	var singleEncryptedChunks [][]byte
 	for i, ciphertext := range doubleEncryptedChunks {
 		plaintext, err := util.EncryptChunk(
@@ -151,7 +151,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 			outerSessionKeys[i].Key,
 			ciphertext)
 		if err != nil {
-			return errors.Wrap(err, "failed to decrypt doubly-encrypted block")
+			return errors.Wrap(err, "failed to decrypt doubly-encrypted chunk")
 		}
 
 		singleEncryptedChunks = append(singleEncryptedChunks, plaintext)
@@ -206,7 +206,7 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 			ticketL2.InnerSessionKey[i].Key,
 			ciphertext)
 		if err != nil {
-			return errors.Wrap(err, "failed to decrypt singly-encrypted block")
+			return errors.Wrap(err, "failed to decrypt singly-encrypted chunk")
 		}
 		plaintextChunks = append(plaintextChunks, plaintext)
 	}
