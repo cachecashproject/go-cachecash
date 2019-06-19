@@ -9,6 +9,9 @@ drop table if exists type_monsters;
 drop type if exists workday;
 create type workday as enum('monday', 'tuesday', 'wednesday', 'thursday', 'friday');
 
+drop domain if exists uint3;
+create domain uint3 as numeric check(value >= 0 and value < power(2::numeric, 3::numeric));
+
 create table users (
 	id serial primary key not null
 );
@@ -39,6 +42,9 @@ create table video_tags (
 	foreign key (video_id) references videos (id),
 	foreign key (tag_id) references tags (id)
 );
+
+drop type if exists my_int_array;
+create domain my_int_array as int[];
 
 create table type_monsters (
 	id serial primary key not null,
@@ -222,5 +228,10 @@ create table type_monsters (
 	jsonbarr_null    jsonb[] null,
 	jsonbarr_nnull   jsonb[] not null,
 	jsonarr_null     json[] null,
-	jsonarr_nnull    json[] not null
+	jsonarr_nnull    json[] not null,
+
+	customarr_null   my_int_array null,
+	customarr_nnull  my_int_array not null,
+
+	domainuint3_nnull uint3 not null
 );

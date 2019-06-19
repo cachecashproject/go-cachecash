@@ -63,9 +63,9 @@ func (suite *BlockCipherTestSuite) TestSingleBlockEncryption() {
 
 	for i := uint32(0); i < BlockQty; i++ {
 		expected := ciphertext[i*aes.BlockSize : (i+1)*aes.BlockSize]
-		plaintextBlock := plaintext[i*aes.BlockSize : (i+1)*aes.BlockSize]
+		plaintextChunk := plaintext[i*aes.BlockSize : (i+1)*aes.BlockSize]
 
-		result, err := EncryptBlock(plaintextBlock, suite.key, suite.iv, i)
+		result, err := EncryptCipherBlock(plaintextChunk, suite.key, suite.iv, i)
 		if !assert.Nil(t, err) {
 			return
 		}
@@ -84,7 +84,7 @@ func (suite *BlockCipherTestSuite) TestSingleStaticBlockEncryption() {
 	iv := []byte{8, 7, 6, 5, 4, 3, 2, 1, 16, 15, 14, 13, 12, 11, 10, 9}
 	counter := uint32(23)
 
-	ciphertext, err := EncryptBlock(plaintext, key, iv, counter)
+	ciphertext, err := EncryptCipherBlock(plaintext, key, iv, counter)
 
 	assert.Nil(t, err)
 	assert.Equal(t, []byte{7, 231, 85, 127, 217, 165, 18, 114, 59, 80, 215, 36, 96, 107, 189, 87}, ciphertext)

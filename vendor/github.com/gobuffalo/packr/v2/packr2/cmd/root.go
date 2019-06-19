@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 
-	"github.com/gobuffalo/genny"
 	"github.com/gobuffalo/logger"
 	"github.com/gobuffalo/packr/v2/jam"
 	"github.com/gobuffalo/packr/v2/plog"
@@ -21,8 +21,7 @@ var globalOptions = struct {
 var rootCmd = &cobra.Command{
 	Use:   "packr2",
 	Short: "Packr is a simple solution for bundling static assets inside of Go binaries.",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		genny.DefaultLogLvl = logger.ErrorLevel
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		for _, a := range args {
 			if a == "--legacy" {
 				globalOptions.Legacy = true
@@ -33,14 +32,29 @@ var rootCmd = &cobra.Command{
 				continue
 			}
 		}
+
+		// if the last argument is a .go file or directory we should
+		// find boxes from there, not from the current directory.
+		//	packr2 build -v cmd/main.go
+		if len(args) > 0 {
+			i := len(args) - 1
+			dir := args[i]
+			if _, err := os.Stat(dir); err == nil {
+				if filepath.Ext(dir) == ".go" {
+					dir = filepath.Dir(dir)
+				}
+				os.Chdir(dir)
+				args[i] = filepath.Base(args[i])
+			}
+		}
+
 		if globalOptions.Verbose {
-			genny.DefaultLogLvl = logger.DebugLevel
 			plog.Logger = logger.New(logger.DebugLevel)
 		}
 		if globalOptions.Silent {
-			genny.DefaultLogLvl = logger.FatalLevel
 			plog.Logger = logger.New(logger.FatalLevel)
 		}
+		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		opts := globalOptions.PackOptions

@@ -7,17 +7,9 @@ Thank you to the following **GIANTS**:
 
 * [github.com/gobuffalo/envy](https://godoc.org/github.com/gobuffalo/envy)
 
-* [github.com/gobuffalo/genny](https://godoc.org/github.com/gobuffalo/genny)
-
-* [github.com/gobuffalo/gogen](https://godoc.org/github.com/gobuffalo/gogen)
-
 * [github.com/gobuffalo/logger](https://godoc.org/github.com/gobuffalo/logger)
 
-* [github.com/gobuffalo/mapi](https://godoc.org/github.com/gobuffalo/mapi)
-
 * [github.com/gobuffalo/packd](https://godoc.org/github.com/gobuffalo/packd)
-
-* [github.com/inconshreveable/mousetrap](https://godoc.org/github.com/inconshreveable/mousetrap)
 
 * [github.com/karrick/godirwalk](https://godoc.org/github.com/karrick/godirwalk)
 
@@ -32,8 +24,6 @@ Thank you to the following **GIANTS**:
 * [github.com/sirupsen/logrus](https://godoc.org/github.com/sirupsen/logrus)
 
 * [github.com/spf13/cobra](https://godoc.org/github.com/spf13/cobra)
-
-* [github.com/spf13/pflag](https://godoc.org/github.com/spf13/pflag)
 
 * [github.com/stretchr/testify](https://godoc.org/github.com/stretchr/testify)
 

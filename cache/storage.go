@@ -40,8 +40,8 @@ func NewCacheStorage(l *logrus.Logger, badgerDirectory string) (*CacheStorage, e
 	}, nil
 }
 
-func makeDataKey(escrowID common.EscrowID, blockID common.BlockID) []byte {
-	return []byte("data-" + string(escrowID[:]) + "-" + string(blockID[:]))
+func makeDataKey(escrowID common.EscrowID, chunkID common.ChunkID) []byte {
+	return []byte("data-" + string(escrowID[:]) + "-" + string(chunkID[:]))
 }
 
 func makeMetaKey(escrowID common.EscrowID, objectID common.ObjectID) []byte {
@@ -130,13 +130,13 @@ func (s *CacheStorage) GetMetadata(escrowID common.EscrowID, objectID common.Obj
 	return meta, nil
 }
 
-func (s *CacheStorage) GetData(escrowID common.EscrowID, blockID common.BlockID) ([]byte, error) {
+func (s *CacheStorage) GetData(escrowID common.EscrowID, chunkID common.ChunkID) ([]byte, error) {
 	s.l.WithFields(logrus.Fields{
 		"escrowID": escrowID,
-		"blockID":  blockID,
+		"chunkID":  chunkID,
 	}).Debug("(*CacheStorage).GetData")
 
-	key := makeDataKey(escrowID, blockID)
+	key := makeDataKey(escrowID, chunkID)
 
 	return s.GetRawBytes(key)
 }
@@ -162,24 +162,24 @@ func (s *CacheStorage) PutMetadata(escrowID common.EscrowID, objectID common.Obj
 	return nil
 }
 
-func (s *CacheStorage) PutData(escrowID common.EscrowID, blockID common.BlockID, data []byte) error {
+func (s *CacheStorage) PutData(escrowID common.EscrowID, chunkID common.ChunkID, data []byte) error {
 	s.l.WithFields(logrus.Fields{
 		"escrowID": escrowID,
-		"blockID":  blockID,
+		"chunkID":  chunkID,
 	}).Debug("(*CacheStorage).PutData")
 
-	key := makeDataKey(escrowID, blockID)
+	key := makeDataKey(escrowID, chunkID)
 
 	return s.PutRawBytes(key, data)
 }
 
-func (s *CacheStorage) DeleteData(escrowID common.EscrowID, blockID common.BlockID) error {
+func (s *CacheStorage) DeleteData(escrowID common.EscrowID, chunkID common.ChunkID) error {
 	s.l.WithFields(logrus.Fields{
 		"escrowID": escrowID,
-		"blockID":  blockID,
+		"chunkID":  chunkID,
 	}).Debug("(*CacheStorage).DeleteData")
 
-	key := makeDataKey(escrowID, blockID)
+	key := makeDataKey(escrowID, chunkID)
 
 	return s.DeleteRawBytes(key)
 }

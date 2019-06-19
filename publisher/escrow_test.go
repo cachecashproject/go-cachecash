@@ -91,12 +91,12 @@ func (suite *TicketBundleTestSuite) generateCacheInfo() ParticipatingCache {
 func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 	t := suite.T()
 
-	const blockCount = 2
+	const chunkCount = 2
 
-	plaintextBlocks := make([][]byte, 0, blockCount)
-	caches := make([]ParticipatingCache, 0, blockCount)
-	for i := 0; i < blockCount; i++ {
-		plaintextBlocks = append(plaintextBlocks, testutil.RandBytes(aes.BlockSize*50))
+	plaintextChunks := make([][]byte, 0, chunkCount)
+	caches := make([]ParticipatingCache, 0, chunkCount)
+	for i := 0; i < chunkCount; i++ {
+		plaintextChunks = append(plaintextChunks, testutil.RandBytes(aes.BlockSize*50))
 		caches = append(caches, suite.generateCacheInfo())
 	}
 
@@ -111,10 +111,10 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 		Escrow:            suite.escrow,
 		ObjectID:          objectID,
 		Entries: []BundleEntryParams{
-			{TicketNo: 0, BlockIdx: 0, Cache: caches[0]},
-			{TicketNo: 1, BlockIdx: 1, Cache: caches[1]},
+			{TicketNo: 0, ChunkIdx: 0, Cache: caches[0]},
+			{TicketNo: 1, ChunkIdx: 1, Cache: caches[1]},
 		},
-		PlaintextBlocks: plaintextBlocks,
+		PlaintextChunks: plaintextChunks,
 	}
 
 	batchSigner, err := batchsignature.NewTrivialBatchSigner(suite.escrow.Inner.PrivateKey)
@@ -130,5 +130,5 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 	_ = bundle
 }
 
-// TODO: Need to add regression test specifically testing that block IDs are assigned correctly.  Had bug where all
-//   blocks were given identical block IDs (that of the last block).  This was only caught by the integration tests.
+// TODO: Need to add regression test specifically testing that chunk IDs are assigned correctly.  Had bug where all
+//   chunks were given identical chunk IDs (that of the last chunk).  This was only caught by the integration tests.

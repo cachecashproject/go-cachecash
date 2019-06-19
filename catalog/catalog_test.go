@@ -21,7 +21,7 @@ import (
 
 const (
 	dataSeed  = 0xDEADBEEF
-	blockSize = 128 * 1024 // in bytes; used to generate ObjectPolicy structs
+	chunkSize = 128 * 1024 // in bytes; used to generate ObjectPolicy structs
 )
 
 type CatalogTestSuite struct {
@@ -33,7 +33,7 @@ type CatalogTestSuite struct {
 	clock clockwork.FakeClock
 
 	upstreamResponseDelay time.Duration
-	blockSize             int
+	chunkSize             int
 	objectData            []byte
 	policy                ObjectPolicy
 
@@ -52,11 +52,11 @@ func (suite *CatalogTestSuite) SetupTest() {
 	suite.l.SetLevel(logrus.DebugLevel)
 	suite.clock = clockwork.NewFakeClock()
 
-	suite.objectData = testutil.RandBytesFromSource(rand.NewSource(dataSeed), 4*blockSize)
+	suite.objectData = testutil.RandBytesFromSource(rand.NewSource(dataSeed), 4*chunkSize)
 	suite.upstreamRequestQty = 0
-	suite.blockSize = 128 * 1024 // TODO: Ensure this is used everywhere.
+	suite.chunkSize = 128 * 1024 // TODO: Ensure this is used everywhere.
 	suite.policy = ObjectPolicy{
-		BlockSize: suite.blockSize,
+		ChunkSize: suite.chunkSize,
 	}
 
 	suite.ts = httptest.NewServer(http.HandlerFunc(suite.handleUpstreamRequest))
@@ -377,10 +377,10 @@ func (suite *CatalogTestSuite) TestUpstreamTimeout() {
 //     - cache contains data from within [a,b] but not overlapping [a,b]; two subrange requests are generated
 // Also, behavior of above when error(s) are generated
 
-// XXX: Should these BlockSource() tests actually be tests of ContentPublisher.CacheMiss? A lot of the logic here, where
+// XXX: Should these ChunkSource() tests actually be tests of ContentPublisher.CacheMiss? A lot of the logic here, where
 // we turn the object ID into a path and then use that to look up metadata and policy, duplicates actual logic in that
 // function.
-func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, blockSource BlockSource, expectedSrc interface{}) {
+func (suite *CatalogTestSuite) testChunkSource(req *ccmsg.CacheMissRequest, chunkSource ChunkSource, expectedSrc interface{}) {
 	t := suite.T()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -399,47 +399,47 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 		t.Fatalf("failed to get metadata for object: %v", err)
 	}
 
-	suite.cat.blockSource = blockSource
-	chunk, err := suite.cat.BlockSource(ctx, req, path, objMeta)
+	suite.cat.chunkSource = chunkSource
+	chunk, err := suite.cat.ChunkSource(ctx, req, path, objMeta)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, chunk)
 
 	// XXX: TODO: These fields are not yet populated.
-	// // Test that slot_idx and block_id contain enough elements to cover the entire object.
-	// expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
-	// assert.Equal(t, expectedBlockCount, len(resp.BlockId))
-	// assert.Equal(t, expectedBlockCount, len(resp.SlotIdx))
+	// // Test that slot_idx and chunk_id contain enough elements to cover the entire object.
+	// expectedChunkCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
+	// assert.Equal(t, expectedChunkCount, len(resp.ChunkId))
+	// assert.Equal(t, expectedChunkCount, len(resp.SlotIdx))
 
 	// XXX: TODO: Test fails; metadata is not populated.
 	// // Test that object metadata was correctly passed along.
 	// // TODO: Other fields, such as etag/last_modified, are not yet implemented.
 	// assert.NotNil(t, resp.Metadata)
 	// assert.Equal(t, uint64(len(suite.objectData)), resp.Metadata.ObjectSize)
-	// assert.Equal(t, uint64(suite.blockSize), resp.Metadata.BlockSize)
+	// assert.Equal(t, uint64(suite.chunkSize), resp.Metadata.ChunkSize)
 
-	switch blockSource {
-	case BlockSourceInline:
+	switch chunkSource {
+	case ChunkSourceInline:
 		bsrc, ok := chunk.Source.(*ccmsg.Chunk_Inline)
 		if !ok {
 			t.Fatalf("unexpected CacheMissResponse source type")
 		}
 
-		expectedSrc, ok := expectedSrc.(*ccmsg.BlockSourceInline)
+		expectedSrc, ok := expectedSrc.(*ccmsg.ChunkSourceInline)
 		if !ok {
-			t.Fatalf("failed to cast expected blocksource result")
+			t.Fatalf("failed to cast expected chunksource result")
 		}
 
-		assert.Equal(t, expectedSrc.Block, bsrc.Inline.Block)
-	case BlockSourceHTTP:
+		assert.Equal(t, expectedSrc.Chunk, bsrc.Inline.Chunk)
+	case ChunkSourceHTTP:
 		bsrc, ok := chunk.Source.(*ccmsg.Chunk_Http)
 		if !ok {
 			t.Fatalf("unexpected CacheMissResponse source type")
 		}
 
-		expectedSrc, ok := expectedSrc.(*ccmsg.BlockSourceHTTP)
+		expectedSrc, ok := expectedSrc.(*ccmsg.ChunkSourceHTTP)
 		if !ok {
-			t.Fatalf("failed to cast expected blocksource result")
+			t.Fatalf("failed to cast expected chunksource result")
 		}
 
 		assert.Equal(t, expectedSrc.Url, bsrc.Http.Url)
@@ -449,76 +449,76 @@ func (suite *CatalogTestSuite) testBlockSource(req *ccmsg.CacheMissRequest, bloc
 }
 
 // N.B. This works even with objectID unset in CacheMissRequest because we are translating back to the path "/foo/bar"
-// in the call to BlockSource().  This is messy.
-func (suite *CatalogTestSuite) TestBlockSource_Inline_WholeObject() {
-	suite.testBlockSource(&ccmsg.CacheMissRequest{}, BlockSourceInline,
-		&ccmsg.BlockSourceInline{
-			Block: suite.policy.ChunkIntoBlocks(suite.objectData[:]),
+// in the call to ChunkSource().  This is messy.
+func (suite *CatalogTestSuite) TestChunkSource_Inline_WholeObject() {
+	suite.testChunkSource(&ccmsg.CacheMissRequest{}, ChunkSourceInline,
+		&ccmsg.ChunkSourceInline{
+			Chunk: suite.policy.SplitIntoChunks(suite.objectData[:]),
 		})
 }
 
-func (suite *CatalogTestSuite) TestBlockSource_HTTP_WholeObject() {
-	suite.testBlockSource(&ccmsg.CacheMissRequest{}, BlockSourceHTTP,
-		&ccmsg.BlockSourceHTTP{
+func (suite *CatalogTestSuite) TestChunkSource_HTTP_WholeObject() {
+	suite.testChunkSource(&ccmsg.CacheMissRequest{}, ChunkSourceHTTP,
+		&ccmsg.ChunkSourceHTTP{
 			Url:        suite.ts.URL + "/foo/bar",
 			RangeBegin: 0,
 			RangeEnd:   0,
 		})
 }
 
-func (suite *CatalogTestSuite) TestBlockSource_Inline_FirstBlock() {
-	suite.testBlockSource(&ccmsg.CacheMissRequest{
+func (suite *CatalogTestSuite) TestChunkSource_Inline_FirstChunk() {
+	suite.testChunkSource(&ccmsg.CacheMissRequest{
 		RangeBegin: 0,
 		RangeEnd:   1,
-	}, BlockSourceInline, &ccmsg.BlockSourceInline{
-		Block: suite.policy.ChunkIntoBlocks(suite.objectData[:blockSize]),
+	}, ChunkSourceInline, &ccmsg.ChunkSourceInline{
+		Chunk: suite.policy.SplitIntoChunks(suite.objectData[:chunkSize]),
 	})
 }
 
-func (suite *CatalogTestSuite) TestBlockSource_HTTP_FirstBlock() {
-	suite.testBlockSource(&ccmsg.CacheMissRequest{
+func (suite *CatalogTestSuite) TestChunkSource_HTTP_FirstChunk() {
+	suite.testChunkSource(&ccmsg.CacheMissRequest{
 		RangeBegin: 0,
 		RangeEnd:   1,
-	}, BlockSourceHTTP, &ccmsg.BlockSourceHTTP{
+	}, ChunkSourceHTTP, &ccmsg.ChunkSourceHTTP{
 		Url:        suite.ts.URL + "/foo/bar",
 		RangeBegin: 0,
-		RangeEnd:   uint64(suite.blockSize),
+		RangeEnd:   uint64(suite.chunkSize),
 	})
 }
 
-// Tests that the publisher/catalog returns the actual end of a partial final block instead of simply computing where
-// the block would end were it full-size.
-func (suite *CatalogTestSuite) TestBlockSource_Inline_PartialFinalBlock() {
-	// Remove the last half-block.
-	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.blockSize/2)]
+// Tests that the publisher/catalog returns the actual end of a partial final chunk instead of simply computing where
+// the chunk would end were it full-size.
+func (suite *CatalogTestSuite) TestChunkSource_Inline_PartialFinalChunk() {
+	// Remove the last half-chunk.
+	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.chunkSize/2)]
 
-	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
+	expectedChunkCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
 
-	blocks := suite.policy.ChunkIntoBlocks(suite.objectData[:])
-	suite.testBlockSource(&ccmsg.CacheMissRequest{
-		RangeBegin: uint64(expectedBlockCount - 1),
-		RangeEnd:   uint64(expectedBlockCount),
-	}, BlockSourceInline, &ccmsg.BlockSourceInline{
-		Block: blocks[len(blocks)-1:],
+	chunks := suite.policy.SplitIntoChunks(suite.objectData[:])
+	suite.testChunkSource(&ccmsg.CacheMissRequest{
+		RangeBegin: uint64(expectedChunkCount - 1),
+		RangeEnd:   uint64(expectedChunkCount),
+	}, ChunkSourceInline, &ccmsg.ChunkSourceInline{
+		Chunk: chunks[len(chunks)-1:],
 	})
 }
 
-// Tests that the publisher/catalog returns the actual end of a partial final block instead of simply computing where
-// the block would end were it full-size.
-func (suite *CatalogTestSuite) TestBlockSource_HTTP_PartialFinalBlock() {
-	// Remove the last half-block.
-	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.blockSize/2)]
+// Tests that the publisher/catalog returns the actual end of a partial final chunk instead of simply computing where
+// the chunk would end were it full-size.
+func (suite *CatalogTestSuite) TestChunkSource_HTTP_PartialFinalChunk() {
+	// Remove the last half-chunk.
+	suite.objectData = suite.objectData[0 : len(suite.objectData)-(suite.chunkSize/2)]
 
-	expectedBlockCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.blockSize)))
+	expectedChunkCount := int(math.Ceil(float64(len(suite.objectData)) / float64(suite.chunkSize)))
 
-	suite.testBlockSource(&ccmsg.CacheMissRequest{
-		RangeBegin: uint64(expectedBlockCount - 1),
-		RangeEnd:   uint64(expectedBlockCount),
-	}, BlockSourceHTTP, &ccmsg.BlockSourceHTTP{
+	suite.testChunkSource(&ccmsg.CacheMissRequest{
+		RangeBegin: uint64(expectedChunkCount - 1),
+		RangeEnd:   uint64(expectedChunkCount),
+	}, ChunkSourceHTTP, &ccmsg.ChunkSourceHTTP{
 		Url:        suite.ts.URL + "/foo/bar",
-		RangeBegin: uint64((expectedBlockCount - 1) * suite.blockSize),
+		RangeBegin: uint64((expectedChunkCount - 1) * suite.chunkSize),
 		RangeEnd:   uint64(len(suite.objectData)),
 	})
 }
 
-// TODO: Test with different blockSize.  See issue #17.
+// TODO: Test with different chunkSize.  See issue #17.

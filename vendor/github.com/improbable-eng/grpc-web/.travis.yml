@@ -14,7 +14,6 @@ env:
     - GLOBAL_TESTSERVER=true
     - SEPARATE_TEST_SUITES=true
   matrix:
-    - GOTEST=1
     - BROWSER=nodejs
     - BROWSER=firefox53_osx
     - BROWSER=firefox39_osx
@@ -33,10 +32,12 @@ env:
     - BROWSER=safari11 DISABLE_WEBSOCKET_TESTS=true
     - BROWSER=safari9_1 DISABLE_WEBSOCKET_TESTS=true
     - BROWSER=safari8 DISABLE_WEBSOCKET_TESTS=true
-    - BROWSER=safari6 DISABLE_WEBSOCKET_TESTS=true
 cache:
   directories:
     - node_modules
+branches:
+  only:
+  - master
 before_install:
   - sudo apt-get install unzip
   - . ./install-protobuf.sh
@@ -52,7 +53,19 @@ install:
   - nvm install
   - npm install
 before_script:
-  - ./test/start-testserver.sh &
+  - ./integration_test/start-testserver.sh &
 script:
-  - ./lint-all.sh
-  - travis_retry npm run test
+  - npm run test:integration
+
+stages:
+  - lint
+  - unit-test
+  - test
+
+jobs:
+  include:
+    - stage: lint
+      script: ./lint-all.sh
+
+    - stage: unit-test
+      script: ./test-all.sh

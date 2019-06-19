@@ -6,7 +6,7 @@ CREATE TABLE logical_cache_mapping (
     txid               bytea NOT NULL,
     slot_idx           bigint NOT NULL, -- XXX: int64, not uint64
     block_escrow_id    bytea NOT NULL,
-    block_id           bytea NOT NULL,
+    chunk_id           bytea NOT NULL,
     CONSTRAINT pk_escrow_slot PRIMARY KEY (txid, slot_idx)
 );
 

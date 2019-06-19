@@ -23,7 +23,7 @@ import (
 )
 
 type TestScenarioParams struct {
-	BlockSize  uint64
+	ChunkSize  uint64
 	ObjectSize uint64
 
 	// MockUpstream indicates whether a mock upstream should be generated in place of the default HTTP upstream.  If
@@ -52,28 +52,28 @@ type TestScenario struct {
 	EscrowID            common.EscrowID
 
 	Params       *TestScenarioParams
-	DataBlocks   [][]byte
+	Chunks       [][]byte
 	ObjectID     common.ObjectID
 	Caches       []*cache.Cache
 	CacheConfigs []*cache.ConfigFile
 }
 
-func (ts *TestScenario) BlockCount() uint64 {
-	return uint64(math.Ceil(float64(ts.Params.ObjectSize) / float64(ts.Params.BlockSize)))
+func (ts *TestScenario) ChunkCount() uint64 {
+	return uint64(math.Ceil(float64(ts.Params.ObjectSize) / float64(ts.Params.ChunkSize)))
 }
 
 func (ts *TestScenario) ObjectData() []byte {
 	var data []byte
-	for _, b := range ts.DataBlocks {
+	for _, b := range ts.Chunks {
 		data = append(data, b...)
 	}
 	return data
 }
 
-func generateBlockID(data []byte) common.BlockID {
-	var id common.BlockID
+func generateChunkID(data []byte) common.ChunkID {
+	var id common.ChunkID
 	digest := sha512.Sum384(data)
-	copy(id[:], digest[0:common.BlockIDSize])
+	copy(id[:], digest[0:common.ChunkIDSize])
 	return id
 }
 
@@ -106,9 +106,9 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 
 	// Create a content object.
 	if params.GenerateObject {
-		ts.DataBlocks = make([][]byte, 0, ts.BlockCount())
-		for i := 0; i < cap(ts.DataBlocks); i++ {
-			ts.DataBlocks = append(ts.DataBlocks, testutil.RandBytes(int(ts.Params.BlockSize)))
+		ts.Chunks = make([][]byte, 0, ts.ChunkCount())
+		for i := 0; i < cap(ts.Chunks); i++ {
+			ts.Chunks = append(ts.Chunks, testutil.RandBytes(int(ts.Params.ChunkSize)))
 		}
 	}
 
@@ -243,15 +243,15 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		}
 		if params.GenerateObject {
 			if err := c.Storage.PutMetadata(ts.EscrowID, ts.ObjectID, &ccmsg.ObjectMetadata{
-				BlockSize:  ts.Params.BlockSize,
+				ChunkSize:  ts.Params.ChunkSize,
 				ObjectSize: ts.Params.ObjectSize,
 			}); err != nil {
 				return nil, err
 			}
-			for j := 0; j < int(ts.BlockCount()); j++ {
-				data := ts.DataBlocks[j]
-				blockID := generateBlockID(data)
-				if err := c.Storage.PutData(ts.EscrowID, blockID, data); err != nil {
+			for j := 0; j < int(ts.ChunkCount()); j++ {
+				data := ts.Chunks[j]
+				chunkID := generateChunkID(data)
+				if err := c.Storage.PutData(ts.EscrowID, chunkID, data); err != nil {
 					return nil, err
 				}
 			}

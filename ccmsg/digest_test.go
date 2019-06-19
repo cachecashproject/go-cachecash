@@ -105,7 +105,7 @@ func TestColocationPuzzleInfoCanonicalDigest(t *testing.T) {
 
 func TestTicketRequestCanonicalDigest(t *testing.T) {
 	m := TicketRequest{
-		BlockIdx: 123,
+		ChunkIdx: 123,
 		InnerKey: &BlockKey{
 			Key: []byte{1, 2, 4, 5, 6},
 		},

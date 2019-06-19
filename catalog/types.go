@@ -68,8 +68,8 @@ func (r *FetchResult) ObjectSize() (int, error) {
 }
 
 type Upstream interface {
-	// FetchData ensures that metadata is fresh, and also that the indicated blocks are available in the cache.  An
-	// empty list of block indices is allowed; this ensures metadata freshness but does not pull any data blocks.
+	// FetchData ensures that metadata is fresh, and also that the indicated chunks are available in the cache.  An
+	// empty list of chunk indices is allowed; this ensures metadata freshness but does not pull any chunks.
 	//
 	// forceMetadata requires that object metadata be fetched even if it would not otherwise be fetched.
 	//
@@ -77,13 +77,13 @@ type Upstream interface {
 	//
 	// Cases:
 	// - We want to fetch metadata only.
-	// - We want to fetch metadata *and* a series of blocks.
+	// - We want to fetch metadata *and* a series of chunks.
 	// - We have metadata that we already believe to be be valid, so we don't necessarily need to fetch it, if that's
-	//   any extra effort.  We want to fetch a series of blocks.
+	//   any extra effort.  We want to fetch a series of chunks.
 	//
 	// Questions:
 	// - Some upstreams will require CacheCash (not upstream) metadata for the object.  For example, the HTTP upstream
-	//   will need to know block sizes in order to translate block indices into byte ranges.  How should this be done?
+	//   will need to know chunk sizes in order to translate chunk indices into byte ranges.  How should this be done?
 	//
 	FetchData(ctx context.Context, path string, metadata *ObjectMetadata, rangeBegin, rangeEnd uint) (*FetchResult, error)
 }
@@ -94,7 +94,7 @@ type ContentCatalog interface {
 
 	GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error)
 
-	BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.Chunk, error)
+	ChunkSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.Chunk, error)
 
 	Upstream(path string) (Upstream, error)
 }

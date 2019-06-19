@@ -32,7 +32,7 @@ import (
 /*
 Notes & TODOs:
 - As-is, the cache does not actually use the metadata that it stores.  Why did we want the metadata to be provided?
-- No support yet for multiple-block fetches.  (When implementing this, need to make sure that we're using the block
+- No support yet for multiple-chunk fetches.  (When implementing this, need to make sure that we're using the chunk
   ID(s) returned by the publisher.
 */
 
@@ -112,13 +112,13 @@ func (c *Cache) AddEscrowToDatabase(ctx context.Context, escrow *Escrow) error {
 	return escrow.Inner.Insert(ctx, c.db, boil.Infer())
 }
 
-func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, objectID common.ObjectID, blockIdx uint64,
-	blockID common.BlockID) ([]byte, error) {
+func (c *Cache) getChunk(ctx context.Context, escrowID common.EscrowID, objectID common.ObjectID, chunkIdx uint64,
+	chunkID common.ChunkID) ([]byte, error) {
 
 	// Can we satisfy the request out of cache?
-	data, err := c.Storage.GetData(escrowID, blockID)
+	data, err := c.Storage.GetData(escrowID, chunkID)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get data block from storage")
+		return nil, errors.Wrap(err, "failed to get chunk from storage")
 	}
 
 	if data == nil {
@@ -136,12 +136,12 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 		}
 		grpcClient := ccmsg.NewCachePublisherClient(conn)
 
-		// First, contact the publisher's cache-facing service and ask where to fetch this block from.
+		// First, contact the publisher's cache-facing service and ask where to fetch this chunk from.
 		c.l.Info("asking publisher for cache-miss info")
 		resp, err := grpcClient.CacheMiss(ctx, &ccmsg.CacheMissRequest{
 			ObjectId:   objectID[:],
-			RangeBegin: blockIdx,
-			RangeEnd:   blockIdx + 1,
+			RangeBegin: chunkIdx,
+			RangeEnd:   chunkIdx + 1,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch upstream info from publisher")
@@ -150,9 +150,9 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 		for _, chunk := range resp.Chunks {
 			c.l.WithFields(logrus.Fields{
 				"slot_idx":    chunk.SlotIdx,
-				"block_id":    blockID,
+				"chunk_id":    chunkID,
 				"object_size": resp.Metadata.ObjectSize,
-				"block_size":  resp.Metadata.BlockSize,
+				"chunk_size":  resp.Metadata.ChunkSize,
 			}).Debug("cache-miss response")
 
 			if chunk.SlotIdx >= escrow.Slots() {
@@ -162,18 +162,18 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 			// Setup data retrieval
 			switch source := chunk.Source.(type) {
 			case *ccmsg.Chunk_Http:
-				data, err = c.getDataBlockHTTP(source)
+				data, err = c.getChunkHTTP(source)
 				if err != nil {
 					return nil, err
 				}
 			case *ccmsg.Chunk_Inline:
-				data = bytes.Join(source.Inline.Block, nil)
+				data = bytes.Join(source.Inline.Chunk, nil)
 			default:
-				return nil, fmt.Errorf("unexpected block source type: %T", chunk.Source)
+				return nil, fmt.Errorf("unexpected chunk source type: %T", chunk.Source)
 			}
 
 			// update LogicalCacheMapping
-			if err = c.updateLogicalCacheMapping(ctx, chunk, escrowID, blockID); err != nil {
+			if err = c.updateLogicalCacheMapping(ctx, chunk, escrowID, chunkID); err != nil {
 				return nil, errors.Wrap(err, "failed to update lcm")
 			}
 
@@ -182,7 +182,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 			if err := c.Storage.PutMetadata(escrowID, objectID, resp.Metadata); err != nil {
 				return nil, errors.Wrap(err, "failed to store metadata in cache")
 			}
-			if err := c.Storage.PutData(escrowID, blockID, data); err != nil {
+			if err := c.Storage.PutData(escrowID, chunkID, data); err != nil {
 				return nil, errors.Wrap(err, "failed to store data in cache")
 			}
 		}
@@ -194,7 +194,7 @@ func (c *Cache) getDataBlock(ctx context.Context, escrowID common.EscrowID, obje
 	return data, nil
 }
 
-func (c *Cache) getDataBlockHTTP(source *ccmsg.Chunk_Http) ([]byte, error) {
+func (c *Cache) getChunkHTTP(source *ccmsg.Chunk_Http) ([]byte, error) {
 	c.l.Info("sending request")
 	req, err := http.NewRequest("GET", source.Http.Url, nil)
 	if err != nil {
@@ -250,7 +250,7 @@ func (c *Cache) getDataBlockHTTP(source *ccmsg.Chunk_Http) ([]byte, error) {
 	return data, nil
 }
 
-func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chunk, txid common.EscrowID, blockID common.BlockID) error {
+func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chunk, txid common.EscrowID, chunkID common.ChunkID) error {
 	// test if slot is getting re-assigned
 	slot, err := models.LogicalCacheMappings(qm.Where("txid=? and slot_idx=?", txid, chunk.SlotIdx)).One(ctx, c.db)
 	if err != nil {
@@ -260,7 +260,7 @@ func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chun
 		}
 	} else {
 		// slot is already in use, removing old data
-		if err = c.Storage.DeleteData(slot.Txid, slot.BlockID); err != nil {
+		if err = c.Storage.DeleteData(slot.Txid, slot.ChunkID); err != nil {
 			return errors.Wrap(err, "failed to remove old key from badger")
 		}
 
@@ -274,7 +274,7 @@ func (c *Cache) updateLogicalCacheMapping(ctx context.Context, chunk *ccmsg.Chun
 		Txid:          txid,
 		SlotIdx:       chunk.SlotIdx,
 		BlockEscrowID: "TODO",
-		BlockID:       blockID,
+		ChunkID:       chunkID,
 	}
 	err = lcm.Insert(ctx, c.db, boil.Infer())
 	if err != nil {
@@ -354,13 +354,13 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 	// XXX: Refactoring dust!
 	ticketRequest := req.Ticket.(*ccmsg.ClientCacheRequest_TicketRequest).TicketRequest
 
-	var blockID common.BlockID
-	if len(ticketRequest.BlockId) != common.BlockIDSize {
-		return nil, errors.New("unexpected size for block ID")
+	var chunkID common.ChunkID
+	if len(ticketRequest.ChunkId) != common.ChunkIDSize {
+		return nil, errors.New("unexpected size for chunk ID")
 	}
-	copy(blockID[:], ticketRequest.BlockId)
+	copy(chunkID[:], ticketRequest.ChunkId)
 
-	// If we don't have the block, ask the CP how to get it.
+	// If we don't have the chunk, ask the CP how to get it.
 	escrowID, err := common.BytesToEscrowID(req.BundleRemainder.EscrowId)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to interpret escrow ID")
@@ -369,10 +369,10 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to interpret object ID")
 	}
-	dataBlock, err := c.getDataBlock(ctx, escrowID, objectID, ticketRequest.BlockIdx, blockID)
+	chunk, err := c.getChunk(ctx, escrowID, objectID, ticketRequest.ChunkIdx, chunkID)
 	if err != nil {
-		c.l.WithError(err).Error("failed to get data block") // XXX: Should just be doing this at the top level so that we see all errors.
-		return nil, errors.Wrap(err, "failed to get data block")
+		c.l.WithError(err).Error("failed to get chunk") // XXX: Should just be doing this at the top level so that we see all errors.
+		return nil, errors.Wrap(err, "failed to get chunk")
 	}
 
 	for _, masterKey := range [][]byte{escrow.InnerMasterKey(), escrow.OuterMasterKey()} {
@@ -386,7 +386,7 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 		}
 
 		// Note that we use the key we've just generated (and not the master key) to generate the IV.
-		iv, err := util.KeyedPRF(util.Uint64ToLE(ticketRequest.BlockIdx), seqNo, key)
+		iv, err := util.KeyedPRF(util.Uint64ToLE(ticketRequest.ChunkIdx), seqNo, key)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate IV")
 		}
@@ -399,9 +399,9 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 		stream := cipher.NewCTR(block, iv)
 
 		// Encrypt the data.
-		ciphertext := make([]byte, len(dataBlock))
-		stream.XORKeyStream(ciphertext, dataBlock)
-		dataBlock = ciphertext
+		ciphertext := make([]byte, len(chunk))
+		stream.XORKeyStream(ciphertext, chunk)
+		chunk = ciphertext
 	}
 
 	// Done!
@@ -409,7 +409,7 @@ func (c *Cache) handleDataRequest(ctx context.Context, escrow *Escrow, req *ccms
 		RequestSequenceNo: req.SequenceNo,
 		Msg: &ccmsg.ClientCacheResponse_DataResponse{
 			DataResponse: &ccmsg.ClientCacheResponseData{
-				Data: dataBlock,
+				Data: chunk,
 			},
 		},
 	}, nil

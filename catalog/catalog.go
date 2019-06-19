@@ -10,11 +10,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type BlockSource int
+type ChunkSource int
 
 const (
-	BlockSourceInline BlockSource = 0
-	BlockSourceHTTP   BlockSource = 1
+	ChunkSourceInline ChunkSource = 0
+	ChunkSourceHTTP   ChunkSource = 1
 )
 
 type catalog struct {
@@ -22,7 +22,7 @@ type catalog struct {
 	clock clockwork.Clock
 
 	upstream    Upstream
-	blockSource BlockSource
+	chunkSource ChunkSource
 
 	mu      sync.Mutex
 	objects map[string]*ObjectMetadata
@@ -39,26 +39,26 @@ func NewCatalog(l *logrus.Logger, upstream Upstream) (*catalog, error) {
 	}, nil
 }
 
-func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.Chunk, error) {
-	switch c.blockSource {
-	case BlockSourceInline:
+func (c *catalog) ChunkSource(ctx context.Context, req *ccmsg.CacheMissRequest, path string, metadata *ObjectMetadata) (*ccmsg.Chunk, error) {
+	switch c.chunkSource {
+	case ChunkSourceInline:
 
-		block, err := metadata.BlockRange(req.RangeBegin, req.RangeEnd)
+		chunk, err := metadata.ChunkRange(req.RangeBegin, req.RangeEnd)
 		if err != nil {
 			return nil, err
 		}
 
 		return &ccmsg.Chunk{
 			Source: &ccmsg.Chunk_Inline{
-				Inline: &ccmsg.BlockSourceInline{
-					Block: block,
+				Inline: &ccmsg.ChunkSourceInline{
+					Chunk: chunk,
 				},
 			},
 		}, nil
-	case BlockSourceHTTP:
+	case ChunkSourceHTTP:
 		up, ok := c.upstream.(*httpUpstream)
 		if !ok {
-			return nil, errors.New("BlockSourceHTTP doesn't have a http upstream")
+			return nil, errors.New("ChunkSourceHTTP doesn't have a http upstream")
 		}
 
 		u, err := up.upstreamURL(path)
@@ -68,7 +68,7 @@ func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, 
 
 		var rangeEnd uint64
 		if req.RangeEnd != 0 {
-			rangeEnd = req.RangeEnd * uint64(metadata.policy.BlockSize)
+			rangeEnd = req.RangeEnd * uint64(metadata.policy.ChunkSize)
 
 			if rangeEnd > metadata.ObjectSize() {
 				rangeEnd = metadata.ObjectSize()
@@ -77,20 +77,20 @@ func (c *catalog) BlockSource(ctx context.Context, req *ccmsg.CacheMissRequest, 
 
 		return &ccmsg.Chunk{
 			Source: &ccmsg.Chunk_Http{
-				Http: &ccmsg.BlockSourceHTTP{
+				Http: &ccmsg.ChunkSourceHTTP{
 					Url:        u,
-					RangeBegin: req.RangeBegin * uint64(metadata.policy.BlockSize),
+					RangeBegin: req.RangeBegin * uint64(metadata.policy.ChunkSize),
 					RangeEnd:   rangeEnd,
 				},
 			},
 		}, nil
 	default:
-		return nil, errors.New("unsupported blocksource")
+		return nil, errors.New("unsupported chunksource")
 	}
 }
 
 func (c *catalog) GetMetadata(ctx context.Context, path string) (*ObjectMetadata, error) {
-	// XXX: This works, but is NOT a good long-term solution: it may cause a fetch of the first block of the object.
+	// XXX: This works, but is NOT a good long-term solution: it may cause a fetch of the first chunk of the object.
 	// XXX: This should trigger a HEAD request instead of a range request
 	return c.GetData(ctx, &ccmsg.ContentRequest{
 		Path:       path,

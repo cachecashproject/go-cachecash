@@ -13,7 +13,7 @@ type grpcClientCacheServer struct {
 
 var _ ccmsg.ClientCacheServer = (*grpcClientCacheServer)(nil)
 
-func (s *grpcClientCacheServer) GetBlock(ctx context.Context, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponseData, error) {
+func (s *grpcClientCacheServer) GetChunk(ctx context.Context, req *ccmsg.ClientCacheRequest) (*ccmsg.ClientCacheResponseData, error) {
 	resp, err := s.cache.HandleRequest(ctx, req)
 	if err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func (s *grpcClientCacheServer) GetBlock(ctx context.Context, req *ccmsg.ClientC
 	case *ccmsg.ClientCacheResponse_Error:
 		return nil, errors.New(resp.Error.Message)
 	default:
-		return nil, errors.New("unexpected response type (GetBlock)")
+		return nil, errors.New("unexpected response type (GetChunk)")
 	}
 }
 

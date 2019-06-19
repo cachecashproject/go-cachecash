@@ -29,13 +29,13 @@ type cacheConnection struct {
 }
 
 type DownloadTask struct {
-	req             *blockRequest
+	req             *chunkRequest
 	clientNotify    chan DownloadResult
 	schedulerNotify chan bool
 }
 
 type DownloadResult struct {
-	resp  *blockRequest
+	resp  *chunkRequest
 	cache *cacheConnection
 }
 
@@ -77,12 +77,12 @@ func (cc *cacheConnection) Run(ctx context.Context) {
 		l.WithFields(logrus.Fields{
 			"len(backlog)": len(cc.backlog),
 		}).Debug("got download request")
-		blockRequest := task.req
-		err := cc.requestBlock(ctx, blockRequest)
-		blockRequest.err = err
+		chunkRequest := task.req
+		err := cc.requestChunk(ctx, chunkRequest)
+		chunkRequest.err = err
 		l.Debug("yielding download result")
 		task.clientNotify <- DownloadResult{
-			resp:  blockRequest,
+			resp:  chunkRequest,
 			cache: cc,
 		}
 		task.schedulerNotify <- true
@@ -99,21 +99,21 @@ func (cc *cacheConnection) ExchangeTicketL2(ctx context.Context, req *ccmsg.Clie
 	return err
 }
 
-func (cc *cacheConnection) requestBlock(ctx context.Context, b *blockRequest) error {
+func (cc *cacheConnection) requestChunk(ctx context.Context, b *chunkRequest) error {
 	// Send request ticket to cache; await data.
 	reqData, err := b.bundle.BuildClientCacheRequest(b.bundle.TicketRequest[b.idx])
 	if err != nil {
 		return errors.Wrap(err, "failed to build client-cache request")
 	}
-	tt := common.StartTelemetryTimer(cc.l, "getBlock")
-	msgData, err := cc.grpcClient.GetBlock(ctx, reqData)
+	tt := common.StartTelemetryTimer(cc.l, "getChunk")
+	msgData, err := cc.grpcClient.GetChunk(ctx, reqData)
 	if err != nil {
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
 	tt.Stop()
 	cc.l.WithFields(logrus.Fields{
 		"cache":    cc.pubkey,
-		"blockIdx": b.bundle.TicketRequest[b.idx].BlockIdx,
+		"chunkIdx": b.bundle.TicketRequest[b.idx].ChunkIdx,
 		"len":      len(msgData.Data),
 	}).Info("got data response from cache")
 
@@ -131,8 +131,8 @@ func (cc *cacheConnection) requestBlock(ctx context.Context, b *blockRequest) er
 	cc.l.WithField("cache", cc.pubkey).Info("got L1 response from cache")
 
 	// Decrypt data.
-	encData, err := util.EncryptDataBlock(
-		b.bundle.TicketRequest[b.idx].BlockIdx,
+	encData, err := util.EncryptChunk(
+		b.bundle.TicketRequest[b.idx].ChunkIdx,
 		b.bundle.Remainder.RequestSequenceNo,
 		msgL1.OuterKey.Key,
 		msgData.Data)

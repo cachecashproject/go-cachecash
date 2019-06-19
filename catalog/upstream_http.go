@@ -77,7 +77,7 @@ func (up *httpUpstream) FetchData(ctx context.Context, path string, metadata *Ob
 
 	// TODO: Check Accept-Ranges header via HEAD; check Content-Range header in response; handle 416 responses.
 	req, _ := http.NewRequest("GET", u, nil)
-	// XXX: does this work correctly if we request the first block?
+	// XXX: does this work correctly if we explicitly request the first chunk only?
 	if rangeBegin != 0 {
 		if rangeEnd != 0 {
 			// N.B.: HTTP ranges are inclusive; our ranges are [inclusive, exclusive).

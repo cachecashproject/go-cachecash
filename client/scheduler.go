@@ -12,13 +12,14 @@ import (
 
 type fetchGroup struct {
 	bundle *ccmsg.TicketBundle
+	err    error
 	notify []chan DownloadResult
 }
 
 func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGroup) {
 	defer close(queue)
 
-	var blockSize uint64
+	var chunkSize uint64
 	var rangeBegin uint64
 
 	minimumBacklogDepth := 0
@@ -27,10 +28,14 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 
 	for {
 		cl.l.Info("requesting bundle")
-		bundle, err := cl.requestBundle(ctx, path, rangeBegin*blockSize)
+		bundle, err := cl.requestBundle(ctx, path, rangeBegin*chunkSize)
 		if err != nil {
-			cl.l.Error("failed to fetch block-group at offset ", rangeBegin, ": ", err)
-			break
+			err = errors.Wrap(err, "failed to fetch chunk-group at offset "+string(rangeBegin))
+			queue <- &fetchGroup{
+				err: err,
+			}
+			cl.l.Error("encountered an error, shutting down scheduler")
+			return
 		}
 
 		if bundle != nil {
@@ -40,7 +45,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			}).Info("pushing bundle to downloader")
 
 			// For each chunk in TicketBundle, dispatch a request to the appropriate cache.
-			chunkResults := make([]*blockRequest, chunks)
+			chunkResults := make([]*chunkRequest, chunks)
 
 			fetchGroup := &fetchGroup{
 				bundle: bundle,
@@ -48,7 +53,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			}
 
 			for i := 0; i < chunks; i++ {
-				b := &blockRequest{
+				b := &chunkRequest{
 					bundle: bundle,
 					idx:    i,
 				}
@@ -61,7 +66,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 					ci := bundle.CacheInfo[i]
 
 					// XXX: It's problematic to pass ctx here, because canceling the context will destroy the cache connections!
-					// (It should only cancel this particular block-group request.)
+					// (It should only cancel this particular chunk-group request.)
 					cc, err = newCacheConnection(ctx, cl.l, ci.Addr.ConnectionString(), ci.Pubkey.GetPublicKey())
 					if err != nil {
 						cc.l.WithError(err).Error("failed to connect to cache")
@@ -84,11 +89,11 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			queue <- fetchGroup
 			rangeBegin += uint64(chunks)
 
-			if rangeBegin >= bundle.Metadata.BlockCount() {
+			if rangeBegin >= bundle.Metadata.ChunkCount() {
 				cl.l.Info("got all bundles")
 				break
 			}
-			blockSize = bundle.Metadata.BlockSize
+			chunkSize = bundle.Metadata.ChunkSize
 
 			minimumBacklogDepth = int(bundle.MinimumBacklogDepth)
 			bundleRequestInterval = int(bundle.BundleRequestInterval)
@@ -128,7 +133,7 @@ func (cl *client) checkBacklogDepth(n int) bool {
 	return false
 }
 
-type blockRequest struct {
+type chunkRequest struct {
 	bundle *ccmsg.TicketBundle
 	idx    int
 

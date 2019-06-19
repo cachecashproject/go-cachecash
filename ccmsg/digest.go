@@ -109,7 +109,7 @@ func (m *ColocationPuzzleInfo) canonicalDigest(h hash.Hash) {
 
 func (m *TicketRequest) CanonicalDigest() []byte {
 	h := sha512.New384()
-	_ = binary.Write(h, binary.LittleEndian, m.BlockIdx)
+	_ = binary.Write(h, binary.LittleEndian, m.ChunkIdx)
 	_, _ = h.Write(m.InnerKey.Key)
 	_, _ = h.Write(m.CachePublicKey.PublicKey)
 	return h.Sum(nil)

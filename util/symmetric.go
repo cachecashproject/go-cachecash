@@ -7,12 +7,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-// XXX: This function and EncryptBlock, which encrypts a signle *cipher* block, need names that are less likely to cause
-// confusion.
-// Also decrypts blocks, since we're using AES in the CTR mode.
-func EncryptDataBlock(blockIdx uint64, reqSeqNo uint64, sessionKey, in []byte) ([]byte, error) {
+// Also decrypts chunk, since we're using AES in the CTR mode.
+func EncryptChunk(chunkIdx uint64, reqSeqNo uint64, sessionKey, in []byte) ([]byte, error) {
 	// Derive IV.
-	iv, err := KeyedPRF(Uint64ToLE(blockIdx), uint32(reqSeqNo), sessionKey)
+	iv, err := KeyedPRF(Uint64ToLE(chunkIdx), uint32(reqSeqNo), sessionKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate IV")
 	}

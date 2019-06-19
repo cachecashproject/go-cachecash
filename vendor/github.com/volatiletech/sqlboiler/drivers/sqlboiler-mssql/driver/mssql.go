@@ -146,7 +146,7 @@ func (m *MSSQLDriver) TableNames(schema string, whitelist, blacklist []string) (
 	if len(whitelist) > 0 {
 		tables := drivers.TablesFromList(whitelist)
 		if len(tables) > 0 {
-			query += fmt.Sprintf(" AND table_name IN (%s);", strings.Repeat(",?", len(tables))[1:])
+			query += fmt.Sprintf(" AND table_name IN (%s)", strings.Repeat(",?", len(tables))[1:])
 			for _, w := range tables {
 				args = append(args, w)
 			}
@@ -154,12 +154,14 @@ func (m *MSSQLDriver) TableNames(schema string, whitelist, blacklist []string) (
 	} else if len(blacklist) > 0 {
 		tables := drivers.TablesFromList(blacklist)
 		if len(tables) > 0 {
-			query += fmt.Sprintf(" AND table_name not IN (%s);", strings.Repeat(",?", len(tables))[1:])
+			query += fmt.Sprintf(" AND table_name not IN (%s)", strings.Repeat(",?", len(tables))[1:])
 			for _, b := range tables {
 				args = append(args, b)
 			}
 		}
 	}
+
+	query += ` ORDER BY table_name;`
 
 	rows, err := m.conn.Query(query, args...)
 
@@ -236,6 +238,8 @@ func (m *MSSQLDriver) Columns(schema, tableName string, whitelist, blacklist []s
 			}
 		}
 	}
+
+	query += ` ORDER BY ordinal_position;`
 
 	rows, err := m.conn.Query(query, args...)
 	if err != nil {
@@ -339,6 +343,7 @@ func (m *MSSQLDriver) ForeignKeyInfo(schema, tableName string) ([]drivers.Foreig
 	WHERE ccu.table_schema = ?
 	  AND ccu.constraint_schema = ?
 	  AND ccu.table_name = ?
+	ORDER BY ccu.constraint_name, local_table, local_column, foreign_table, foreign_column
 	`
 
 	var rows *sql.Rows

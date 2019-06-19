@@ -113,10 +113,10 @@ message BlockKey {
 // This is what the client will present to the cache.  It's not individually signed, but it's covered by the batch
 // signature.
 message TicketRequest {
-    uint64 block_idx = 2;  // XXX: This'll need to change if we remove the 1:1 cache-to-block correspondence.
+    uint64 chunk_idx = 2;  // XXX: This'll need to change if we remove the 1:1 cache-to-chunk correspondence.
     BlockKey inner_key = 3; // XXX: Why is this here?
 
-    bytes block_id = 5; // @KK: Added temporarily; need to figure out which of ID, index, etc. are necessary.
+    bytes chunk_id = 5; // @KK: Added temporarily; need to figure out which of ID, index, etc. are necessary.
 
     PublicKey cache_public_key = 4;
 }
@@ -146,7 +146,7 @@ message TicketL1 {
     // XXX: This is duplicated between this message and the TicketRequest, which could probably be avoided.  However,
     // the cache does need to be able to work out which block-index the L1 ticket corresponds to so that it can derive
     // the right outer key to give to the client.
-    uint64 block_idx = 4;
+    uint64 chunk_idx = 4;
 
 
     // ts1 -- "block index (in blockchain) that will be used for the lottery draw; see 6.10"
@@ -226,7 +226,7 @@ message ContentRequest {
 
     string path = 2;
 
-    // In bytes; the publisher can map that to blocks however it pleases.  range_begin is inclusive and range_end is
+    // In bytes; the publisher can map that to chunks however it pleases.  range_begin is inclusive and range_end is
     // exclusive.  A value of zero for range_end means "the end of the object".
     uint64 range_begin = 5;
     uint64 range_end = 6;
@@ -252,7 +252,7 @@ message ContentResponse {
 // ------------------------
 
 service ClientCache {
-    rpc GetBlock(ClientCacheRequest) returns (ClientCacheResponseData) {}
+    rpc GetChunk(ClientCacheRequest) returns (ClientCacheResponseData) {}
     rpc ExchangeTicketL1(ClientCacheRequest) returns (ClientCacheResponseL1) {}
     rpc ExchangeTicketL2(ClientCacheRequest) returns (ClientCacheResponseL2) {}
 }
@@ -313,7 +313,7 @@ service CachePublisher {
 
 // XXX: See similarities to ContentRequest.
 message CacheMissRequest {
-    // In blocks.
+    // In chunks.
     // XXX: This was formerly in bytes.  Was there a good reason for that?
     uint64 range_begin = 2;
     uint64 range_end = 3;
@@ -332,19 +332,19 @@ message Chunk {
     uint64 slot_idx = 1;
 
     oneof source {
-        BlockSourceHTTP http = 10;
-        BlockSourceInline inline = 20;
+        ChunkSourceHTTP http = 10;
+        ChunkSourceInline inline = 20;
     }
 }
 
-message BlockSourceHTTP {
+message ChunkSourceHTTP {
     string url = 1;
     uint64 range_begin = 2;
     uint64 range_end = 3;
 }
 
-message BlockSourceInline {
-    repeated bytes block = 1;
+message ChunkSourceInline {
+    repeated bytes chunk = 1;
 }
 
 // ------------------------
@@ -352,7 +352,7 @@ message BlockSourceInline {
 // TODO: this struct is also used at the cache, but most of these fields are irrelevant for the cache and only relevant for the publisher
 message ObjectMetadata {
     uint64 object_size = 1;
-    uint64 block_size = 2;
+    uint64 chunk_size = 2;
     // repeated string header = 3;
 
     // Passed through by publisher from HTTP upstream.
