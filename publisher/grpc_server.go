@@ -16,7 +16,7 @@ var _ ccmsg.ClientPublisherServer = (*grpcClientPublisherServer)(nil)
 func (s *grpcClientPublisherServer) GetContent(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "cachecash.com/Publisher/GetContent")
 	defer span.End()
-	bundle, err := s.publisher.HandleContentRequest(ctx, req)
+	bundles, err := s.publisher.HandleContentRequest(ctx, req)
 	if err != nil {
 		s.publisher.l.WithError(err).Error("content request failed")
 		return nil, err
@@ -26,7 +26,7 @@ func (s *grpcClientPublisherServer) GetContent(ctx context.Context, req *ccmsg.C
 	// fields after our move to gRPC.
 	return &ccmsg.ContentResponse{
 		// RequestSequenceNo: ... -- no longer necessary, since gRPC is handling RPC stuff for us
-		Bundle: bundle,
+		Bundles: bundles,
 	}, nil
 }
 

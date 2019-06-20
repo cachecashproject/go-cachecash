@@ -29,7 +29,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 
 	for {
 		cl.l.Info("requesting bundle")
-		bundle, err := cl.requestBundle(ctx, path, rangeBegin*chunkSize)
+		bundles, err := cl.requestBundles(ctx, path, rangeBegin*chunkSize)
 		if err != nil {
 			err = errors.Wrapf(err, "failed to fetch chunk-group at offset %d", rangeBegin)
 			queue <- &fetchGroup{
@@ -39,7 +39,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			return
 		}
 
-		if bundle != nil {
+		for _, bundle := range bundles {
 			chunks := len(bundle.TicketRequest)
 			cl.l.WithFields(logrus.Fields{
 				"len(chunks)": chunks,
@@ -92,18 +92,17 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			rangeBegin += uint64(chunks)
 
 			if rangeBegin >= bundle.Metadata.ChunkCount() {
-				cl.l.Info("got all bundles")
-				break
+				cl.l.Info("got all bundles, terminating scheduler")
+				return
 			}
 			chunkSize = bundle.Metadata.ChunkSize
 
-			minimumBacklogDepth = uint64(bundle.MinimumBacklogDepth)
-			bundleRequestInterval = int(bundle.BundleRequestInterval)
+			minimumBacklogDepth = uint64(bundle.Metadata.MinimumBacklogDepth)
+			bundleRequestInterval = int(bundle.Metadata.BundleRequestInterval)
 		}
 
 		cl.waitUntilNextRequest(schedulerNotify, minimumBacklogDepth, bundleRequestInterval)
 	}
-	cl.l.Info("scheduler successfully terminated")
 }
 
 func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklogDepth uint64, bundleRequestInterval int) {
@@ -146,7 +145,7 @@ type chunkRequest struct {
 	err     error
 }
 
-func (cl *client) requestBundle(ctx context.Context, path string, rangeBegin uint64) (*ccmsg.TicketBundle, error) {
+func (cl *client) requestBundles(ctx context.Context, path string, rangeBegin uint64) ([]*ccmsg.TicketBundle, error) {
 	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/requestBundle")
 	defer span.End()
 	cl.l.Info("enumerating backlog length")
@@ -173,11 +172,13 @@ func (cl *client) requestBundle(ctx context.Context, path string, rangeBegin uin
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to request bundle from publisher")
 	}
-	bundle := resp.Bundle
-	cl.l.Info("got ticket bundle from publisher for escrow: ", bundle.GetRemainder().GetEscrowId())
-	// cl.l.Debugf("got ticket bundle from publisher: %v", proto.MarshalTextString(bundle))
+	bundles := resp.Bundles
+	for _, bundle := range bundles {
+		cl.l.Info("got ticket bundle from publisher for escrow: ", bundle.GetRemainder().GetEscrowId())
+		// cl.l.Debugf("got ticket bundle from publisher: %v", proto.MarshalTextString(bundle))
+	}
 
 	cl.lastBundleRequest = time.Now()
 
-	return bundle, nil
+	return bundles, nil
 }

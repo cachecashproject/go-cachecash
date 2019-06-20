@@ -179,7 +179,7 @@ const (
 	chunksPerGroup = 4
 )
 
-func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.TicketBundle, error) {
+func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) ([]*ccmsg.TicketBundle, error) {
 	p.l.WithFields(logrus.Fields{
 		"path":       req.Path,
 		"rangeBegin": req.RangeBegin,
@@ -349,14 +349,14 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	bundle.Metadata = &ccmsg.ObjectMetadata{
 		ChunkSize:  obj.PolicyChunkSize(),
 		ObjectSize: obj.ObjectSize(),
+
+		// TODO: don't hardcode those
+		MinimumBacklogDepth:   2,
+		BundleRequestInterval: 5,
 	}
 
-	// TODO: don't hardcode those
-	bundle.MinimumBacklogDepth = 2
-	bundle.BundleRequestInterval = 5
-
 	p.l.Debug("done; returning bundle")
-	return bundle, nil
+	return []*ccmsg.TicketBundle{bundle}, nil
 }
 
 func (p *ContentPublisher) assignSlot(path string, chunkIdx uint64, chunkID uint64) uint64 {

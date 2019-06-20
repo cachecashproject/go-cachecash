@@ -56,9 +56,6 @@ message TicketBundle {
     repeated CacheInfo cache_info = 9;
 
     ObjectMetadata metadata = 12;
-
-    uint32 minimum_backlog_depth = 13;
-    uint32 bundle_request_interval = 14;
 }
 
 // XXX: This needs a better name.
@@ -243,7 +240,7 @@ message ContentResponse {
 
     // Exactly one of these fields may be present.
     Error error = 2;
-    TicketBundle bundle = 3;
+    repeated TicketBundle bundles = 3;
 }
 
 
@@ -361,6 +358,9 @@ message ObjectMetadata {
 
     // Decided by publisher based on HTTP headers.
     string cache_expiration = 6;
+
+    uint32 minimum_backlog_depth = 7;
+    uint32 bundle_request_interval = 8;
 }
 
 // ------------------------

@@ -93,129 +93,131 @@ func (suite *IntegrationTestSuite) testTransferC() error {
 	}
 
 	// Get a ticket bundle from the publisher.
-	bundle, err := prov.HandleContentRequest(context.Background(), bundleReq)
+	bundles, err := prov.HandleContentRequest(context.Background(), bundleReq)
 	if err != nil {
 		return err
 	}
 
-	bundleJSON, err := json.Marshal(bundle)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("ticket bundle:\n%s\n", bundleJSON)
-
-	// Exchange request tickets with each cache.
-	var doubleEncryptedChunks [][]byte
-	for i, cache := range caches {
-		msg, err := bundle.BuildClientCacheRequest(bundle.TicketRequest[i])
+	for _, bundle := range bundles {
+		bundleJSON, err := json.Marshal(bundle)
 		if err != nil {
-			return errors.Wrap(err, "client failed to build request for cache")
+			return err
 		}
-		resp, err := cache.HandleRequest(ctx, msg)
+		fmt.Printf("ticket bundle:\n%s\n", bundleJSON)
+
+		// Exchange request tickets with each cache.
+		var doubleEncryptedChunks [][]byte
+		for i, cache := range caches {
+			msg, err := bundle.BuildClientCacheRequest(bundle.TicketRequest[i])
+			if err != nil {
+				return errors.Wrap(err, "client failed to build request for cache")
+			}
+			resp, err := cache.HandleRequest(ctx, msg)
+			if err != nil {
+				return errors.Wrap(err, "cache failed to handle ticket request")
+			}
+
+			subMsg, ok := resp.Msg.(*ccmsg.ClientCacheResponse_DataResponse)
+			if !ok {
+				return errors.Wrap(err, "unexpected response type from request message")
+			}
+			doubleEncryptedChunks = append(doubleEncryptedChunks, subMsg.DataResponse.Data)
+		}
+
+		// Give each cache its L1 ticket; receive the outer session key for that cache's chunk in exchange.
+		var outerSessionKeys []*ccmsg.BlockKey
+		for i, cache := range caches {
+			msg, err := bundle.BuildClientCacheRequest(bundle.TicketL1[i])
+			if err != nil {
+				return errors.Wrap(err, "client failed to build request for cache")
+			}
+			resp, err := cache.HandleRequest(ctx, msg)
+			if err != nil {
+				return errors.Wrap(err, "cache failed to handle ticket L1")
+			}
+
+			subMsg, ok := resp.Msg.(*ccmsg.ClientCacheResponse_L1Response)
+			if !ok {
+				return errors.Wrap(err, "unexpected response type from L1 message")
+			}
+			outerSessionKeys = append(outerSessionKeys, subMsg.L1Response.OuterKey)
+		}
+
+		// Decrypt once to reveal singly-encrypted chunks.
+		var singleEncryptedChunks [][]byte
+		for i, ciphertext := range doubleEncryptedChunks {
+			plaintext, err := util.EncryptChunk(
+				bundle.TicketRequest[i].ChunkIdx,
+				bundle.Remainder.RequestSequenceNo,
+				outerSessionKeys[i].Key,
+				ciphertext)
+			if err != nil {
+				return errors.Wrap(err, "failed to decrypt doubly-encrypted chunk")
+			}
+
+			singleEncryptedChunks = append(singleEncryptedChunks, plaintext)
+		}
+
+		// Solve colocation puzzle.
+		pi := bundle.Remainder.PuzzleInfo
+		secret, _, err := colocationpuzzle.Solve(colocationpuzzle.Parameters{
+			Rounds:      pi.Rounds,
+			StartOffset: uint32(pi.StartOffset),
+			StartRange:  uint32(pi.StartRange),
+		}, singleEncryptedChunks, pi.Goal)
 		if err != nil {
-			return errors.Wrap(err, "cache failed to handle ticket request")
+			return err
 		}
 
-		subMsg, ok := resp.Msg.(*ccmsg.ClientCacheResponse_DataResponse)
-		if !ok {
-			return errors.Wrap(err, "unexpected response type from request message")
-		}
-		doubleEncryptedChunks = append(doubleEncryptedChunks, subMsg.DataResponse.Data)
-	}
-
-	// Give each cache its L1 ticket; receive the outer session key for that cache's chunk in exchange.
-	var outerSessionKeys []*ccmsg.BlockKey
-	for i, cache := range caches {
-		msg, err := bundle.BuildClientCacheRequest(bundle.TicketL1[i])
+		// Decrypt L2 ticket.
+		ticketL2, err := common.DecryptTicketL2(secret, bundle.EncryptedTicketL2)
 		if err != nil {
-			return errors.Wrap(err, "client failed to build request for cache")
-		}
-		resp, err := cache.HandleRequest(ctx, msg)
-		if err != nil {
-			return errors.Wrap(err, "cache failed to handle ticket L1")
+			return err
 		}
 
-		subMsg, ok := resp.Msg.(*ccmsg.ClientCacheResponse_L1Response)
-		if !ok {
-			return errors.Wrap(err, "unexpected response type from L1 message")
-		}
-		outerSessionKeys = append(outerSessionKeys, subMsg.L1Response.OuterKey)
-	}
+		// Give L2 tickets to caches.
+		for _, cache := range caches {
+			msg, err := bundle.BuildClientCacheRequest(&ccmsg.TicketL2Info{
+				EncryptedTicketL2: bundle.EncryptedTicketL2,
+				PuzzleSecret:      secret,
+			})
+			if err != nil {
+				return errors.Wrap(err, "client failed to build request for cache")
+			}
+			resp, err := cache.HandleRequest(ctx, msg)
+			if err != nil {
+				return errors.Wrap(err, "cache failed to handle ticket L2")
+			}
 
-	// Decrypt once to reveal singly-encrypted chunks.
-	var singleEncryptedChunks [][]byte
-	for i, ciphertext := range doubleEncryptedChunks {
-		plaintext, err := util.EncryptChunk(
-			bundle.TicketRequest[i].ChunkIdx,
-			bundle.Remainder.RequestSequenceNo,
-			outerSessionKeys[i].Key,
-			ciphertext)
-		if err != nil {
-			return errors.Wrap(err, "failed to decrypt doubly-encrypted chunk")
-		}
+			subMsg, ok := resp.Msg.(*ccmsg.ClientCacheResponse_L2Response)
+			if !ok {
+				return errors.Wrap(err, "unexpected response type from L2 message")
 
-		singleEncryptedChunks = append(singleEncryptedChunks, plaintext)
-	}
-
-	// Solve colocation puzzle.
-	pi := bundle.Remainder.PuzzleInfo
-	secret, _, err := colocationpuzzle.Solve(colocationpuzzle.Parameters{
-		Rounds:      pi.Rounds,
-		StartOffset: uint32(pi.StartOffset),
-		StartRange:  uint32(pi.StartRange),
-	}, singleEncryptedChunks, pi.Goal)
-	if err != nil {
-		return err
-	}
-
-	// Decrypt L2 ticket.
-	ticketL2, err := common.DecryptTicketL2(secret, bundle.EncryptedTicketL2)
-	if err != nil {
-		return err
-	}
-
-	// Give L2 tickets to caches.
-	for _, cache := range caches {
-		msg, err := bundle.BuildClientCacheRequest(&ccmsg.TicketL2Info{
-			EncryptedTicketL2: bundle.EncryptedTicketL2,
-			PuzzleSecret:      secret,
-		})
-		if err != nil {
-			return errors.Wrap(err, "client failed to build request for cache")
-		}
-		resp, err := cache.HandleRequest(ctx, msg)
-		if err != nil {
-			return errors.Wrap(err, "cache failed to handle ticket L2")
+			}
+			// TODO: Check that response is successful, at least?
+			_ = subMsg
 		}
 
-		subMsg, ok := resp.Msg.(*ccmsg.ClientCacheResponse_L2Response)
-		if !ok {
-			return errors.Wrap(err, "unexpected response type from L2 message")
-
+		// Decrypt singly-encrypted chunks to reveal plaintext data.
+		var plaintextChunks [][]byte
+		for i, ciphertext := range doubleEncryptedChunks {
+			plaintext, err := util.EncryptChunk(
+				bundle.TicketRequest[i].ChunkIdx,
+				bundle.Remainder.RequestSequenceNo,
+				ticketL2.InnerSessionKey[i].Key,
+				ciphertext)
+			if err != nil {
+				return errors.Wrap(err, "failed to decrypt singly-encrypted chunk")
+			}
+			plaintextChunks = append(plaintextChunks, plaintext)
 		}
-		// TODO: Check that response is successful, at least?
-		_ = subMsg
-	}
 
-	// Decrypt singly-encrypted chunks to reveal plaintext data.
-	var plaintextChunks [][]byte
-	for i, ciphertext := range doubleEncryptedChunks {
-		plaintext, err := util.EncryptChunk(
-			bundle.TicketRequest[i].ChunkIdx,
-			bundle.Remainder.RequestSequenceNo,
-			ticketL2.InnerSessionKey[i].Key,
-			ciphertext)
-		if err != nil {
-			return errors.Wrap(err, "failed to decrypt singly-encrypted chunk")
-		}
-		plaintextChunks = append(plaintextChunks, plaintext)
-	}
-
-	// Verify that the plaintext data the client has received matches what the publisher and caches have.
-	for i, b := range plaintextChunks {
-		expected := scen.Chunks[bundle.TicketRequest[i].ChunkIdx]
-		if !bytes.Equal(expected, b) {
-			return errors.New("plaintext data received by client does not match expected value")
+		// Verify that the plaintext data the client has received matches what the publisher and caches have.
+		for i, b := range plaintextChunks {
+			expected := scen.Chunks[bundle.TicketRequest[i].ChunkIdx]
+			if !bytes.Equal(expected, b) {
+				return errors.New("plaintext data received by client does not match expected value")
+			}
 		}
 	}
 
