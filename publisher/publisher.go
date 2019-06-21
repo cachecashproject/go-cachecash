@@ -176,7 +176,8 @@ cache, per escrow.  They should also be designed to support escrow rollover.
 */
 
 const (
-	chunksPerGroup = 4
+	chunksPerGroup    = 4
+	bundlesPerRequest = 3
 )
 
 func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) ([]*ccmsg.TicketBundle, error) {
@@ -214,38 +215,6 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		// TODO: Return 4xx, since this is a bad request from the client.
 		return nil, errors.New("invalid range")
 	}
-	rangeBegin := uint64(req.RangeBegin / obj.PolicyChunkSize())
-
-	// XXX: this doesn't work with empty files
-	if rangeBegin >= uint64(obj.ChunkCount()) {
-		return nil, errors.New("rangeBegin beyond last chunk")
-	}
-
-	// TODO: Return multiple chunk-groups if appropriate.
-	rangeEnd := rangeBegin + chunksPerGroup
-	if rangeEnd > uint64(obj.ChunkCount()) {
-		rangeEnd = uint64(obj.ChunkCount())
-	}
-
-	p.l.WithFields(logrus.Fields{
-		"chunkRangeBegin": rangeBegin,
-		"chunkRangeEnd":   rangeEnd,
-	}).Info("content request")
-
-	// - The _path_ and _chunk range_ are mapped to a list of _chunk identifiers_.  These are arbitrarily assigned by
-	// the publisher.  (Our implementation uses the chunk's digest.)
-	p.l.Debug("mapping chunk indices into chunk identifiers")
-	chunkIndices := make([]uint64, 0, rangeEnd-rangeBegin)
-	chunkIDs := make([]common.ChunkID, 0, rangeEnd-rangeBegin)
-	for chunkIdx := rangeBegin; chunkIdx < rangeEnd; chunkIdx++ {
-		chunkID, err := p.getChunkID(obj, chunkIdx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get chunk ID")
-		}
-
-		chunkIDs = append(chunkIDs, chunkID)
-		chunkIndices = append(chunkIndices, chunkIdx)
-	}
 
 	// - The publisher selects a single escrow that will be used to service the request.
 	p.l.Debug("selecting escrow")
@@ -259,7 +228,6 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	//   to reuse the same caches for consecutive chunk-groups served to a single client (so that connection reuse and
 	//   pipelining can improve performance, once implemented).
 	p.l.Debug("selecting caches")
-
 	ecs, err := models.EscrowCaches(qm.Load("Cache"), qm.Where("escrow_id = ?", escrow.Inner.ID)).All(ctx, p.db)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to query database")
@@ -271,6 +239,68 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 			InnerMasterKey: participant.InnerMasterKey,
 			Cache:          *participant.R.Cache,
 		})
+	}
+
+	chunkRangeBegin := uint64(req.RangeBegin / obj.PolicyChunkSize())
+	clientPublicKey := req.ClientPublicKey.PublicKey
+	sequenceNo := req.SequenceNo
+
+	numberOfBundles := bundlesPerRequest
+	if req.RangeEnd != 0 {
+		// TODO: if we need more than one bundle to reach RangeEnd,
+		// calculate how many we need to send
+		numberOfBundles = 1
+	}
+
+	bundles := []*ccmsg.TicketBundle{}
+	for i := 0; i < numberOfBundles; i++ {
+		bundle, err := p.generateBundle(ctx, escrow, caches, obj, req.Path, chunkRangeBegin, clientPublicKey, sequenceNo)
+		if err != nil {
+			return nil, err
+		}
+		chunkRangeBegin += uint64(len(bundle.GetTicketRequest()))
+		sequenceNo++
+		bundles = append(bundles, bundle)
+
+		if chunkRangeBegin >= uint64(obj.ChunkCount()) {
+			// we've reached the end of the object
+			break
+		}
+	}
+
+	return bundles, nil
+}
+
+func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, caches []ParticipatingCache, obj *catalog.ObjectMetadata, path string, chunkRangeBegin uint64, clientPublicKey ed25519.PublicKey, sequenceNo uint64) (*ccmsg.TicketBundle, error) {
+	// XXX: this doesn't work with empty files
+	if chunkRangeBegin >= uint64(obj.ChunkCount()) {
+		return nil, errors.New("chunkRangeBegin beyond last chunk")
+	}
+
+	// TODO: Return multiple chunk-groups if appropriate.
+	rangeEnd := chunkRangeBegin + chunksPerGroup
+	if rangeEnd > uint64(obj.ChunkCount()) {
+		rangeEnd = uint64(obj.ChunkCount())
+	}
+
+	p.l.WithFields(logrus.Fields{
+		"chunkRangeBegin": chunkRangeBegin,
+		"chunkRangeEnd":   rangeEnd,
+	}).Info("content request")
+
+	// - The _path_ and _chunk range_ are mapped to a list of _chunk identifiers_.  These are arbitrarily assigned by
+	// the publisher.  (Our implementation uses the chunk's digest.)
+	p.l.Debug("mapping chunk indices into chunk identifiers")
+	chunkIndices := make([]uint64, 0, rangeEnd-chunkRangeBegin)
+	chunkIDs := make([]common.ChunkID, 0, rangeEnd-chunkRangeBegin)
+	for chunkIdx := chunkRangeBegin; chunkIdx < rangeEnd; chunkIdx++ {
+		chunkID, err := p.getChunkID(obj, chunkIdx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get chunk ID")
+		}
+
+		chunkIDs = append(chunkIDs, chunkID)
+		chunkIndices = append(chunkIndices, chunkIdx)
 	}
 
 	if len(caches) < len(chunkIndices) {
@@ -294,11 +324,11 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	*/
 
 	// XXX: Should be based on the upstream path, which the current implementation conflates with the request path.
-	objID, err := generateObjectID(req.Path)
+	objID, err := generateObjectID(path)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate object ID")
 	}
-	p.reverseMapping[objID] = reverseMappingEntry{path: req.Path}
+	p.reverseMapping[objID] = reverseMappingEntry{path: path}
 
 	// Reserve a lottery ticket for each cache.  (Recall that lottery ticket numbers must be unique, and we are limited
 	// in the number that we can issue during each blockchain block to the number that we declared in our begin-escrow
@@ -313,8 +343,8 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	p.l.Debug("building bundle parameters")
 	bp := &BundleParams{
 		Escrow:            escrow,
-		RequestSequenceNo: req.SequenceNo,
-		ClientPublicKey:   ed25519.PublicKey(req.ClientPublicKey.PublicKey),
+		RequestSequenceNo: sequenceNo,
+		ClientPublicKey:   clientPublicKey,
 		ObjectID:          objID,
 	}
 	for i, chunkIdx := range chunkIndices {
@@ -356,7 +386,7 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	}
 
 	p.l.Debug("done; returning bundle")
-	return []*ccmsg.TicketBundle{bundle}, nil
+	return bundle, nil
 }
 
 func (p *ContentPublisher) assignSlot(path string, chunkIdx uint64, chunkID uint64) uint64 {

@@ -28,7 +28,10 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 	schedulerNotify := make(chan bool, 64)
 
 	for {
-		cl.l.Info("requesting bundle")
+		cl.l.WithFields(logrus.Fields{
+			"chunkRangeBegin": rangeBegin,
+			"byteRangeBegin":  rangeBegin * chunkSize,
+		}).Info("requesting bundle")
 		bundles, err := cl.requestBundles(ctx, path, rangeBegin*chunkSize)
 		if err != nil {
 			err = errors.Wrapf(err, "failed to fetch chunk-group at offset %d", rangeBegin)
