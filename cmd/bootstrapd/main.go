@@ -2,9 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -12,6 +10,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/bootstrap"
 	"github.com/cachecashproject/go-cachecash/bootstrap/migrations"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/config"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
@@ -26,36 +25,14 @@ var (
 	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
 )
 
-func loadConfigFile(path string) (*bootstrap.ConfigFile, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
+func loadConfigFile(l *logrus.Logger, path string) (*bootstrap.ConfigFile, error) {
+	conf := bootstrap.ConfigFile{}
+	p := config.NewParser(l, "bootstrap")
 
-	var cf bootstrap.ConfigFile
-	if err := json.Unmarshal(data, &cf); err != nil {
-		return nil, err
-	}
+	conf.GrpcAddr = p.GetString("grpc_addr", ":7777")
+	conf.Database = p.GetString("database", "./bootstrapd.db")
 
-	return &cf, nil
-}
-
-func generateConfigFile(path string) error {
-	cf := &bootstrap.ConfigFile{
-		GrpcAddr: ":7777",
-		Database: "./bootstrapd.db",
-	}
-	buf, err := json.MarshalIndent(cf, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal config")
-	}
-
-	err = ioutil.WriteFile(path, buf, 0600)
-	if err != nil {
-		return errors.Wrap(err, "failed to write config")
-	}
-
-	return nil
+	return &conf, nil
 }
 
 func main() {
@@ -84,14 +61,7 @@ func mainC() error {
 
 	defer common.SetupTracing(*traceAPI, "cachecash-bootstrapd", l).Flush()
 
-	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
-		l.Info("config doesn't exist, generating")
-		if err := generateConfigFile(*configPath); err != nil {
-			return err
-		}
-	}
-
-	cf, err := loadConfigFile(*configPath)
+	cf, err := loadConfigFile(l, *configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
 	}

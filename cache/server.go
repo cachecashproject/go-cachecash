@@ -35,18 +35,6 @@ type ConfigFile struct {
 	ContactUrl      string `json:"contact_url"`
 }
 
-func (c *ConfigFile) FillDefaults() {
-	if c.ClientProtocolGrpcAddr == "" {
-		c.ClientProtocolGrpcAddr = ":9000"
-	}
-	if c.ClientProtocolHttpAddr == "" {
-		c.ClientProtocolHttpAddr = ":9443"
-	}
-	if c.StatusAddr == "" {
-		c.StatusAddr = ":9100"
-	}
-}
-
 type application struct {
 	l *logrus.Logger
 
@@ -58,8 +46,6 @@ type application struct {
 var _ Application = (*application)(nil)
 
 func NewApplication(l *logrus.Logger, c *Cache, conf *ConfigFile) (Application, error) {
-	conf.FillDefaults()
-
 	clientProtocolServer, err := newClientProtocolServer(l, c, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client protocol server")

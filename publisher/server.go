@@ -13,7 +13,6 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
 
@@ -30,24 +29,8 @@ type ConfigFile struct {
 	BootstrapAddr        string
 	DefaultCacheDuration time.Duration
 
-	UpstreamURL string             `json:"upstreamURL"`
-	PrivateKey  ed25519.PrivateKey `json:"privateKey"`
-	Database    string             `json:"database"`
-}
-
-func (c *ConfigFile) FillDefaults() {
-	if c.ClientProtocolAddr == "" {
-		c.ClientProtocolAddr = ":8080"
-	}
-	if c.CacheProtocolAddr == "" {
-		c.CacheProtocolAddr = ":8082"
-	}
-	if c.StatusAddr == "" {
-		c.StatusAddr = ":8100"
-	}
-	if c.DefaultCacheDuration == 0 {
-		c.DefaultCacheDuration = 5 * time.Minute
-	}
+	UpstreamURL string `json:"upstreamURL"`
+	Database    string `json:"database"`
 }
 
 type application struct {
@@ -63,8 +46,6 @@ var _ Application = (*application)(nil)
 
 // XXX: Should this take p as an argument, or be responsible for setting it up?
 func NewApplication(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (Application, error) {
-	conf.FillDefaults()
-
 	clientProtocolServer, err := newClientProtocolServer(l, p, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client protocol server")

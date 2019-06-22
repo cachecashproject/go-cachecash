@@ -71,6 +71,9 @@ type Cache struct {
 }
 
 func NewCache(l *logrus.Logger, db *sql.DB, cf *ConfigFile, kp *keypair.KeyPair) (*Cache, error) {
+	l.WithFields(logrus.Fields{
+		"badger_storage": cf.BadgerDirectory,
+	}).Info("setting up storage")
 	s, err := NewCacheStorage(l, cf.BadgerDirectory)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create cache storage")

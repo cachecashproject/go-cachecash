@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"log"
 	_ "net/http/pprof"
 	"os"
@@ -14,76 +12,38 @@ import (
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/config"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/publisher/migrations"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ed25519"
 )
 
 var (
-	logLevelStr   = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller     = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile       = flag.String("logFile", "", "Path where file should be logged")
-	configPath    = flag.String("config", "publisher.config.json", "Path to configuration file")
-	bootstrapAddr = flag.String("bootstrapd", "bootstrapd:7777", "Bootstrap service to use")
-	traceAPI      = flag.String("trace", "", "Jaeger API for tracing")
+	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
+	logFile     = flag.String("logFile", "", "Path where file should be logged")
+	configPath  = flag.String("config", "publisher.config.json", "Path to configuration file")
+	keypairPath = flag.String("keypair", "publisher.keypair.json", "Path to keypair file")
+	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
 )
 
-func loadConfigFile(path string) (*publisher.ConfigFile, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
+func loadConfigFile(l *logrus.Logger, path string) (*publisher.ConfigFile, error) {
+	conf := publisher.ConfigFile{}
+	p := config.NewParser(l, "publisher")
 
-	var cf publisher.ConfigFile
-	if err := json.Unmarshal(data, &cf); err != nil {
-		return nil, err
-	}
+	conf.ClientProtocolAddr = p.GetString("client_grpc_addr", ":8080")
+	conf.CacheProtocolAddr = p.GetString("cache_grpc_addr", ":8082")
+	conf.StatusAddr = p.GetString("status_addr", ":8100")
+	conf.BootstrapAddr = p.GetString("bootstrap_addr", "bootstrapd:7777")
+	conf.DefaultCacheDuration = time.Duration(p.GetInt64("default_cache_duration", 300)) * time.Second
 
-	return &cf, nil
-}
+	conf.UpstreamURL = p.GetString("upstream", "")
+	conf.Database = p.GetString("database", "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable")
 
-func GetenvDefault(key string, defaultValue string) string {
-	value, exists := os.LookupEnv(key)
-	if exists {
-		return value
-	} else {
-		return defaultValue
-	}
-}
-
-func generateConfigFile(path string) error {
-	publisherCacheAddr := os.Getenv("PUBLISHER_CACHE_ADDR")
-	upstream := os.Getenv("PUBLISHER_UPSTREAM")
-	bootstrapAddr := GetenvDefault("BOOTSTRAP_ADDR", *bootstrapAddr)
-
-	_, privateKey, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		return err
-	}
-
-	cf := &publisher.ConfigFile{
-		CacheProtocolAddr: publisherCacheAddr,
-		BootstrapAddr:     bootstrapAddr,
-
-		UpstreamURL: upstream,
-		PrivateKey:  privateKey,
-		Database:    "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable",
-	}
-
-	buf, err := json.MarshalIndent(cf, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal config")
-	}
-
-	err = ioutil.WriteFile(path, buf, 0600)
-	if err != nil {
-		return errors.Wrap(err, "failed to write config")
-	}
-
-	return nil
+	return &conf, nil
 }
 
 func main() {
@@ -112,16 +72,13 @@ func mainC() error {
 
 	defer common.SetupTracing(*traceAPI, "cachecash-publisherd", l).Flush()
 
-	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
-		l.Info("config doesn't exist, generating")
-		if err := generateConfigFile(*configPath); err != nil {
-			return err
-		}
-	}
-
-	cf, err := loadConfigFile(*configPath)
+	cf, err := loadConfigFile(l, *configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
+	}
+	kp, err := keypair.LoadOrGenerate(l, *keypairPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to get keypair")
 	}
 
 	upstream, err := catalog.NewHTTPUpstream(l, cf.UpstreamURL, cf.DefaultCacheDuration)
@@ -164,7 +121,7 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	p, err := publisher.NewContentPublisher(l, db, cf.CacheProtocolAddr, cat, cf.PrivateKey)
+	p, err := publisher.NewContentPublisher(l, db, cf.CacheProtocolAddr, cat, kp.PrivateKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher")
 	}
