@@ -68,6 +68,8 @@ services:
     command: bootstrapd -logLevel debug
     ports:
     - 7777:7777
+    # status
+    - 8101:8100
     volumes:
     - ./data/bootstrapd:/data
 
