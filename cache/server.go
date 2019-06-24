@@ -11,6 +11,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/bootstrap"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -108,9 +109,13 @@ type clientProtocolServer struct {
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 
 func newClientProtocolServer(l *logrus.Logger, c *Cache, conf *ConfigFile) (*clientProtocolServer, error) {
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
 	ccmsg.RegisterClientCacheServer(grpcServer, &grpcClientCacheServer{cache: c})
 	ccmsg.RegisterPublisherCacheServer(grpcServer, &grpcPublisherCacheServer{cache: c})
+	grpc_prometheus.Register(grpcServer)
 
 	httpServer := wrapGrpc(grpcServer)
 
