@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"net"
+
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"
@@ -20,7 +22,6 @@ import (
 	"github.com/volatiletech/sqlboiler/queries/qmhelper"
 	"github.com/volatiletech/sqlboiler/strmangle"
 	"golang.org/x/crypto/ed25519"
-	"net"
 )
 
 // Cache is an object representing the database table.

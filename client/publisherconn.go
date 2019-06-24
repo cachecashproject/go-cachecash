@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
@@ -33,8 +34,7 @@ type publisherConnection interface {
 var _ publisherConnection = (*publisherGrpc)(nil)
 
 func newPublisherConnection(ctx context.Context, l *logrus.Logger, addr string) (*publisherGrpc, error) {
-	// XXX: No transport security!
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := common.GRPCDial(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial")
 	}
