@@ -25,7 +25,6 @@ import (
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 )
 
@@ -127,10 +126,9 @@ func (c *Cache) getChunk(ctx context.Context, escrowID common.EscrowID, objectID
 			return nil, errors.Wrap(err, "failed to get escrow")
 		}
 
-		// XXX: No transport security!
 		// XXX: Should not create a new connection for each attempt.
 		c.l.Info("dialing publisher's cache-facing service: ", escrow.PublisherCacheAddr())
-		conn, err := grpc.Dial(escrow.PublisherCacheAddr(), grpc.WithInsecure())
+		conn, err := common.GRPCDial(escrow.PublisherCacheAddr())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to dial")
 		}

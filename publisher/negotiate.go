@@ -15,7 +15,6 @@ import (
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
-	"google.golang.org/grpc"
 )
 
 type agreement struct {
@@ -126,7 +125,7 @@ func CreateEscrow(ctx context.Context, publisher *ContentPublisher, cacheDescrip
 func OfferEscrow(ctx context.Context, l *logrus.Logger, offerRequest *ccmsg.EscrowOfferRequest, descr *ccmsg.CacheDescription) (*ParticipatingCache, error) {
 	addr := addrFromCacheDescription(descr)
 	l.Info("Offering escrow to ", addr)
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := common.GRPCDial(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial bootstrap service")
 	}

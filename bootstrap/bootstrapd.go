@@ -9,12 +9,12 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/bootstrap/models"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 )
 
@@ -39,7 +39,7 @@ func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, p
 		"addr": addr,
 	})
 	l.Info("dialing cache back")
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := common.GRPCDial(addr)
 	if err != nil {
 		l.Error("failed to dial cache address")
 		return errors.Wrap(err, "failed to dial cache address")
