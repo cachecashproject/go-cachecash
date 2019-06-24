@@ -22,7 +22,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 	var chunkSize uint64
 	var rangeBegin uint64
 
-	minimumBacklogDepth := 0
+	minimumBacklogDepth := uint64(0)
 	bundleRequestInterval := 0
 	schedulerNotify := make(chan bool, 64)
 
@@ -30,7 +30,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 		cl.l.Info("requesting bundle")
 		bundle, err := cl.requestBundle(ctx, path, rangeBegin*chunkSize)
 		if err != nil {
-			err = errors.Wrap(err, "failed to fetch chunk-group at offset "+string(rangeBegin))
+			err = errors.Wrapf(err, "failed to fetch chunk-group at offset %d", rangeBegin)
 			queue <- &fetchGroup{
 				err: err,
 			}
@@ -59,6 +59,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 				}
 				chunkResults[i] = b
 
+				// TODO: we identify caches by public key but connections are currently distinguished by addr
 				cid := (cacheID)(bundle.CacheInfo[i].Addr.ConnectionString())
 				cc, ok := cl.cacheConns[cid]
 				if !ok {
@@ -67,9 +68,9 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 
 					// XXX: It's problematic to pass ctx here, because canceling the context will destroy the cache connections!
 					// (It should only cancel this particular chunk-group request.)
-					cc, err = newCacheConnection(ctx, cl.l, ci.Addr.ConnectionString(), ci.Pubkey.GetPublicKey())
+					cc, err = cl.publisherConn.newCacheConnection(ctx, cl.l, ci.Addr.ConnectionString(), ci.Pubkey.GetPublicKey())
 					if err != nil {
-						cc.l.WithError(err).Error("failed to connect to cache")
+						cl.l.WithError(err).Error("failed to connect to cache")
 						b.err = err
 					}
 
@@ -95,7 +96,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			}
 			chunkSize = bundle.Metadata.ChunkSize
 
-			minimumBacklogDepth = int(bundle.MinimumBacklogDepth)
+			minimumBacklogDepth = uint64(bundle.MinimumBacklogDepth)
 			bundleRequestInterval = int(bundle.BundleRequestInterval)
 		}
 
@@ -104,8 +105,11 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 	cl.l.Info("scheduler successfully terminated")
 }
 
-func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklogDepth int, bundleRequestInterval int) {
+func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklogDepth uint64, bundleRequestInterval int) {
 	for {
+		interval := time.Duration(bundleRequestInterval) * time.Second
+		intervalRemaining := interval - time.Since(cl.lastBundleRequest)
+
 		select {
 		case <-schedulerNotify:
 			cl.l.WithFields(logrus.Fields{
@@ -115,7 +119,7 @@ func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklog
 				cl.l.Info("cache backlog is running low, requesting new bundle")
 				return
 			}
-		case <-time.After(time.Duration(bundleRequestInterval) * time.Second):
+		case <-time.After(intervalRemaining):
 			cl.l.WithFields(logrus.Fields{
 				"interval": bundleRequestInterval,
 			}).Info("interval reached, requesting new bundles")
@@ -124,9 +128,9 @@ func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklog
 	}
 }
 
-func (cl *client) checkBacklogDepth(n int) bool {
+func (cl *client) checkBacklogDepth(n uint64) bool {
 	for _, c := range cl.cacheConns {
-		if len(c.backlog) <= n {
+		if c.BacklogLength() <= n {
 			return true
 		}
 	}
@@ -147,9 +151,9 @@ func (cl *client) requestBundle(ctx context.Context, path string, rangeBegin uin
 	backlogs := make(map[string]uint64)
 	for _, cc := range cl.cacheConns {
 		cl.l.WithFields(logrus.Fields{
-			"cache": cc.pubkey,
-		}).Info("backlog length: ", len(cc.backlog))
-		backlogs[string(cc.pubkeyBytes)] = uint64(len(cc.backlog))
+			"cache": cc.PublicKey(),
+		}).Info("backlog length: ", cc.BacklogLength())
+		backlogs[string(cc.PublicKeyBytes())] = cc.BacklogLength()
 	}
 
 	req := &ccmsg.ContentRequest{
@@ -162,13 +166,15 @@ func (cl *client) requestBundle(ctx context.Context, path string, rangeBegin uin
 	cl.l.Infof("sending content request to publisher: %v", req)
 
 	// Send request to publisher; get TicketBundle in response.
-	resp, err := cl.publisherConn.grpcClient.GetContent(ctx, req)
+	resp, err := cl.publisherConn.GetContent(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to request bundle from publisher")
 	}
 	bundle := resp.Bundle
 	cl.l.Info("got ticket bundle from publisher for escrow: ", bundle.GetRemainder().GetEscrowId())
 	// cl.l.Debugf("got ticket bundle from publisher: %v", proto.MarshalTextString(bundle))
+
+	cl.lastBundleRequest = time.Now()
 
 	return bundle, nil
 }

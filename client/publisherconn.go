@@ -8,13 +8,14 @@ import (
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
 
 // - Assigns sequence numbers to outbound messages.
 // - Routes replies by matching sequence numbers.
 // - How do we handle the consumer of a reply exiting/terminating/canceling?
-type publisherConnection struct {
+type publisherGrpc struct {
 	l *logrus.Logger
 
 	nextSequenceNo uint64
@@ -23,7 +24,15 @@ type publisherConnection struct {
 	grpcClient ccmsg.ClientPublisherClient
 }
 
-func newPublisherConnection(ctx context.Context, l *logrus.Logger, addr string) (*publisherConnection, error) {
+type publisherConnection interface {
+	newCacheConnection(context.Context, *logrus.Logger, string, ed25519.PublicKey) (cacheConnection, error)
+	GetContent(context.Context, *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error)
+	Close(context.Context) error
+}
+
+var _ publisherConnection = (*publisherGrpc)(nil)
+
+func newPublisherConnection(ctx context.Context, l *logrus.Logger, addr string) (*publisherGrpc, error) {
 	// XXX: No transport security!
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
@@ -31,7 +40,7 @@ func newPublisherConnection(ctx context.Context, l *logrus.Logger, addr string) 
 	}
 	grpcClient := ccmsg.NewClientPublisherClient(conn)
 
-	return &publisherConnection{
+	return &publisherGrpc{
 		l: l,
 
 		nextSequenceNo: 3000, // XXX: Make this easier to pick out of logs.
@@ -41,10 +50,18 @@ func newPublisherConnection(ctx context.Context, l *logrus.Logger, addr string) 
 	}, nil
 }
 
-func (cc *publisherConnection) Close(ctx context.Context) error {
-	cc.l.Info("publisherConnection.Close() - enter")
+func (pc *publisherGrpc) newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (cacheConnection, error) {
+	return newCacheConnection(ctx, l, addr, pubkey)
+}
 
-	if err := cc.conn.Close(); err != nil {
+func (pc *publisherGrpc) GetContent(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error) {
+	return pc.grpcClient.GetContent(ctx, req)
+}
+
+func (pc *publisherGrpc) Close(ctx context.Context) error {
+	pc.l.Info("publisherConnection.Close() - enter")
+
+	if err := pc.conn.Close(); err != nil {
 		return errors.Wrap(err, "failed to close connection")
 	}
 	return nil
