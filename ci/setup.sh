@@ -20,13 +20,13 @@ case "$BUILD_MODE" in
 	test)
 		docker network create cachecash || true
 		docker run -d -p 5432:5432 -e POSTGRES_DB=publisher --name publisher-db --net=cachecash postgres:11
-		docker build -t cachecash-ci -f ci/Dockerfile .
+		docker build -t cachecash-ci ci
 
 		# wait until the database is up
 		while ! docker run --rm --net=cachecash postgres:11 psql 'host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable' -c 'select 1;'; do sleep 10; done
 
 		# apply migrations
-		docker run --rm --net=cachecash cachecash-ci sql-migrate up -config=publisher/migrations/dbconfig.yml -env=docker-tests
+		docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --net=cachecash cachecash-ci sql-migrate up -config=publisher/migrations/dbconfig.yml -env=docker-tests
 		;;
 	docker)
 		update_docker_compose

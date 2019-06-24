@@ -1,13 +1,15 @@
 #!/bin/sh
 set -xe
 
+# Run from the top directory
+
 case "$BUILD_MODE" in
 	test)
 		# run unit and sqlboiler tests
-		docker run --rm --network=cachecash cachecash-ci go test -v -race -tags=sqlboiler_test ./...
+		docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --network=cachecash cachecash-ci go test -v -race -tags=sqlboiler_test ./...
 
 		# Linting is non-fatal right now.  See `.golangci.yml` for configuration.
-		docker run --rm --network=cachecash cachecash-ci golangci-lint run
+		docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --network=cachecash cachecash-ci golangci-lint run
 		;;
 	docker)
 		docker-compose build

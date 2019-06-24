@@ -28,6 +28,5 @@ RUN go get github.com/rubenv/sql-migrate/...
 # - go get -u github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/...
 
 WORKDIR $GOPATH/src/github.com/cachecashproject/go-cachecash
-COPY . .
 
 ENV PSQL_HOST=publisher-db PSQL_USER=postgres PSQL_DBNAME=publisher PSQL_SSLMODE=disable
