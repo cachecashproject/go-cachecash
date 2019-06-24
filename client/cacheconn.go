@@ -17,9 +17,8 @@ import (
 // - Routes replies by matching sequence numbers.
 // - How do we handle the consumer of a reply exiting/terminating/canceling?
 type cacheGrpc struct {
-	l           *logrus.Logger
-	pubkey      string
-	pubkeyBytes []byte
+	l      *logrus.Logger
+	pubkey []byte
 
 	nextSequenceNo uint64
 
@@ -61,9 +60,8 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubk
 	grpcClient := ccmsg.NewClientCacheClient(conn)
 
 	return &cacheGrpc{
-		l:           l,
-		pubkey:      base64.StdEncoding.EncodeToString(pubkey),
-		pubkeyBytes: pubkey,
+		l:      l,
+		pubkey: pubkey,
 
 		nextSequenceNo: 4000, // XXX: Make this easier to pick out of logs.
 
@@ -74,7 +72,7 @@ func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubk
 }
 
 func (cc *cacheGrpc) Close(ctx context.Context) error {
-	cc.l.WithField("cache", cc.pubkey).Info("cacheGrpc.Close() - enter")
+	cc.l.WithField("cache", cc.PublicKey()).Info("cacheGrpc.Close() - enter")
 	if err := cc.conn.Close(); err != nil {
 		return errors.Wrap(err, "failed to close connection")
 	}
@@ -83,7 +81,7 @@ func (cc *cacheGrpc) Close(ctx context.Context) error {
 
 func (cc *cacheGrpc) Run(ctx context.Context) {
 	l := cc.l.WithFields(logrus.Fields{
-		"cache": cc.pubkey,
+		"cache": cc.PublicKey(),
 	})
 	for task := range cc.backlog {
 		l.WithFields(logrus.Fields{
@@ -124,7 +122,7 @@ func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 	}
 	tt.Stop()
 	cc.l.WithFields(logrus.Fields{
-		"cache":    cc.pubkey,
+		"cache":    cc.PublicKey(),
 		"chunkIdx": b.bundle.TicketRequest[b.idx].ChunkIdx,
 		"len":      len(msgData.Data),
 	}).Info("got data response from cache")
@@ -140,7 +138,7 @@ func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
 	tt.Stop()
-	cc.l.WithField("cache", cc.pubkey).Info("got L1 response from cache")
+	cc.l.WithField("cache", cc.PublicKey()).Info("got L1 response from cache")
 
 	// Decrypt data.
 	encData, err := util.EncryptChunk(
@@ -162,9 +160,9 @@ func (cc *cacheGrpc) BacklogLength() uint64 {
 }
 
 func (cc *cacheGrpc) PublicKey() string {
-	return cc.pubkey
+	return base64.StdEncoding.EncodeToString(cc.pubkey)
 }
 
 func (cc *cacheGrpc) PublicKeyBytes() []byte {
-	return cc.pubkeyBytes
+	return cc.pubkey
 }
