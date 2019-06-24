@@ -22,7 +22,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 	var chunkSize uint64
 	var rangeBegin uint64
 
-	minimumBacklogDepth := 0
+	minimumBacklogDepth := uint64(0)
 	bundleRequestInterval := 0
 	schedulerNotify := make(chan bool, 64)
 
@@ -96,7 +96,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			}
 			chunkSize = bundle.Metadata.ChunkSize
 
-			minimumBacklogDepth = int(bundle.MinimumBacklogDepth)
+			minimumBacklogDepth = uint64(bundle.MinimumBacklogDepth)
 			bundleRequestInterval = int(bundle.BundleRequestInterval)
 		}
 
@@ -105,7 +105,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 	cl.l.Info("scheduler successfully terminated")
 }
 
-func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklogDepth int, bundleRequestInterval int) {
+func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklogDepth uint64, bundleRequestInterval int) {
 	for {
 		interval := time.Duration(bundleRequestInterval) * time.Second
 		intervalRemaining := interval - time.Since(cl.lastBundleRequest)
@@ -128,9 +128,9 @@ func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklog
 	}
 }
 
-func (cl *client) checkBacklogDepth(n int) bool {
+func (cl *client) checkBacklogDepth(n uint64) bool {
 	for _, c := range cl.cacheConns {
-		if c.BacklogLength() <= uint64(n) {
+		if c.BacklogLength() <= n {
 			return true
 		}
 	}
