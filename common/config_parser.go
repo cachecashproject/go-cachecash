@@ -3,6 +3,7 @@ package common
 import (
 	"os"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -33,7 +34,12 @@ func (p *ConfigParser) ReadFile(path string) error {
 		return nil
 	}
 
-	return p.v.ReadInConfig()
+	err := p.v.ReadInConfig()
+	if err != nil {
+		return errors.Wrap(err, "failed to read configuration file")
+	}
+
+	return nil
 }
 
 func (p *ConfigParser) GetString(key string, fallback string) string {
