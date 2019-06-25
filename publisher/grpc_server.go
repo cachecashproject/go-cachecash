@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"go.opencensus.io/trace"
 )
 
 type grpcClientPublisherServer struct {
@@ -13,6 +14,8 @@ type grpcClientPublisherServer struct {
 var _ ccmsg.ClientPublisherServer = (*grpcClientPublisherServer)(nil)
 
 func (s *grpcClientPublisherServer) GetContent(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "cachecash.com/Publisher/GetContent")
+	defer span.End()
 	bundle, err := s.publisher.HandleContentRequest(ctx, req)
 	if err != nil {
 		s.publisher.l.WithError(err).Error("content request failed")

@@ -28,6 +28,7 @@ var (
 	configPath    = flag.String("config", "cache.config.json", "Path to configuration file")
 	keypairPath   = flag.String("keypair", "cache.keypair.json", "Path to keypair file")
 	bootstrapAddr = flag.String("bootstrapd", "bootstrapd:7777", "Bootstrap service to use")
+	traceAPI      = flag.String("trace", "", "Jaeger API for tracing")
 )
 
 func loadConfigFile(path string) (*cache.ConfigFile, error) {
@@ -105,6 +106,8 @@ func mainC() error {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash cached ", cachecash.CurrentVersion)
+
+	defer common.SetupTracing(*traceAPI, "cachecash-cached", l).Flush()
 
 	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
 		l.Info("config doesn't exist, generating")

@@ -42,8 +42,8 @@ docker-compose up
 
 It's going to take 1-2 minutes until everything is initialized, this includes the postgres initialization, the caches
 announcing themselves to the bootstrap service, the publisher requesting a list of all caches from the bootstrap service
-and finally the publisher and the caches negotiating an escrow. After the escrow is setup you can download from the
-caches using `cachecash-curl` or [typescript-cachecash]:
+and finally the publisher and the caches negotiating an escrow, and a distributed tracing backend store. After the escrow
+is setup you can download from the caches using `cachecash-curl` or [typescript-cachecash]:
 
 In this case we're going to use the `cachecash-curl` program at this publisher to see it fetch data. The resulting file
 (here, `output.bin`) should exactly match the original artifact (here, `testdata/content/file0.bin`).
@@ -51,7 +51,7 @@ In this case we're going to use the `cachecash-curl` program at this publisher t
 The `-logLevel` option can be changed to control output verbosity for each program.
 
 ```
-make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug cachecash://localhost:8080/file0.bin
+make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug -trace http://localhost:14268 cachecash://localhost:8080/file0.bin
 diff output.bin testdata/content/file0.bin
 ```
 

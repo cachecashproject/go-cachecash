@@ -2,6 +2,17 @@
 
 
 [[projects]]
+  digest = "1:4cd8cc2653383c7fe984c94059491cf489478be1305340b3ca3225ee61b80210"
+  name = "contrib.go.opencensus.io/exporter/jaeger"
+  packages = [
+    ".",
+    "internal/gen-go/jaeger",
+  ]
+  pruneopts = ""
+  revision = "f3684086370a4b70671b0611a7d4ffd560eb3b54"
+  version = "v0.1.0"
+
+[[projects]]
   branch = "master"
   digest = "1:eb2bba7e52ce5e06b6d212dba9adb3314c43b9e649ae90b2a543a275da6db873"
   name = "github.com/AndreasBriese/bbloom"
@@ -16,6 +27,14 @@
   pruneopts = ""
   revision = "3f9954f6f6697845b082ca57995849ddf614f450"
   version = "v1.3.3"
+
+[[projects]]
+  digest = "1:89696c38cec777120b8b1bb5e2d363d655cf2e1e7d8c851919aaa0fd576d9b86"
+  name = "github.com/apache/thrift"
+  packages = ["lib/go/thrift"]
+  pruneopts = ""
+  revision = "384647d290e2e4a55a14b1b7ef1b7e66293a2c33"
+  version = "v0.12.0"
 
 [[projects]]
   digest = "1:0d3deb8a6da8ffba5635d6fb1d2144662200def6c9d82a35a6d05d6c2d4a48f9"
@@ -168,6 +187,14 @@
   pruneopts = ""
   revision = "c225b8c3b01faf2899099b768856a9e916e5087b"
   version = "v1.2.0"
+
+[[projects]]
+  digest = "1:85f8f8d390a03287a563e215ea6bd0610c858042731a8b42062435a0dcbc485f"
+  name = "github.com/hashicorp/golang-lru"
+  packages = ["simplelru"]
+  pruneopts = ""
+  revision = "7087cb70de9f7a8bc0a10c375cb0d2280a8edf9c"
+  version = "v0.5.1"
 
 [[projects]]
   digest = "1:d14365c51dd1d34d5c79833ec91413bfbb166be978724f15701e17080dc06dec"
@@ -503,6 +530,20 @@
   version = "v3.4.0"
 
 [[projects]]
+  digest = "1:15322677d41c39ba767c0bcfe258fe2ffeeb1c355069674788418bf9c507e811"
+  name = "go.opencensus.io"
+  packages = [
+    ".",
+    "internal",
+    "trace",
+    "trace/internal",
+    "trace/tracestate",
+  ]
+  pruneopts = ""
+  revision = "9c377598961b706d1542bd2d84d538b5094d596e"
+  version = "v0.22.0"
+
+[[projects]]
   branch = "master"
   digest = "1:f011949a304c3d34a5bd66b54b6151f939dc95bef5d35e7525cd11d0dcc3cbc7"
   name = "golang.org/x/crypto"
@@ -528,6 +569,14 @@
   ]
   pruneopts = ""
   revision = "d28f0bde5980168871434b95cfc858db9f2a7a99"
+
+[[projects]]
+  branch = "master"
+  digest = "1:9f6efefb4e401a4f699a295d14518871368eb89403f2dd23ec11dfcd2c0836ba"
+  name = "golang.org/x/sync"
+  packages = ["semaphore"]
+  pruneopts = ""
+  revision = "112230192c580c3556b8cee6403af37a4fc5f28c"
 
 [[projects]]
   branch = "master"
@@ -582,6 +631,14 @@
   ]
   pruneopts = ""
   revision = "fdf1049a943acdab3a1008d66838170551d1dedb"
+
+[[projects]]
+  digest = "1:2157b1343e063abb582727c6aa2f127fcaeb3871ef1852c974feb5d745203356"
+  name = "google.golang.org/api"
+  packages = ["support/bundler"]
+  pruneopts = ""
+  revision = "02490b97dff7cfde1995bd77de808fd27053bc87"
+  version = "v0.7.0"
 
 [[projects]]
   branch = "master"
@@ -652,6 +709,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "contrib.go.opencensus.io/exporter/jaeger",
     "github.com/DATA-DOG/go-sqlmock",
     "github.com/capnm/sysinfo",
     "github.com/client9/reopen",
@@ -683,6 +741,7 @@
     "github.com/volatiletech/sqlboiler/randomize",
     "github.com/volatiletech/sqlboiler/strmangle",
     "github.com/volatiletech/sqlboiler/types",
+    "go.opencensus.io/trace",
     "golang.org/x/crypto/ed25519",
     "google.golang.org/grpc",
     "google.golang.org/grpc/peer",

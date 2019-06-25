@@ -125,10 +125,7 @@ type clientProtocolServer struct {
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 
 func newClientProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (*clientProtocolServer, error) {
-	grpcServer := grpc.NewServer(
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
-	)
+	grpcServer := common.NewGRPCServer()
 	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcClientPublisherServer{publisher: p})
 	grpc_prometheus.Register(grpcServer)
 
@@ -206,7 +203,7 @@ type cacheProtocolServer struct {
 var _ common.StarterShutdowner = (*cacheProtocolServer)(nil)
 
 func newCacheProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (*cacheProtocolServer, error) {
-	grpcServer := grpc.NewServer()
+	grpcServer := common.NewGRPCServer()
 	ccmsg.RegisterCachePublisherServer(grpcServer, &grpcCachePublisherServer{publisher: p})
 
 	return &cacheProtocolServer{

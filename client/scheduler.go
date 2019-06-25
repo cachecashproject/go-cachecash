@@ -8,6 +8,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 )
 
 type fetchGroup struct {
@@ -146,6 +147,8 @@ type chunkRequest struct {
 }
 
 func (cl *client) requestBundle(ctx context.Context, path string, rangeBegin uint64) (*ccmsg.TicketBundle, error) {
+	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/requestBundle")
+	defer span.End()
 	cl.l.Info("enumerating backlog length")
 
 	backlogs := make(map[string]uint64)

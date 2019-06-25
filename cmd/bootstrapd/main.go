@@ -23,6 +23,7 @@ var (
 	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
 	logFile     = flag.String("logFile", "", "Path where file should be logged")
 	configPath  = flag.String("config", "bootstrapd.config.json", "Path to configuration file")
+	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
 )
 
 func loadConfigFile(path string) (*bootstrap.ConfigFile, error) {
@@ -80,6 +81,8 @@ func mainC() error {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash bootstrapd ", cachecash.CurrentVersion)
+
+	defer common.SetupTracing(*traceAPI, "cachecash-bootstrapd", l).Flush()
 
 	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
 		l.Info("config doesn't exist, generating")

@@ -41,7 +41,7 @@ services:
   publisher:
     image: cachecash/go-cachecash
     build: .
-    command: publisherd -logLevel debug
+    command: publisherd -logLevel debug -trace http://jaeger:14268
     ports:
     - 8080:8080
     - 8082:8082
@@ -65,7 +65,7 @@ services:
   bootstrapd:
     image: cachecash/go-cachecash
     build: .
-    command: bootstrapd -logLevel debug
+    command: bootstrapd -logLevel debug -trace http://jaeger:14268
     ports:
     - 7777:7777
     # status
@@ -76,7 +76,7 @@ services:
   cache-0:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug
+    command: cached -logLevel debug -trace http://jaeger:14268
     ports:
     - 9000:9000
     - 9443:9443
@@ -90,7 +90,7 @@ services:
   cache-1:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug
+    command: cached -logLevel debug -trace http://jaeger:14268
     ports:
     - 9001:9000
     - 9444:9443
@@ -104,7 +104,7 @@ services:
   cache-2:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug
+    command: cached -logLevel debug -trace http://jaeger:14268
     ports:
     - 9002:9000
     - 9445:9443
@@ -118,7 +118,7 @@ services:
   cache-3:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug
+    command: cached -logLevel debug -trace http://jaeger:14268
     ports:
     - 9003:9000
     - 9446:9443
