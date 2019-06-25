@@ -32,6 +32,7 @@ var (
 func loadConfigFile(l *logrus.Logger, path string) (*publisher.ConfigFile, error) {
 	conf := publisher.ConfigFile{}
 	p := common.NewConfigParser(l, "publisher")
+	p.ReadFile(path)
 
 	conf.ClientProtocolAddr = p.GetString("client_grpc_addr", ":8080")
 	conf.CacheProtocolAddr = p.GetString("cache_grpc_addr", ":8082")
