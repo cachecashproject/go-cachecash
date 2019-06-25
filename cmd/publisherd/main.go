@@ -12,7 +12,6 @@ import (
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/config"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/publisher/migrations"
@@ -32,7 +31,7 @@ var (
 
 func loadConfigFile(l *logrus.Logger, path string) (*publisher.ConfigFile, error) {
 	conf := publisher.ConfigFile{}
-	p := config.NewParser(l, "publisher")
+	p := common.NewConfigParser(l, "publisher")
 
 	conf.ClientProtocolAddr = p.GetString("client_grpc_addr", ":8080")
 	conf.CacheProtocolAddr = p.GetString("cache_grpc_addr", ":8082")

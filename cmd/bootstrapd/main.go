@@ -10,7 +10,6 @@ import (
 	"github.com/cachecashproject/go-cachecash/bootstrap"
 	"github.com/cachecashproject/go-cachecash/bootstrap/migrations"
 	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/config"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
@@ -27,7 +26,7 @@ var (
 
 func loadConfigFile(l *logrus.Logger, path string) (*bootstrap.ConfigFile, error) {
 	conf := bootstrap.ConfigFile{}
-	p := config.NewParser(l, "bootstrap")
+	p := common.NewConfigParser(l, "bootstrap")
 
 	conf.GrpcAddr = p.GetString("grpc_addr", ":7777")
 	conf.Database = p.GetString("database", "./bootstrapd.db")

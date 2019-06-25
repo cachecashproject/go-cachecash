@@ -12,7 +12,6 @@ import (
 	"github.com/cachecashproject/go-cachecash/cache"
 	"github.com/cachecashproject/go-cachecash/cache/migrations"
 	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/config"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
@@ -31,7 +30,7 @@ var (
 
 func loadConfigFile(l *logrus.Logger, path string) (*cache.ConfigFile, error) {
 	conf := cache.ConfigFile{}
-	p := config.NewParser(l, "cache")
+	p := common.NewConfigParser(l, "cache")
 
 	conf.ClientProtocolGrpcAddr = p.GetString("grpc_addr", ":9000")
 	conf.ClientProtocolHttpAddr = p.GetString("http_addr", ":9443")
