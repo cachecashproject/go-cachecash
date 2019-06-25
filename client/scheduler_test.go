@@ -36,45 +36,49 @@ func (suite *SchedulerTestSuite) newMock() (*client, *publisherMock) {
 	}, mock
 }
 
-func (suite *SchedulerTestSuite) newContentResponse() *ccmsg.ContentResponse {
-	return &ccmsg.ContentResponse{
-		Bundles: []*ccmsg.TicketBundle{
-			{
-				Remainder: &ccmsg.TicketBundleRemainder{
-					PuzzleInfo: &ccmsg.ColocationPuzzleInfo{
-						Goal: []byte{},
-					},
-				},
-				TicketRequest: []*ccmsg.TicketRequest{
-					{
-						ChunkIdx: 0,
-						InnerKey: &ccmsg.BlockKey{
-							Key: []byte{},
-						},
-						CachePublicKey: &ccmsg.PublicKey{
-							PublicKey: []byte{},
-						},
-					},
-					{
-						ChunkIdx: 1,
-						InnerKey: &ccmsg.BlockKey{
-							Key: []byte{},
-						},
-						CachePublicKey: &ccmsg.PublicKey{
-							PublicKey: []byte{},
-						},
-					},
-				},
-				CacheInfo: []*ccmsg.CacheInfo{
-					suite.newCache([]byte{0, 1, 2, 3, 4}),
-					suite.newCache([]byte{5, 6, 7, 8, 9}),
-				},
-				Metadata: &ccmsg.ObjectMetadata{
-					ObjectSize: 512,
-					ChunkSize:  128,
+func (suite *SchedulerTestSuite) newContentResponse(n uint64) *ccmsg.ContentResponse {
+	bundles := []*ccmsg.TicketBundle{}
+
+	for i := uint64(0); i < n; i++ {
+		chunkIdx := uint64(i * 2)
+		bundles = append(bundles, &ccmsg.TicketBundle{
+			Remainder: &ccmsg.TicketBundleRemainder{
+				PuzzleInfo: &ccmsg.ColocationPuzzleInfo{
+					Goal: []byte{},
 				},
 			},
-		},
+			TicketRequest: []*ccmsg.TicketRequest{
+				{
+					ChunkIdx: chunkIdx,
+					InnerKey: &ccmsg.BlockKey{
+						Key: []byte{},
+					},
+					CachePublicKey: &ccmsg.PublicKey{
+						PublicKey: []byte{},
+					},
+				},
+				{
+					ChunkIdx: chunkIdx + 1,
+					InnerKey: &ccmsg.BlockKey{
+						Key: []byte{},
+					},
+					CachePublicKey: &ccmsg.PublicKey{
+						PublicKey: []byte{},
+					},
+				},
+			},
+			CacheInfo: []*ccmsg.CacheInfo{
+				suite.newCache([]byte{0, 1, 2, 3, 4}),
+				suite.newCache([]byte{5, 6, 7, 8, 9}),
+			},
+			Metadata: &ccmsg.ObjectMetadata{
+				ObjectSize: 512,
+				ChunkSize:  128,
+			},
+		})
+	}
+	return &ccmsg.ContentResponse{
+		Bundles: bundles,
 	}
 }
 
@@ -87,7 +91,7 @@ func (suite *SchedulerTestSuite) newCache(pubkey []byte) *ccmsg.CacheInfo {
 	}
 }
 
-func (suite *SchedulerTestSuite) TestScheduler() {
+func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 	t := suite.T()
 	cl, mock := suite.newMock()
 
@@ -97,7 +101,7 @@ func (suite *SchedulerTestSuite) TestScheduler() {
 		RangeBegin:      0,
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
-	}).Return(suite.newContentResponse(), nil)
+	}).Return(suite.newContentResponse(1), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
@@ -106,7 +110,84 @@ func (suite *SchedulerTestSuite) TestScheduler() {
 		BacklogDepth: map[string]uint64{
 			"\000\001\002\003\004": 2,
 		},
-	}).Return(suite.newContentResponse(), nil)
+	}).Return(suite.newContentResponse(1), nil).Once()
+
+	queue := make(chan *fetchGroup, 128)
+	cl.schedule(context.Background(), "/", queue)
+
+	group := <-queue
+	assert.Nil(t, group.err)
+	assert.NotNil(t, group.bundle)
+
+	group = <-queue
+	assert.Nil(t, group.err)
+	assert.NotNil(t, group.bundle)
+
+	assert.Zero(t, len(queue))
+}
+
+func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(0), nil).Once()
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(1), nil).Once()
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      256,
+		RangeEnd:        0,
+		BacklogDepth: map[string]uint64{
+			"\000\001\002\003\004": 2,
+		},
+	}).Return(suite.newContentResponse(0), nil).Once()
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      256,
+		RangeEnd:        0,
+		BacklogDepth: map[string]uint64{
+			"\000\001\002\003\004": 2,
+		},
+	}).Return(suite.newContentResponse(1), nil).Once()
+
+	queue := make(chan *fetchGroup, 128)
+	cl.schedule(context.Background(), "/", queue)
+
+	group := <-queue
+	assert.Nil(t, group.err)
+	assert.NotNil(t, group.bundle)
+
+	group = <-queue
+	assert.Nil(t, group.err)
+	assert.NotNil(t, group.bundle)
+
+	assert.Zero(t, len(queue))
+}
+
+func (suite *SchedulerTestSuite) TestSchedulerAllBundlesAtOnce() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(2), nil).Once()
 
 	queue := make(chan *fetchGroup, 128)
 	cl.schedule(context.Background(), "/", queue)
@@ -132,7 +213,7 @@ func (suite *SchedulerTestSuite) TestSchedulerError() {
 		RangeBegin:      0,
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
-	}).Return((*ccmsg.ContentResponse)(nil), errors.New("this is an error"))
+	}).Return((*ccmsg.ContentResponse)(nil), errors.New("this is an error")).Once()
 
 	queue := make(chan *fetchGroup, 128)
 	cl.schedule(context.Background(), "/", queue)
@@ -155,7 +236,7 @@ func (suite *SchedulerTestSuite) TestRequestBundle() {
 		BacklogDepth:    map[string]uint64{},
 	}).Return(&ccmsg.ContentResponse{
 		Bundles: []*ccmsg.TicketBundle{},
-	}, nil)
+	}, nil).Once()
 
 	resp, err := cl.requestBundles(context.Background(), "/", 0)
 	assert.Nil(t, err, "failed to get bundle")
@@ -172,7 +253,7 @@ func (suite *SchedulerTestSuite) TestRequestBundleError() {
 		RangeBegin:      0,
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
-	}).Return((*ccmsg.ContentResponse)(nil), errors.New("this is an error"))
+	}).Return((*ccmsg.ContentResponse)(nil), errors.New("this is an error")).Once()
 
 	resp, err := cl.requestBundles(context.Background(), "/", 0)
 	assert.NotNil(t, err)
