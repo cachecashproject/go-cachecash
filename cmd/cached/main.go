@@ -31,7 +31,10 @@ var (
 func loadConfigFile(l *logrus.Logger, path string) (*cache.ConfigFile, error) {
 	conf := cache.ConfigFile{}
 	p := common.NewConfigParser(l, "cache")
-	p.ReadFile(path)
+	err := p.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
 
 	conf.ClientProtocolGrpcAddr = p.GetString("grpc_addr", ":9000")
 	conf.ClientProtocolHttpAddr = p.GetString("http_addr", ":9443")

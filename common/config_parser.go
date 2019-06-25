@@ -1,6 +1,8 @@
 package common
 
 import (
+	"os"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -23,12 +25,15 @@ func NewConfigParser(l *logrus.Logger, prefix string) *ConfigParser {
 	}
 }
 
-func (p *ConfigParser) ReadFile(path string) {
+func (p *ConfigParser) ReadFile(path string) error {
 	p.v.SetConfigFile(path)
-	err := p.v.ReadInConfig()
-	if err != nil {
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
 		p.l.Info("config file not found, using defaults")
+		return nil
 	}
+
+	return p.v.ReadInConfig()
 }
 
 func (p *ConfigParser) GetString(key string, fallback string) string {

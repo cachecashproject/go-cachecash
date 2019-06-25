@@ -27,7 +27,10 @@ var (
 func loadConfigFile(l *logrus.Logger, path string) (*bootstrap.ConfigFile, error) {
 	conf := bootstrap.ConfigFile{}
 	p := common.NewConfigParser(l, "bootstrap")
-	p.ReadFile(path)
+	err := p.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
 
 	conf.GrpcAddr = p.GetString("grpc_addr", ":7777")
 	conf.Database = p.GetString("database", "./bootstrapd.db")
