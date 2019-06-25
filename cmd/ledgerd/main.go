@@ -13,7 +13,7 @@ import (
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/ledgerservice"
-	"github.com/cachecashproject/go-cachecash/publisher/migrations"
+	"github.com/cachecashproject/go-cachecash/ledgerservice/migrations"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"

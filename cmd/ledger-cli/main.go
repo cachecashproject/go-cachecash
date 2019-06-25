@@ -43,7 +43,7 @@ func mainC() error {
 
 	grpcClient := ccmsg.NewLedgerClient(conn)
 
-	resp, err := grpcClient.PostTransaction(ctx, &ccmsg.PostTransactionRequest{})
+	resp, err := grpcClient.PostTransaction(ctx, &ccmsg.PostTransactionRequest{Tx: txdata})
 	if err != nil {
 		return errors.Wrap(err, "failed to post transaction")
 	}

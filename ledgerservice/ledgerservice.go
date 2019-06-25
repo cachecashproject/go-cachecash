@@ -3,11 +3,14 @@ package ledgerservice
 import (
 	"context"
 	"database/sql"
-	"errors"
+	"encoding/hex"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 	_ "github.com/lib/pq"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/volatiletech/sqlboiler/boil"
 )
 
 type LedgerService struct {
@@ -28,8 +31,26 @@ func NewLedgerService(l *logrus.Logger, db *sql.DB) (*LedgerService, error) {
 }
 
 func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTransactionRequest) (*ccmsg.PostTransactionResponse, error) {
-	s.l.Info("PostTransaction")
-	return nil, errors.New("no implementation")
+	s.l.WithFields(logrus.Fields{"tx": hex.EncodeToString(req.Tx)}).Info("PostTransaction")
+
+	dbTx, err := s.db.Begin()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to begin database transaction")
+	}
+	// defer dbTx.Close() ?
+
+	mpTx := models.MempoolTransaction{Raw: req.Tx}
+	if err := mpTx.Insert(ctx, dbTx, boil.Infer()); err != nil {
+		return nil, errors.Wrap(err, "failed to insert mempool transaction")
+	}
+
+	if err := dbTx.Commit(); err != nil {
+		return nil, errors.Wrap(err, "failed to commit database transaction")
+	}
+
+	s.l.Info("PostTransaction - success")
+
+	return &ccmsg.PostTransactionResponse{}, nil
 }
 
 func (s *LedgerService) GetBlocks(ctx context.Context, req *ccmsg.GetBlocksRequest) (*ccmsg.GetBlocksResponse, error) {
