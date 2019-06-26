@@ -59,13 +59,14 @@ type client struct {
 
 var _ Client = (*client)(nil)
 
-func New(l *logrus.Logger, addr string) (Client, error) {
+// New creates a new client connecting to the supplied publisher with a
+// lazy-connecting grpc client.
+func New(ctx context.Context, l *logrus.Logger, addr string) (Client, error) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate keypair")
 	}
 
-	ctx := context.Background() // XXX:
 	pc, err := newPublisherConnection(ctx, l, addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to publisher")
