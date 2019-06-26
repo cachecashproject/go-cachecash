@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
@@ -68,8 +69,8 @@ func (suite *SchedulerTestSuite) newContentResponse(n uint64) *ccmsg.ContentResp
 				},
 			},
 			CacheInfo: []*ccmsg.CacheInfo{
-				suite.newCache([]byte{0, 1, 2, 3, 4}),
-				suite.newCache([]byte{5, 6, 7, 8, 9}),
+				suite.newCache(net.ParseIP("192.0.2.1"), 1001, []byte{0, 1, 2, 3, 4}),
+				suite.newCache(net.ParseIP("192.0.2.2"), 1002, []byte{5, 6, 7, 8, 9}),
 			},
 			Metadata: &ccmsg.ObjectMetadata{
 				ObjectSize: 512,
@@ -82,12 +83,15 @@ func (suite *SchedulerTestSuite) newContentResponse(n uint64) *ccmsg.ContentResp
 	}
 }
 
-func (suite *SchedulerTestSuite) newCache(pubkey []byte) *ccmsg.CacheInfo {
+func (suite *SchedulerTestSuite) newCache(ip net.IP, port uint32, pubkey []byte) *ccmsg.CacheInfo {
 	return &ccmsg.CacheInfo{
 		Pubkey: &ccmsg.PublicKey{
 			PublicKey: pubkey,
 		},
-		Addr: &ccmsg.NetworkAddress{},
+		Addr: &ccmsg.NetworkAddress{
+			Inetaddr: ip,
+			Port:     port,
+		},
 	}
 }
 
@@ -108,7 +112,8 @@ func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		BacklogDepth: map[string]uint64{
-			"\000\001\002\003\004": 2,
+			"\x00\x01\x02\x03\x04": 0x1,
+			"\x05\x06\x07\x08\x09": 0x1,
 		},
 	}).Return(suite.newContentResponse(1), nil).Once()
 
@@ -150,7 +155,8 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		BacklogDepth: map[string]uint64{
-			"\000\001\002\003\004": 2,
+			"\x00\x01\x02\x03\x04": 0x1,
+			"\x05\x06\x07\x08\x09": 0x1,
 		},
 	}).Return(suite.newContentResponse(0), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
@@ -159,7 +165,8 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		BacklogDepth: map[string]uint64{
-			"\000\001\002\003\004": 2,
+			"\x00\x01\x02\x03\x04": 0x1,
+			"\x05\x06\x07\x08\x09": 0x1,
 		},
 	}).Return(suite.newContentResponse(1), nil).Once()
 

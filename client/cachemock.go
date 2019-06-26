@@ -13,21 +13,37 @@ type cacheMock struct {
 	pubkeyBytes []byte
 
 	backlog chan DownloadTask
+	chunks  [][]byte
 }
 
 var _ cacheConnection = (*cacheMock)(nil)
 
-func newCacheMock(addr string, pubkey ed25519.PublicKey) *cacheMock {
+func newCacheMock(addr string, pubkey ed25519.PublicKey, chunks [][]byte) *cacheMock {
 	return &cacheMock{
 		pubkey:      base64.StdEncoding.EncodeToString(pubkey),
 		pubkeyBytes: pubkey,
 
 		backlog: make(chan DownloadTask, 128),
+		chunks:  chunks,
 	}
 }
 
 func (cc *cacheMock) Run(context.Context) {
-	// empty
+	if len(cc.chunks) == 0 {
+		return
+	}
+
+	for task := range cc.backlog {
+		chunkRequest := task.req
+		if len(cc.chunks) > 0 {
+			chunkRequest.encData, cc.chunks = cc.chunks[0], cc.chunks[1:]
+		}
+		task.clientNotify <- DownloadResult{
+			resp:  chunkRequest,
+			cache: cc,
+		}
+		task.schedulerNotify <- true
+	}
 }
 
 func (cc *cacheMock) QueueRequest(task DownloadTask) {
@@ -35,11 +51,11 @@ func (cc *cacheMock) QueueRequest(task DownloadTask) {
 }
 
 func (cc *cacheMock) ExchangeTicketL2(context.Context, *ccmsg.ClientCacheRequest) error {
-	panic("unimplemented(ExchangeTicketL2)")
+	return nil
 }
 
 func (cc *cacheMock) Close(context.Context) error {
-	panic("unimplemented(Close)")
+	return nil
 }
 
 func (cc *cacheMock) BacklogLength() uint64 {
