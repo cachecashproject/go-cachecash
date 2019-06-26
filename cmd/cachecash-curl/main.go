@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"io/ioutil"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -95,9 +95,41 @@ func mainC() error {
 	}
 	l.Info("created client")
 
-	o, err := cl.GetObject(ctx, objPath) // e.g. "/foo/bar"
-	if err != nil {
-		return errors.Wrap(err, "failed to fetch object")
+	// Allow disk IO to backlog a little, but not too much
+	o := make(chan *client.OutputChunk, 50)
+	go cl.GetObject(ctx, objPath, o) // e.g. "/foo/bar"
+	var outFile *os.File
+	if *outputPath != "" {
+		l.Info("writing data to file: ", outputPath)
+		made, err := os.OpenFile(*outputPath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			return errors.Wrap(err, "failed to open file")
+		}
+		outFile = made
+		defer outFile.Close()
+	}
+	for chunk := range o {
+		if chunk.Err != nil {
+			return errors.Wrap(err, "failed to fetch object")
+		}
+		if *outputPath != "" {
+			l.Infof("writing %d bytes to file: %s", len(chunk.Data), *outputPath)
+			written, err := outFile.Write(chunk.Data)
+			if err != nil {
+				return errors.Wrap(err, "failed to write data to file")
+			}
+			if written != len(chunk.Data) {
+				return fmt.Errorf("short write %d of %d bytes", written, len(chunk.Data))
+			}
+		}
+	}
+	if *outputPath != "" {
+		// Close even though a defer close is pending so we can return any OS
+		// level errors at file close time (e.g. NFS only reports some errors at
+		// close())
+		if err := outFile.Close(); err != nil {
+			return errors.Wrap(err, "failed to write data to file")
+		}
 	}
 
 	l.Info("fetch complete; shutting down client")
@@ -105,13 +137,6 @@ func mainC() error {
 	defer shutdownCancel()
 	if err := cl.Close(shutdownCtx); err != nil {
 		return errors.Wrap(err, "failed to shut down client")
-	}
-
-	if *outputPath != "" {
-		l.Info("writing data to file: ", outputPath)
-		if err := ioutil.WriteFile(*outputPath, o.Data(), 0644); err != nil {
-			return errors.Wrap(err, "failed to write data to file")
-		}
 	}
 
 	l.Info("completed without error")

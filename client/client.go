@@ -25,13 +25,16 @@ Simplifications made in this implementation of the client:
 - A client requests only a single object at a time.
 */
 
-type Client interface {
-	GetObject(ctx context.Context, name string) (Object, error)
-	Close(ctx context.Context) error
+// OutputChunk contains either some ready to use bytes or an error.
+type OutputChunk struct {
+	Data []byte
+	Err  error
 }
 
-type Object interface {
-	Data() []byte
+// Client provides a simple interface to retrieve files from the network.
+type Client interface {
+	GetObject(ctx context.Context, name string, output chan *OutputChunk)
+	Close(ctx context.Context) error
 }
 
 // XXX:
@@ -83,9 +86,18 @@ func New(ctx context.Context, l *logrus.Logger, addr string) (Client, error) {
 	}, nil
 }
 
-func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
+// GetObject streams an object back to the caller on the supplied chan
+//
+// for chunk := range output {
+//     if chunk.Err != nil {
+//         ...
+//     }
+//     // use chunk.Data
+// }
+func (cl *client) GetObject(ctx context.Context, path string, output chan *OutputChunk) {
 	// TODO: User, RawQuery, Fragment are currently ignored.  Should either pass to server or throw an error if they are
 	// provided.
+	defer close(output)
 	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/GetObject")
 	defer span.End()
 
@@ -93,11 +105,12 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	go cl.schedule(ctx, path, queue)
 
 	var rangeBegin uint64
-	var data []byte
+	var pos = 0
 
 	for group := range queue {
 		if group.err != nil {
-			return nil, group.err
+			output <- &OutputChunk{nil, group.err}
+			return
 		}
 
 		bundle := group.bundle
@@ -110,13 +123,15 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 		for i, notify := range group.notify {
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				output <- &OutputChunk{nil, ctx.Err()}
+				return
 			case result := <-notify:
 				b := result.resp
 				chunkResults[i] = b
 				cacheConns[i] = result.cache
 				if b.err != nil {
-					return nil, errors.Wrap(b.err, "got error in chunk request; aborting any that remain in group")
+					output <- &OutputChunk{nil, errors.Wrap(b.err, "got error in chunk request; aborting any that remain in group")}
+					return
 				}
 			}
 		}
@@ -124,27 +139,26 @@ func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 		cl.l.Info("got singly-encrypted data from each cache")
 		bg, err := cl.decryptPuzzle(ctx, bundle, chunkResults, cacheConns)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to decrypt puzzle")
+			output <- &OutputChunk{nil, errors.Wrap(err, "failed to decrypt puzzle")}
+			return
 		}
 
 		for i, d := range bg.data {
 			if bg.chunkIdx[i] != rangeBegin+uint64(i) {
-				return nil, fmt.Errorf("chunk at position %v has index %v, but expected %v",
-					i, bg.chunkIdx[i], rangeBegin+uint64(i))
+				output <- &OutputChunk{nil, fmt.Errorf("chunk at position %v has index %v, but expected %v",
+					i, bg.chunkIdx[i], rangeBegin+uint64(i))}
+				return
 			}
 			cl.l.WithFields(logrus.Fields{
-				"len(outputBuffer)": len(data),
-				"len(newChunk)":     len(d),
-			}).Debug("appending chunk to output buffer")
-			data = append(data, d...)
+				"current position": pos,
+				"len(newChunk)":    len(d),
+			}).Debug("sending chunk to receiver")
+			output <- &OutputChunk{d, nil}
+			pos += len(d)
 		}
 
 		rangeBegin += uint64(len(bg.data))
 	}
-
-	return &object{
-		data: data,
-	}, nil
 }
 
 func (cl *client) Close(ctx context.Context) error {
@@ -170,16 +184,6 @@ func (cl *client) Close(ctx context.Context) error {
 
 	cl.l.Info("client.Close() - exit")
 	return retErr
-}
-
-type object struct {
-	data []byte
-}
-
-var _ Object = (*object)(nil)
-
-func (o *object) Data() []byte {
-	return o.data
 }
 
 func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*chunkRequest, cacheConns []cacheConnection) (*chunkGroup, error) {
