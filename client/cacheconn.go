@@ -50,7 +50,7 @@ type DownloadResult struct {
 
 var _ cacheConnection = (*cacheGrpc)(nil)
 
-func newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (*cacheGrpc, error) {
+func newCacheConnection(l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (*cacheGrpc, error) {
 	conn, err := common.GRPCDial(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial")

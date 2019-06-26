@@ -89,7 +89,7 @@ func mainC() error {
 		}
 	}()
 
-	cl, err := client.New(ctx, l, publisherAddr) // e.g. "localhost:8080"
+	cl, err := client.New(l, publisherAddr) // e.g. "localhost:8080"
 	if err != nil {
 		return errors.Wrap(err, "failed to create client")
 	}

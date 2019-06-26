@@ -27,14 +27,14 @@ type publisherGrpc struct {
 }
 
 type publisherConnection interface {
-	newCacheConnection(context.Context, *logrus.Logger, string, ed25519.PublicKey) (cacheConnection, error)
+	newCacheConnection(*logrus.Logger, string, ed25519.PublicKey) (cacheConnection, error)
 	GetContent(context.Context, *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error)
 	Close(context.Context) error
 }
 
 var _ publisherConnection = (*publisherGrpc)(nil)
 
-func newPublisherConnection(ctx context.Context, l *logrus.Logger, addr string) (*publisherGrpc, error) {
+func newPublisherConnection(l *logrus.Logger, addr string) (*publisherGrpc, error) {
 	conn, err := common.GRPCDial(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial")
@@ -51,8 +51,9 @@ func newPublisherConnection(ctx context.Context, l *logrus.Logger, addr string) 
 	}, nil
 }
 
-func (pc *publisherGrpc) newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (cacheConnection, error) {
-	return newCacheConnection(ctx, l, addr, pubkey)
+// newCacheConnection is a method on publisherConnection to facilitate mocked caches in tests
+func (pc *publisherGrpc) newCacheConnection(l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (cacheConnection, error) {
+	return newCacheConnection(l, addr, pubkey)
 }
 
 func (pc *publisherGrpc) GetContent(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error) {

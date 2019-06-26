@@ -64,13 +64,13 @@ var _ Client = (*client)(nil)
 
 // New creates a new client connecting to the supplied publisher with a
 // lazy-connecting grpc client.
-func New(ctx context.Context, l *logrus.Logger, addr string) (Client, error) {
+func New(l *logrus.Logger, addr string) (Client, error) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate keypair")
 	}
 
-	pc, err := newPublisherConnection(ctx, l, addr)
+	pc, err := newPublisherConnection(l, addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to publisher")
 	}
@@ -104,7 +104,9 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 	queue := make(chan *fetchGroup, 128)
 	go cl.schedule(ctx, path, queue)
 
+	// counts chunks
 	var rangeBegin uint64
+	// counts bytes
 	var pos = 0
 
 	for group := range queue {

@@ -69,10 +69,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 				if !ok {
 					var err error
 					ci := bundle.CacheInfo[i]
-
-					// XXX: It's problematic to pass ctx here, because canceling the context will destroy the cache connections!
-					// (It should only cancel this particular chunk-group request.)
-					cc, err = cl.publisherConn.newCacheConnection(ctx, cl.l, ci.Addr.ConnectionString(), ci.Pubkey.GetPublicKey())
+					cc, err = cl.publisherConn.newCacheConnection(cl.l, ci.Addr.ConnectionString(), ci.Pubkey.GetPublicKey())
 					if err != nil {
 						cl.l.WithError(err).Error("failed to connect to cache")
 						b.err = err

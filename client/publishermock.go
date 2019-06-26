@@ -20,7 +20,7 @@ func newPublisherMock() *publisherMock {
 	return &publisherMock{}
 }
 
-func (pc *publisherMock) newCacheConnection(ctx context.Context, l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (cacheConnection, error) {
+func (pc *publisherMock) newCacheConnection(l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (cacheConnection, error) {
 	chunks := [][]byte{}
 	if len(pc.chunks) > 0 {
 		var c []byte
