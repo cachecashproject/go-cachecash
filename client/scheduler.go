@@ -63,13 +63,13 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 				}
 				chunkResults[i] = b
 
-				// TODO: we identify caches by public key but connections are currently distinguished by addr
-				cid := (cacheID)(bundle.CacheInfo[i].Addr.ConnectionString())
+				ci := bundle.CacheInfo[i]
+				pubKey := ci.Pubkey.GetPublicKey()
+				cid := (cacheID)(string(pubKey))
 				cc, ok := cl.cacheConns[cid]
 				if !ok {
 					var err error
-					ci := bundle.CacheInfo[i]
-					cc, err = cl.publisherConn.newCacheConnection(cl.l, ci.Addr.ConnectionString(), ci.Pubkey.GetPublicKey())
+					cc, err = cl.publisherConn.newCacheConnection(cl.l, ci.Addr.ConnectionString(), pubKey)
 					if err != nil {
 						cl.l.WithError(err).Error("failed to connect to cache")
 						b.err = err

@@ -37,7 +37,7 @@ type Client interface {
 	Close(ctx context.Context) error
 }
 
-// XXX:
+// The public key bytes are used for cached connection lookups.
 type cacheID string
 
 type chunkGroup struct {
@@ -56,7 +56,6 @@ type client struct {
 	publisherConn     publisherConnection
 	lastBundleRequest time.Time
 
-	// Unclear what key type should be.
 	cacheConns map[cacheID]cacheConnection
 }
 
