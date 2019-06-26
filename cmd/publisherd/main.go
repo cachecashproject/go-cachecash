@@ -28,6 +28,7 @@ var (
 	logFile       = flag.String("logFile", "", "Path where file should be logged")
 	configPath    = flag.String("config", "publisher.config.json", "Path to configuration file")
 	bootstrapAddr = flag.String("bootstrapd", "bootstrapd:7777", "Bootstrap service to use")
+	traceAPI      = flag.String("trace", "", "Jaeger API for tracing")
 )
 
 func loadConfigFile(path string) (*publisher.ConfigFile, error) {
@@ -108,6 +109,8 @@ func mainC() error {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash publisherd ", cachecash.CurrentVersion)
+
+	defer common.SetupTracing(*traceAPI, "cachecash-publisherd", l).Flush()
 
 	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
 		l.Info("config doesn't exist, generating")

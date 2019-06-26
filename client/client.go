@@ -11,6 +11,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/util"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -84,6 +85,9 @@ func New(l *logrus.Logger, addr string) (Client, error) {
 func (cl *client) GetObject(ctx context.Context, path string) (Object, error) {
 	// TODO: User, RawQuery, Fragment are currently ignored.  Should either pass to server or throw an error if they are
 	// provided.
+	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/GetObject")
+	defer span.End()
+
 	queue := make(chan *fetchGroup, 128)
 	go cl.schedule(ctx, path, queue)
 
@@ -179,6 +183,8 @@ func (o *object) Data() []byte {
 
 func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*chunkRequest, cacheConns []cacheConnection) (*chunkGroup, error) {
 	// Solve colocation puzzle.
+	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/solvePuzzle")
+	defer span.End()
 	tt := common.StartTelemetryTimer(cl.l, "solvePuzzle")
 	var singleEncryptedChunks [][]byte
 	for _, result := range chunkResults {

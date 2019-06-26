@@ -14,6 +14,8 @@ import (
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
+	"go.opencensus.io/trace"
 )
 
 // `cachecash-curl` is a simple command-line utility that retrieves a file being served via CacheCash.
@@ -23,6 +25,7 @@ var (
 	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
 	logFile     = flag.String("logFile", "", "Path where file should be logged")
 	outputPath  = flag.String("o", "", "Path where retrieved file will be written")
+	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
 )
 
 func main() {
@@ -46,6 +49,10 @@ func mainC() error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
+
+	defer common.SetupTracing(*traceAPI, "cachecash-curl", l).Flush()
+	// As a rarely used CLI tool, trace always.
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 	// e.g. "cachecash://localhost:8080/foo/bar"
 	rawURI := flag.Arg(0)

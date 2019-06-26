@@ -9,6 +9,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
@@ -55,7 +56,13 @@ func (pc *publisherGrpc) newCacheConnection(ctx context.Context, l *logrus.Logge
 }
 
 func (pc *publisherGrpc) GetContent(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error) {
-	return pc.grpcClient.GetContent(ctx, req)
+	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/GetContent")
+	defer span.End()
+	resp, err := pc.grpcClient.GetContent(ctx, req)
+	if err != nil {
+		span.SetStatus(trace.Status{Code: trace.StatusCodeInternal, Message: err.Error()})
+	}
+	return resp, err
 }
 
 func (pc *publisherGrpc) Close(ctx context.Context) error {

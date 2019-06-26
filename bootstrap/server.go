@@ -85,10 +85,7 @@ type bootstrapServer struct {
 var _ common.StarterShutdowner = (*bootstrapServer)(nil)
 
 func newBootstrapServer(l *logrus.Logger, b *Bootstrapd, conf *ConfigFile) (*bootstrapServer, error) {
-	grpcServer := grpc.NewServer(
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
-	)
+	grpcServer := common.NewGRPCServer()
 	ccmsg.RegisterNodeBootstrapdServer(grpcServer, &grpcBootstrapServer{bootstrap: b})
 	grpc_prometheus.Register(grpcServer)
 
