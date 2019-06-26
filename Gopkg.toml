@@ -68,9 +68,9 @@
   version = "1.21.1"
 
 [[constraint]]
-  branch = "master"
-  name = "golang.org/x/net"
-
-[[constraint]]
   name = "github.com/capnm/sysinfo"
   revision = "5909a53897f32d198d9c81e3417f6d25ecfd2229"
+
+ [[constraint]]
+  name = "github.com/spf13/viper"
+  version = "1.4.0"

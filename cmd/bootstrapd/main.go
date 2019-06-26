@@ -2,9 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -26,36 +24,19 @@ var (
 	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
 )
 
-func loadConfigFile(path string) (*bootstrap.ConfigFile, error) {
-	data, err := ioutil.ReadFile(path)
+func loadConfigFile(l *logrus.Logger, path string) (*bootstrap.ConfigFile, error) {
+	conf := bootstrap.ConfigFile{}
+	p := common.NewConfigParser(l, "bootstrap")
+	err := p.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var cf bootstrap.ConfigFile
-	if err := json.Unmarshal(data, &cf); err != nil {
-		return nil, err
-	}
+	conf.GrpcAddr = p.GetString("grpc_addr", ":7777")
+	conf.Database = p.GetString("database", "./bootstrapd.db")
+	conf.StatusAddr = p.GetString("status_addr", ":8100")
 
-	return &cf, nil
-}
-
-func generateConfigFile(path string) error {
-	cf := &bootstrap.ConfigFile{
-		GrpcAddr: ":7777",
-		Database: "./bootstrapd.db",
-	}
-	buf, err := json.MarshalIndent(cf, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal config")
-	}
-
-	err = ioutil.WriteFile(path, buf, 0600)
-	if err != nil {
-		return errors.Wrap(err, "failed to write config")
-	}
-
-	return nil
+	return &conf, nil
 }
 
 func main() {
@@ -84,14 +65,7 @@ func mainC() error {
 
 	defer common.SetupTracing(*traceAPI, "cachecash-bootstrapd", l).Flush()
 
-	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
-		l.Info("config doesn't exist, generating")
-		if err := generateConfigFile(*configPath); err != nil {
-			return err
-		}
-	}
-
-	cf, err := loadConfigFile(*configPath)
+	cf, err := loadConfigFile(l, *configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
 	}

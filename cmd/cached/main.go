@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"log"
 	_ "net/http/pprof"
 	"os"
@@ -22,65 +20,32 @@ import (
 )
 
 var (
-	logLevelStr   = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller     = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile       = flag.String("logFile", "", "Path where file should be logged")
-	configPath    = flag.String("config", "cache.config.json", "Path to configuration file")
-	keypairPath   = flag.String("keypair", "cache.keypair.json", "Path to keypair file")
-	bootstrapAddr = flag.String("bootstrapd", "bootstrapd:7777", "Bootstrap service to use")
-	traceAPI      = flag.String("trace", "", "Jaeger API for tracing")
+	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
+	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
+	logFile     = flag.String("logFile", "", "Path where file should be logged")
+	configPath  = flag.String("config", "cache.config.json", "Path to configuration file")
+	keypairPath = flag.String("keypair", "cache.keypair.json", "Path to keypair file")
+	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
 )
 
-func loadConfigFile(path string) (*cache.ConfigFile, error) {
-	data, err := ioutil.ReadFile(path)
+func loadConfigFile(l *logrus.Logger, path string) (*cache.ConfigFile, error) {
+	conf := cache.ConfigFile{}
+	p := common.NewConfigParser(l, "cache")
+	err := p.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var cf cache.ConfigFile
-	if err := json.Unmarshal(data, &cf); err != nil {
-		return nil, err
-	}
+	conf.ClientProtocolGrpcAddr = p.GetString("grpc_addr", ":9000")
+	conf.ClientProtocolHttpAddr = p.GetString("http_addr", ":9443")
+	conf.StatusAddr = p.GetString("status_addr", ":9100")
+	conf.BootstrapAddr = p.GetString("bootstrap_addr", "bootstrapd:7777")
 
-	return &cf, nil
-}
+	conf.BadgerDirectory = p.GetString("badger_directory", "./chunks/")
+	conf.Database = p.GetString("database", "cache.db")
+	conf.ContactUrl = p.GetString("contact_url", "")
 
-func GetenvDefault(key string, defaultValue string) string {
-	value, exists := os.LookupEnv(key)
-	if exists {
-		return value
-	} else {
-		return defaultValue
-	}
-}
-
-func generateConfigFile(path string) error {
-	grpcAddr := GetenvDefault("CACHE_GRPC_ADDR", ":9000")
-	httpAddr := GetenvDefault("CACHE_HTTP_ADDR", ":9443")
-	statusAddr := GetenvDefault("CACHE_STATUS_ADDR", ":9100")
-	bootstrapAddr := GetenvDefault("BOOTSTRAP_ADDR", *bootstrapAddr)
-
-	cf := cache.ConfigFile{
-		ClientProtocolGrpcAddr: grpcAddr,
-		ClientProtocolHttpAddr: httpAddr,
-		StatusAddr:             statusAddr,
-		BootstrapAddr:          bootstrapAddr,
-
-		BadgerDirectory: "/data/chunks/",
-		Database:        "/data/cache.db",
-	}
-
-	buf, err := json.MarshalIndent(cf, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal config")
-	}
-
-	err = ioutil.WriteFile(path, buf, 0600)
-	if err != nil {
-		return errors.Wrap(err, "failed to write config")
-	}
-
-	return nil
+	return &conf, nil
 }
 
 func main() {
@@ -109,14 +74,7 @@ func mainC() error {
 
 	defer common.SetupTracing(*traceAPI, "cachecash-cached", l).Flush()
 
-	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
-		l.Info("config doesn't exist, generating")
-		if err := generateConfigFile(*configPath); err != nil {
-			return err
-		}
-	}
-
-	cf, err := loadConfigFile(*configPath)
+	cf, err := loadConfigFile(l, *configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
@@ -139,7 +97,7 @@ func mainC() error {
 
 	c, err := cache.NewCache(l, db, cf, kp)
 	if err != nil {
-		return nil
+		return err
 	}
 	defer c.Close()
 
@@ -147,7 +105,9 @@ func mainC() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to load state from database")
 	}
-	l.Infof("loaded %d escrows from database", num)
+	l.WithFields(logrus.Fields{
+		"len(escrows)": num,
+	}).Info("loaded escrows from database")
 
 	app, err := cache.NewApplication(l, c, cf)
 	if err != nil {

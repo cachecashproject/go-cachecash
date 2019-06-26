@@ -49,9 +49,10 @@ services:
     # status
     - 8100:8100
     environment:
-    - PUBLISHER_CACHE_ADDR=publisher:8082
+    - PUBLISHER_CACHE_GRPC_ADDR=publisher:8082
     - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
-    - BOOTSTRAP_ADDR=bootstrapd:7777
+    - PUBLISHER_BOOTSTRAP_ADDR=bootstrapd:7777
+    - PUBLISHER_DATABASE=host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable
     volumes:
     - ./data/publisher:/data
 
@@ -83,7 +84,7 @@ services:
     # status
     - 7100:9100
     environment:
-    - BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/cache-0:/data
 
@@ -97,7 +98,7 @@ services:
     # status
     - 7101:9100
     environment:
-    - BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/cache-1:/data
 
@@ -111,7 +112,7 @@ services:
     # status
     - 7102:9100
     environment:
-    - BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/cache-2:/data
 
@@ -124,7 +125,7 @@ services:
     - 9446:9443
     - 7103:9100
     environment:
-    - BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
     volumes:
     - ./data/cache-3:/data
 

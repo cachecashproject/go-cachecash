@@ -19,13 +19,7 @@ type Application interface {
 type ConfigFile struct {
 	GrpcAddr   string `json:"grpc_addr"`
 	Database   string `json:"database"`
-	StatusAddr string
-}
-
-func (c *ConfigFile) FillDefaults() {
-	if c.StatusAddr == "" {
-		c.StatusAddr = ":8100"
-	}
+	StatusAddr string `json:"status_addr"`
 }
 
 type application struct {
@@ -37,7 +31,6 @@ type application struct {
 var _ Application = (*application)(nil)
 
 func NewApplication(l *logrus.Logger, b *Bootstrapd, conf *ConfigFile) (Application, error) {
-	conf.FillDefaults()
 	bootstrapServer, err := newBootstrapServer(l, b, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create bootstrap server")
