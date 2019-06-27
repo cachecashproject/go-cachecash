@@ -2,6 +2,11 @@
 sudo: false
 language: go
 
+# Don't test developer branches
+branches:
+  only:
+  - master
+
 # Test only on the most recent stable release.
 matrix:
   include:
