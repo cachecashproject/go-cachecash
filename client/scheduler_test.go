@@ -227,7 +227,7 @@ func (suite *SchedulerTestSuite) TestSchedulerError() {
 
 	group := <-queue
 	assert.Nil(t, group.bundle)
-	assert.Equal(t, "failed to fetch chunk-group at offset 0: failed to request bundle from publisher: this is an error", group.err.Error())
+	assert.Equal(t, "failed to fetch chunk-group at chunk offset 0: failed to request bundle from publisher: this is an error", group.err.Error())
 	assert.Zero(t, len(queue))
 }
 

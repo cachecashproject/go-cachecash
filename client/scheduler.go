@@ -20,8 +20,8 @@ type fetchGroup struct {
 func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGroup) {
 	defer close(queue)
 
-	var chunkSize uint64
-	var rangeBegin uint64
+	var chunkRangeBegin uint64
+	var byteRangeBegin uint64
 
 	minimumBacklogDepth := uint64(0)
 	bundleRequestInterval := 0
@@ -29,12 +29,12 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 
 	for {
 		cl.l.WithFields(logrus.Fields{
-			"chunkRangeBegin": rangeBegin,
-			"byteRangeBegin":  rangeBegin * chunkSize,
+			"chunkRangeBegin": chunkRangeBegin,
+			"byteRangeBegin":  byteRangeBegin,
 		}).Info("requesting bundle")
-		bundles, err := cl.requestBundles(ctx, path, rangeBegin*chunkSize)
+		bundles, err := cl.requestBundles(ctx, path, byteRangeBegin)
 		if err != nil {
-			err = errors.Wrapf(err, "failed to fetch chunk-group at offset %d", rangeBegin)
+			err = errors.Wrapf(err, "failed to fetch chunk-group at chunk offset %d", chunkRangeBegin)
 			queue <- &fetchGroup{
 				err: err,
 			}
@@ -89,13 +89,13 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			}
 
 			queue <- fetchGroup
-			rangeBegin += uint64(chunks)
+			chunkRangeBegin += uint64(chunks)
+			byteRangeBegin += uint64(chunks) * bundle.Metadata.ChunkSize
 
-			if rangeBegin >= bundle.Metadata.ChunkCount() {
+			if chunkRangeBegin >= bundle.Metadata.ChunkCount() {
 				cl.l.Info("got all bundles, terminating scheduler")
 				return
 			}
-			chunkSize = bundle.Metadata.ChunkSize
 
 			minimumBacklogDepth = uint64(bundle.Metadata.MinimumBacklogDepth)
 			bundleRequestInterval = int(bundle.Metadata.BundleRequestInterval)
