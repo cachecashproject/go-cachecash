@@ -14,6 +14,9 @@ brew install git-lfs
 
 # Archlinux
 pacman -S git-lfs
+
+# Windows
+Download from https://git-lfs.github.com/
 ```
 
 Next, clone the cachecash repo:
@@ -25,6 +28,8 @@ And initialize git-lfs in that repo:
 ```
 cd "$(go env GOPATH)/src/github.com/cachecashproject/go-cachecash"
 git lfs install
+git lfs fetch
+git lfs checkout
 ```
 
 ## Running a local test network
