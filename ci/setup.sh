@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -xe
 
 update_docker_compose() {
@@ -10,6 +10,10 @@ update_docker_compose() {
 	sudo mv docker-compose /usr/local/bin
 }
 
+start_db() {
+	while ! docker run --rm --net=cachecash postgres:11 psql 'host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable' -c 'select 1;'; do sleep 10; done
+}
+
 make dockerfiles
 if ! git diff --quiet; then
 	echo 'ERROR: Dockerfiles need to be regenerated'
@@ -19,20 +23,20 @@ fi
 case "$BUILD_MODE" in
 	test)
 		docker network create cachecash || true
-		docker run -d -p 5432:5432 -e POSTGRES_DB=publisher --name publisher-db --net=cachecash postgres:11
-		docker build -t cachecash-ci ci
+		time docker run -d -p 5432:5432 -e POSTGRES_DB=publisher --name publisher-db --net=cachecash postgres:11
+		time docker build -t cachecash-ci ci
 
 		# wait until the database is up
-		while ! docker run --rm --net=cachecash postgres:11 psql 'host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable' -c 'select 1;'; do sleep 10; done
+		time start_db
 
 		# apply migrations
-		docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --net=cachecash cachecash-ci sql-migrate up -config=publisher/migrations/dbconfig.yml -env=docker-tests
+		time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --net=cachecash cachecash-ci sql-migrate up -config=publisher/migrations/dbconfig.yml -env=docker-tests
 		;;
 	docker)
 		update_docker_compose
 		;;
 	e2e)
 		update_docker_compose
-		docker-compose build
+		time docker-compose build
 		;;
 esac
