@@ -2,9 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"log"
 	_ "net/http/pprof"
 	"os"
@@ -17,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ed25519"
 )
 
 var (
@@ -25,57 +22,23 @@ var (
 	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
 	logFile     = flag.String("logFile", "", "Path where file should be logged")
 	configPath  = flag.String("config", "ledger.config.json", "Path to configuration file")
+	// keypairPath = flag.String("keypair", "ledger.keypair.json", "Path to keypair file") // XXX: Not used yet.
+	traceAPI = flag.String("trace", "", "Jaeger API for tracing")
 )
 
-func loadConfigFile(path string) (*ledgerservice.ConfigFile, error) {
-	data, err := ioutil.ReadFile(path)
+func loadConfigFile(l *logrus.Logger, path string) (*ledgerservice.ConfigFile, error) {
+	conf := ledgerservice.ConfigFile{}
+	p := common.NewConfigParser(l, "ledger")
+	err := p.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var cf ledgerservice.ConfigFile
-	if err := json.Unmarshal(data, &cf); err != nil {
-		return nil, err
-	}
+	conf.LedgerProtocolAddr = p.GetString("ledger_addr", ":8080")
+	conf.StatusAddr = p.GetString("status_addr", ":8100")
+	conf.Database = p.GetString("database", "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable")
 
-	return &cf, nil
-}
-
-func GetenvDefault(key string, defaultValue string) string {
-	value, exists := os.LookupEnv(key)
-	if exists {
-		return value
-	} else {
-		return defaultValue
-	}
-}
-
-func generateConfigFile(path string) error {
-	ledgerProtocolAddr := os.Getenv("LEDGER_PROTCOOL_ADDR")
-
-	_, privateKey, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		return err
-	}
-
-	cf := &ledgerservice.ConfigFile{
-		LedgerProtocolAddr: ledgerProtocolAddr,
-
-		PrivateKey: privateKey,
-		Database:   "host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable",
-	}
-
-	buf, err := json.MarshalIndent(cf, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal config")
-	}
-
-	err = ioutil.WriteFile(path, buf, 0600)
-	if err != nil {
-		return errors.Wrap(err, "failed to write config")
-	}
-
-	return nil
+	return &conf, nil
 }
 
 func main() {
@@ -100,16 +63,11 @@ func mainC() error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
-	l.Info("Starting CacheCash publisherd ", cachecash.CurrentVersion)
+	l.Info("Starting CacheCash ledgerd ", cachecash.CurrentVersion)
 
-	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
-		l.Info("config doesn't exist, generating")
-		if err := generateConfigFile(*configPath); err != nil {
-			return err
-		}
-	}
+	defer common.SetupTracing(*traceAPI, "cachecash-ledgerd", l).Flush()
 
-	cf, err := loadConfigFile(*configPath)
+	cf, err := loadConfigFile(l, *configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
