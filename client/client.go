@@ -85,6 +85,24 @@ func New(l *logrus.Logger, addr string) (Client, error) {
 	}, nil
 }
 
+// GetCacheConnection returns a connection from the cache connection pool.
+// If none is available, a new connection is initiated and return.
+func (cl *client) GetCacheConnection(ctx context.Context, addr string, pubKey ed25519.PublicKey) (cacheConnection, error) {
+	cid := (cacheID)(string(pubKey))
+	cc, ok := cl.cacheConns[cid]
+	if ok {
+		return cc, nil
+	}
+	cc, err := cl.publisherConn.newCacheConnection(cl.l, addr, pubKey)
+	if err != nil {
+		cl.l.WithError(err).Error("failed to connect to cache")
+		return nil, err
+	}
+	cl.cacheConns[cid] = cc
+	go cc.Run(ctx)
+	return cc, nil
+}
+
 // GetObject streams an object back to the caller on the supplied chan
 //
 // for chunk := range output {

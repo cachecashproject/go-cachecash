@@ -5,6 +5,8 @@ import (
 	"net"
 	"testing"
 
+	"golang.org/x/crypto/ed25519"
+
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/colocationpuzzle"
@@ -167,4 +169,31 @@ func (suite *ClientTestSuite) TestGetObject() {
 
 	err := cl.Close(ctx)
 	assert.Nil(t, err)
+}
+
+func (suite *ClientTestSuite) TestGetCacheConnection() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+	ctx := context.Background()
+
+	// A cache can be connected to and looked up again on a different IP
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
+	k1 := ed25519.PublicKey(([]byte)("\x00\x01\x02\x03\x04"))
+	con1, err := cl.GetCacheConnection(ctx, "192.0.2.1:1001", k1)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(cl.cacheConns))
+	con1prime, err := cl.GetCacheConnection(ctx, "ignored", k1)
+	assert.Nil(t, err)
+	assert.Equal(t, con1, con1prime)
+
+	// A second cache with a different key is stored separately
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
+	k2 := ed25519.PublicKey(([]byte)("\x05\x06\x07\x08\x09"))
+	con2, err := cl.GetCacheConnection(ctx, "192.0.2.2:1002", k2)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(cl.cacheConns))
+	con1, err = cl.GetCacheConnection(ctx, "ignored", k1)
+	assert.Nil(t, err)
+	assert.Equal(t, con1, con1prime)
+	assert.NotEqual(t, con1, con2)
 }

@@ -65,21 +65,14 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 
 				ci := bundle.CacheInfo[i]
 				pubKey := ci.Pubkey.GetPublicKey()
-				cid := (cacheID)(string(pubKey))
-				cc, ok := cl.cacheConns[cid]
-				if !ok {
-					var err error
-					cc, err = cl.publisherConn.newCacheConnection(cl.l, ci.Addr.ConnectionString(), pubKey)
-					if err != nil {
-						cl.l.WithError(err).Error("failed to connect to cache")
-						// In future we should resubmit the bundle - but this is better than panicing.
-						fetchGroup.err = err
-						fetchGroup.bundle = nil
-						queue <- fetchGroup
-						return
-					}
-					cl.cacheConns[cid] = cc
-					go cc.Run(ctx)
+				cc, err := cl.GetCacheConnection(ctx, ci.Addr.ConnectionString(), pubKey)
+				if err != nil {
+					cl.l.WithError(err).Error("failed to connect to cache")
+					// In future we should resubmit the bundle - but this is better than panicing.
+					fetchGroup.err = err
+					fetchGroup.bundle = nil
+					queue <- fetchGroup
+					return
 				}
 
 				clientNotify := make(chan DownloadResult, 128)
