@@ -116,6 +116,8 @@ func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 			"\x05\x06\x07\x08\x09": 0x1,
 		},
 	}).Return(suite.newContentResponse(1), nil).Once()
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
 	queue := make(chan *fetchGroup, 128)
 	cl.schedule(context.Background(), "/", queue)
@@ -129,6 +131,7 @@ func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 	assert.NotNil(t, group.bundle)
 
 	assert.Zero(t, len(queue))
+
 }
 
 func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
@@ -169,6 +172,8 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 			"\x05\x06\x07\x08\x09": 0x1,
 		},
 	}).Return(suite.newContentResponse(1), nil).Once()
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
 	queue := make(chan *fetchGroup, 128)
 	cl.schedule(context.Background(), "/", queue)
@@ -195,6 +200,8 @@ func (suite *SchedulerTestSuite) TestSchedulerAllBundlesAtOnce() {
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
 	}).Return(suite.newContentResponse(2), nil).Once()
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
 	queue := make(chan *fetchGroup, 128)
 	cl.schedule(context.Background(), "/", queue)

@@ -128,12 +128,6 @@ func (suite *ClientTestSuite) TestGetObject() {
 	cl, mock := suite.newMock()
 	ctx := context.Background()
 
-	mock.QueueChunks([][]byte{
-		{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-		{16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31},
-		{32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47},
-		{48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63},
-	})
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
@@ -141,6 +135,14 @@ func (suite *ClientTestSuite) TestGetObject() {
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
 	}).Return(suite.newContentResponse(1), nil).Once()
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04",
+		[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09",
+		[]byte{16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31})
+	mock.makeNewCacheCall(cl.l, "192.0.2.3:1003", "\x0a\x0b\x0c\x0d\x0e",
+		[]byte{32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47})
+	mock.makeNewCacheCall(cl.l, "192.0.2.4:1004", "\x0f\x00\x01\x01\x03",
+		[]byte{48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63})
 
 	output := make(chan *OutputChunk, 128)
 	cl.GetObject(ctx, "/", output)

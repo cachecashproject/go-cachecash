@@ -21,13 +21,10 @@ func newPublisherMock() *publisherMock {
 }
 
 func (pc *publisherMock) newCacheConnection(l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (cacheConnection, error) {
-	chunks := [][]byte{}
-	if len(pc.chunks) > 0 {
-		var c []byte
-		pc.chunks, c = pc.chunks[1:], pc.chunks[0]
-		chunks = append(chunks, c)
-	}
-	return newCacheMock(addr, pubkey, chunks), nil
+	args := pc.Called(l, addr, pubkey)
+	cr := args.Get(0).(*cacheMock)
+	err := args.Error(1)
+	return cr, err
 }
 
 func (pc *publisherMock) GetContent(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error) {
@@ -43,4 +40,10 @@ func (pc *publisherMock) Close(ctx context.Context) error {
 
 func (pc *publisherMock) QueueChunks(chunks [][]byte) {
 	pc.chunks = chunks
+}
+
+func (pc *publisherMock) makeNewCacheCall(l *logrus.Logger, addr string, pubkey string, chunks ...[]byte) {
+	pubkeyKey := ed25519.PublicKey(([]byte)(pubkey))
+	pc.On("newCacheConnection", l,
+		addr, pubkeyKey).Return(newCacheMock(addr, pubkeyKey, chunks), nil).Once()
 }
