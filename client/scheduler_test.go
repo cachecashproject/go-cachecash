@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/crypto/ed25519"
 )
 
 func TestSchedulerTestSuite(t *testing.T) {
@@ -272,4 +273,36 @@ func (suite *SchedulerTestSuite) TestRequestBundleError() {
 	resp, err := cl.requestBundles(context.Background(), "/", 0)
 	assert.NotNil(t, err)
 	assert.Nil(t, resp)
+}
+
+func (suite *SchedulerTestSuite) TestCacheConnectionError() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(0), nil).Once()
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(1), nil).Once()
+	mock.On("newCacheConnection", cl.l, "192.0.2.1:1001",
+		ed25519.PublicKey(([]byte)("\x00\x01\x02\x03\x04"))).Return(
+		(*cacheMock)(nil), errors.New("cache connection failure")).Once()
+
+	queue := make(chan *fetchGroup, 128)
+	cl.schedule(context.Background(), "/", queue)
+
+	group := <-queue
+	assert.NotNil(t, group.err)
+	assert.Nil(t, group.bundle)
+
+	assert.Zero(t, len(queue))
 }
