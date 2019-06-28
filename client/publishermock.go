@@ -45,6 +45,6 @@ func (pc *publisherMock) QueueChunks(chunks [][]byte) {
 
 func (pc *publisherMock) makeNewCacheCall(l *logrus.Logger, addr string, pubkey string, chunks ...[]byte) {
 	pubkeyKey := ed25519.PublicKey(([]byte)(pubkey))
-	pc.On("newCacheConnection", l,
+	pc.On("newCacheConnection", mock.Anything,
 		addr, pubkeyKey).Return(newCacheMock(addr, pubkeyKey, chunks), nil).Once()
 }
