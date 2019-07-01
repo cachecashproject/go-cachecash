@@ -43,6 +43,18 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 		}
 
 		for _, bundle := range bundles {
+			if cl.chunkCount == nil {
+				// Cache the chunk count to permit completion detection when retrying non-terminal blocks
+				_count := bundle.Metadata.ChunkCount()
+				cl.chunkCount = &_count
+			} else {
+				if bundle.Metadata.ChunkCount() != *cl.chunkCount {
+					err = errors.New("object chunk count changed mid retrieval")
+					queue <- &fetchGroup{err: err}
+					cl.l.Error("encountered an error, shutting down scheduler")
+					return
+				}
+			}
 			chunks := len(bundle.TicketRequest)
 			cl.l.WithFields(logrus.Fields{
 				"len(chunks)": chunks,
@@ -90,7 +102,7 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			chunkRangeBegin += uint64(chunks)
 			byteRangeBegin += uint64(chunks) * bundle.Metadata.ChunkSize
 
-			if chunkRangeBegin >= bundle.Metadata.ChunkCount() {
+			if chunkRangeBegin >= *cl.chunkCount {
 				cl.l.Info("got all bundles, terminating scheduler")
 				return
 			}

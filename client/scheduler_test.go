@@ -38,10 +38,30 @@ func (suite *SchedulerTestSuite) newMock() (*client, *publisherMock) {
 	}, mock
 }
 
-func (suite *SchedulerTestSuite) newContentResponse(n uint64) *ccmsg.ContentResponse {
+type CROptions struct {
+	bundles    uint64
+	objectSize uint64
+}
+
+func (suite *SchedulerTestSuite) newContentResponse(options ...CROptions) *ccmsg.ContentResponse {
+	// Defaults
+	opts := CROptions{
+		bundles:    0,
+		objectSize: 512,
+	}
+	// Merge explicit choices
+	for _, opt := range options {
+		if opt.bundles != 0 {
+			opts.bundles = opt.bundles
+		}
+		if opt.objectSize != 0 {
+			opts.objectSize = opt.objectSize
+		}
+	}
+
 	bundles := []*ccmsg.TicketBundle{}
 
-	for i := uint64(0); i < n; i++ {
+	for i := uint64(0); i < opts.bundles; i++ {
 		chunkIdx := uint64(i * 2)
 		bundles = append(bundles, &ccmsg.TicketBundle{
 			Remainder: &ccmsg.TicketBundleRemainder{
@@ -74,7 +94,7 @@ func (suite *SchedulerTestSuite) newContentResponse(n uint64) *ccmsg.ContentResp
 				suite.newCache(net.ParseIP("192.0.2.2"), 1002, []byte{5, 6, 7, 8, 9}),
 			},
 			Metadata: &ccmsg.ObjectMetadata{
-				ObjectSize: 512,
+				ObjectSize: opts.objectSize,
 				ChunkSize:  128,
 			},
 		})
@@ -106,7 +126,7 @@ func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 		RangeBegin:      0,
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
-	}).Return(suite.newContentResponse(1), nil).Once()
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
@@ -116,7 +136,7 @@ func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 			"\x00\x01\x02\x03\x04": 0x1,
 			"\x05\x06\x07\x08\x09": 0x1,
 		},
-	}).Return(suite.newContentResponse(1), nil).Once()
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
 	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
@@ -145,14 +165,14 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 		RangeBegin:      0,
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
-	}).Return(suite.newContentResponse(0), nil).Once()
+	}).Return(suite.newContentResponse(), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
-	}).Return(suite.newContentResponse(1), nil).Once()
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
@@ -162,7 +182,7 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 			"\x00\x01\x02\x03\x04": 0x1,
 			"\x05\x06\x07\x08\x09": 0x1,
 		},
-	}).Return(suite.newContentResponse(0), nil).Once()
+	}).Return(suite.newContentResponse(), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
@@ -172,7 +192,7 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 			"\x00\x01\x02\x03\x04": 0x1,
 			"\x05\x06\x07\x08\x09": 0x1,
 		},
-	}).Return(suite.newContentResponse(1), nil).Once()
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
 	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
@@ -200,7 +220,7 @@ func (suite *SchedulerTestSuite) TestSchedulerAllBundlesAtOnce() {
 		RangeBegin:      0,
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
-	}).Return(suite.newContentResponse(2), nil).Once()
+	}).Return(suite.newContentResponse(CROptions{bundles: 2}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
 	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
@@ -285,14 +305,14 @@ func (suite *SchedulerTestSuite) TestCacheConnectionError() {
 		RangeBegin:      0,
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
-	}).Return(suite.newContentResponse(0), nil).Once()
+	}).Return(suite.newContentResponse(), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
 		BacklogDepth:    map[string]uint64{},
-	}).Return(suite.newContentResponse(1), nil).Once()
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("newCacheConnection", cl.l, "192.0.2.1:1001",
 		ed25519.PublicKey(([]byte)("\x00\x01\x02\x03\x04"))).Return(
 		(*cacheMock)(nil), errors.New("cache connection failure")).Once()
@@ -305,4 +325,43 @@ func (suite *SchedulerTestSuite) TestCacheConnectionError() {
 	assert.Nil(t, group.bundle)
 
 	assert.Zero(t, len(queue))
+}
+
+func (suite *SchedulerTestSuite) TestChangedChunkCount() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      256,
+		RangeEnd:        0,
+		BacklogDepth: map[string]uint64{
+			"\x00\x01\x02\x03\x04": 0x1,
+			"\x05\x06\x07\x08\x09": 0x1,
+		},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1, objectSize: 1024}), nil).Once()
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
+
+	queue := make(chan *fetchGroup, 128)
+	cl.schedule(context.Background(), "/", queue)
+
+	group := <-queue
+	assert.Nil(t, group.err)
+	assert.NotNil(t, group.bundle)
+
+	group = <-queue
+	assert.NotNil(t, group.err)
+	assert.Nil(t, group.bundle)
+
+	assert.Zero(t, len(queue))
+
 }

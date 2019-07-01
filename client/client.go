@@ -52,11 +52,14 @@ type client struct {
 
 	publicKey  ed25519.PublicKey
 	privateKey ed25519.PrivateKey
-
-	publisherConn     publisherConnection
-	lastBundleRequest time.Time
-
 	cacheConns map[cacheID]cacheConnection
+
+	// TODO: publishers should be pooled and cached too
+	publisherConn publisherConnection
+
+	// These fields are actually single-object specific and should be factored into a dedicated stream object.
+	lastBundleRequest time.Time
+	chunkCount        *uint64
 }
 
 var _ Client = (*client)(nil)
