@@ -121,8 +121,10 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/GetObject")
 	defer span.End()
 
+	// TODO - we need to model and assess the buffer sizes here
 	queue := make(chan *fetchGroup, 128)
-	go cl.schedule(ctx, path, queue)
+	completions := make(chan BundleOutcome, 128)
+	go cl.schedule(ctx, path, queue, completions)
 
 	// counts chunks
 	var rangeBegin uint64
@@ -130,15 +132,18 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 	var pos = 0
 
 	for group := range queue {
+		outcome := BundleOutcome{ChunkOffset: rangeBegin}
 		if group.err != nil {
 			output <- &OutputChunk{nil, group.err}
+			// Scheduler self-terminates if it is signalling a failure to us.
 			return
 		}
 
 		bundle := group.bundle
-		cacheQty := len(group.notify)
-		chunkResults := make([]*chunkRequest, cacheQty)
-		cacheConns := make([]cacheConnection, cacheQty)
+		chunks := uint64(len(group.notify))
+		chunkResults := make([]*chunkRequest, chunks)
+		cacheConns := make([]cacheConnection, chunks)
+		outcome = BundleOutcome{ChunkOffset: rangeBegin, Chunks: chunks}
 
 		// We receive either an error (in which case we abort the other requests and return an error to our parent) or we
 		// receive singly-encrypted data from each cache.
@@ -153,22 +158,30 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 				cacheConns[i] = result.cache
 				if b.err != nil {
 					output <- &OutputChunk{nil, errors.Wrap(b.err, "got error in chunk request; aborting any that remain in group")}
+					outcome.Outcome = Retry
+					completions <- outcome
 					return
 				}
 			}
 		}
 
 		cl.l.Info("got singly-encrypted data from each cache")
+
 		bg, err := cl.decryptPuzzle(ctx, bundle, chunkResults, cacheConns)
 		if err != nil {
 			output <- &OutputChunk{nil, errors.Wrap(err, "failed to decrypt puzzle")}
+			outcome.Outcome = Retry
+			completions <- outcome
 			return
 		}
 
 		for i, d := range bg.data {
+
 			if bg.chunkIdx[i] != rangeBegin+uint64(i) {
 				output <- &OutputChunk{nil, fmt.Errorf("chunk at position %v has index %v, but expected %v",
 					i, bg.chunkIdx[i], rangeBegin+uint64(i))}
+				outcome.Outcome = Retry
+				completions <- outcome
 				return
 			}
 			cl.l.WithFields(logrus.Fields{
@@ -179,7 +192,10 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 			pos += len(d)
 		}
 
-		rangeBegin += uint64(len(bg.data))
+		rangeBegin += chunks
+		outcome.Outcome = Completed
+		completions <- outcome
+
 	}
 }
 

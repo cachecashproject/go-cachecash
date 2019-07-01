@@ -27,6 +27,7 @@ type SchedulerTestSuite struct {
 func (suite *SchedulerTestSuite) SetupTest() {
 	l := logrus.New()
 	suite.l = l
+	suite.l.SetLevel(logrus.DebugLevel)
 }
 
 func (suite *SchedulerTestSuite) newMock() (*client, *publisherMock) {
@@ -141,7 +142,10 @@ func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
 	queue := make(chan *fetchGroup, 128)
-	cl.schedule(context.Background(), "/", queue)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 0, Chunks: 2}
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 2, Chunks: 2}
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
 
 	group := <-queue
 	assert.Nil(t, group.err)
@@ -152,7 +156,6 @@ func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 	assert.NotNil(t, group.bundle)
 
 	assert.Zero(t, len(queue))
-
 }
 
 func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
@@ -197,7 +200,10 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
 	queue := make(chan *fetchGroup, 128)
-	cl.schedule(context.Background(), "/", queue)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 0, Chunks: 2}
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 2, Chunks: 2}
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
 
 	group := <-queue
 	assert.Nil(t, group.err)
@@ -225,7 +231,10 @@ func (suite *SchedulerTestSuite) TestSchedulerAllBundlesAtOnce() {
 	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
 	queue := make(chan *fetchGroup, 128)
-	cl.schedule(context.Background(), "/", queue)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 0, Chunks: 2}
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 2, Chunks: 2}
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
 
 	group := <-queue
 	assert.Nil(t, group.err)
@@ -251,7 +260,8 @@ func (suite *SchedulerTestSuite) TestSchedulerError() {
 	}).Return((*ccmsg.ContentResponse)(nil), errors.New("this is an error")).Once()
 
 	queue := make(chan *fetchGroup, 128)
-	cl.schedule(context.Background(), "/", queue)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
 
 	group := <-queue
 	assert.Nil(t, group.bundle)
@@ -318,7 +328,8 @@ func (suite *SchedulerTestSuite) TestCacheConnectionError() {
 		(*cacheMock)(nil), errors.New("cache connection failure")).Once()
 
 	queue := make(chan *fetchGroup, 128)
-	cl.schedule(context.Background(), "/", queue)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
 
 	group := <-queue
 	assert.NotNil(t, group.err)
@@ -352,7 +363,8 @@ func (suite *SchedulerTestSuite) TestChangedChunkCount() {
 	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
 	queue := make(chan *fetchGroup, 128)
-	cl.schedule(context.Background(), "/", queue)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
 
 	group := <-queue
 	assert.Nil(t, group.err)
@@ -363,5 +375,78 @@ func (suite *SchedulerTestSuite) TestChangedChunkCount() {
 	assert.Nil(t, group.bundle)
 
 	assert.Zero(t, len(queue))
+}
 
+func (suite *SchedulerTestSuite) TestSchedulerClientErrorsOneBundle() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      256,
+		RangeEnd:        0,
+		BacklogDepth: map[string]uint64{
+			"\x00\x01\x02\x03\x04": 0x1,
+			"\x05\x06\x07\x08\x09": 0x1,
+		},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
+
+	queue := make(chan *fetchGroup, 128)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	// Today, attempting to retry shuts down the scheduler
+	bundleCompletions <- BundleOutcome{Outcome: Retry, ChunkOffset: 0, Chunks: 2}
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
+
+	group := <-queue
+	assert.NotNil(t, group.err)
+	assert.Nil(t, group.bundle)
+
+	assert.Zero(t, len(queue))
+}
+
+func (suite *SchedulerTestSuite) TestSchedulerClientDefersOneBundle() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      256,
+		RangeEnd:        0,
+		BacklogDepth: map[string]uint64{
+			"\x00\x01\x02\x03\x04": 0x1,
+			"\x05\x06\x07\x08\x09": 0x1,
+		},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
+
+	queue := make(chan *fetchGroup, 128)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	// Today, attempting to defer shuts down the scheduler
+	bundleCompletions <- BundleOutcome{Outcome: Deferred, ChunkOffset: 0, Chunks: 2}
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
+
+	group := <-queue
+	assert.NotNil(t, group.err)
+	assert.Nil(t, group.bundle)
+
+	assert.Zero(t, len(queue))
 }

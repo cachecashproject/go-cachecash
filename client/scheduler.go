@@ -17,29 +17,117 @@ type fetchGroup struct {
 	notify []chan DownloadResult
 }
 
-func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGroup) {
+// Outcome is used to signal what the outcome of the client handling of a bundle was.
+type Outcome int
+
+const (
+	// Completed indicates the bundle has been handled by the client
+	Completed Outcome = iota
+	// Deferred indicates the bundle cannot be handled yet (e.g. the client has requested a retry
+	// and is waiting for the retried bundle to arrive)
+	Deferred
+	// Retry indicates that the bundle was corrupt in some fashion and should be retried (this covers
+	// all manner of faults - bad cache connections, bad data from a cache, bad
+	// tickets etc).
+	Retry
+)
+
+// BundleOutcome is used to track successful decryption and handling of bundles.
+// It is ok to fail to send a failed outcome if the context is cancelled; it is
+// not ok to fail to sent an Ok outcome - read ahead and completion tracking
+// is based around successful outcome notifications.
+type BundleOutcome struct {
+	Outcome     Outcome
+	ChunkOffset uint64
+	Chunks      uint64
+}
+
+// schedule is responsible for requesting bundles from publishers and chunk data from caches.
+//
+//
+//
+// it tries to balance:
+// - reading ahead to mitigate RTT, publisher, and cache latencies
+// - don't saturate the network with data the client isn't ready for yet
+// - don't bloat the process with data the client isn't ready for yet
+//
+// retries:
+// - when a bundle fails hard for any reason it *will be* [not implemented] retried from the publisher as a narrow
+//   byte-range specified bundle request
+// - the code tracks
+//   successfully processed high water mark completedChunks based on notification from
+//   the client must only notify in-order currently.
+//   ... coming soon
+func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetchGroup, bundleOutcomes <-chan BundleOutcome) {
 	defer close(queue)
 
 	var chunkRangeBegin uint64
 	var byteRangeBegin uint64
+	// NB: for a zero-length file this being zero by default is trivially fine.
+	//     Scheduling is finished when completed is strictly = to chunk count, not chunk *index*.
+	//     That is, completing chunk 0 sets this to 1, 1 to 2 and so on.
+	var completedChunks uint64
 
 	minimumBacklogDepth := uint64(0)
 	bundleRequestInterval := 0
 	schedulerNotify := make(chan bool, 64)
 
 	for {
-		cl.l.WithFields(logrus.Fields{
-			"chunkRangeBegin": chunkRangeBegin,
-			"byteRangeBegin":  byteRangeBegin,
-		}).Info("requesting bundle")
-		bundles, err := cl.requestBundles(ctx, path, byteRangeBegin)
-		if err != nil {
-			err = errors.Wrapf(err, "failed to fetch chunk-group at chunk offset %d", chunkRangeBegin)
-			queue <- &fetchGroup{
-				err: err,
+		var bundles []*ccmsg.TicketBundle
+		var err error
+
+		finishedOutcomes := false
+		for !finishedOutcomes {
+			select {
+			case bundleOutcome := <-bundleOutcomes:
+				switch bundleOutcome.Outcome {
+				case Completed:
+					completedChunks = bundleOutcome.ChunkOffset + bundleOutcome.Chunks
+					cl.l.Debugf("completed %d chunks at chunk %d", bundleOutcome.Chunks, bundleOutcome.ChunkOffset)
+					// Here is where a readahead check 'is it time to read ahead' would sit and replace the time.After heuristic
+				case Deferred:
+					// Deferral isn't handled further down the pipeline yet.
+					err = errors.Errorf("client deferred bundle %d %d", bundleOutcome.ChunkOffset, bundleOutcome.Chunks)
+					queue <- &fetchGroup{err: err}
+					cl.l.Error("encountered an error, shutting down scheduler")
+					return
+				case Retry:
+					err = errors.Errorf("client failed bundle %d %d", bundleOutcome.ChunkOffset, bundleOutcome.Chunks)
+					queue <- &fetchGroup{err: err}
+					cl.l.Error("encountered an error, shutting down scheduler")
+					return
+				}
+			default:
+				cl.l.Debug("No bundle outcomes to process")
+				finishedOutcomes = true
 			}
-			cl.l.Error("encountered an error, shutting down scheduler")
-			return
+		}
+
+		// First iteration or have not requested the last chunk
+		if cl.chunkCount == nil || chunkRangeBegin < *cl.chunkCount {
+			// Have bundles to request
+
+			cl.l.WithFields(logrus.Fields{
+				"chunkRangeBegin": chunkRangeBegin,
+				"byteRangeBegin":  byteRangeBegin,
+			}).Info("requesting bundle")
+
+			bundles, err = cl.requestBundles(ctx, path, byteRangeBegin)
+			if err != nil {
+				err = errors.Wrapf(err, "failed to fetch chunk-group at chunk offset %d", chunkRangeBegin)
+				queue <- &fetchGroup{
+					err: err,
+				}
+				cl.l.Error("encountered an error, shutting down scheduler")
+				return
+			}
+		} else {
+			if completedChunks >= *cl.chunkCount {
+				cl.l.Info("got all bundles, terminating scheduler")
+				return
+			}
+
+			bundles = []*ccmsg.TicketBundle{}
 		}
 
 		for _, bundle := range bundles {
@@ -102,15 +190,9 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan *fetchGr
 			chunkRangeBegin += uint64(chunks)
 			byteRangeBegin += uint64(chunks) * bundle.Metadata.ChunkSize
 
-			if chunkRangeBegin >= *cl.chunkCount {
-				cl.l.Info("got all bundles, terminating scheduler")
-				return
-			}
-
 			minimumBacklogDepth = uint64(bundle.Metadata.MinimumBacklogDepth)
 			bundleRequestInterval = int(bundle.Metadata.BundleRequestInterval)
 		}
-
 		cl.waitUntilNextRequest(schedulerNotify, minimumBacklogDepth, bundleRequestInterval)
 	}
 }
