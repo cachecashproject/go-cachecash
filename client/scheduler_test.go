@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"testing"
+	"time"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
@@ -40,17 +41,19 @@ func (suite *SchedulerTestSuite) newMock() (*client, *publisherMock) {
 }
 
 type CROptions struct {
-	bundles    uint64
-	objectSize uint64
-	chunkSize  uint64
+	bundles      uint64
+	objectSize   uint64
+	chunkSize    uint64
+	bundleOffset uint64
 }
 
 func (suite *SchedulerTestSuite) newContentResponse(options ...CROptions) *ccmsg.ContentResponse {
 	// Defaults
 	opts := CROptions{
-		bundles:    0,
-		objectSize: 512,
-		chunkSize:  128,
+		bundles:      0,
+		objectSize:   512,
+		chunkSize:    128,
+		bundleOffset: 0,
 	}
 	// Merge explicit choices
 	for _, opt := range options {
@@ -63,12 +66,15 @@ func (suite *SchedulerTestSuite) newContentResponse(options ...CROptions) *ccmsg
 		if opt.chunkSize != 0 {
 			opts.chunkSize = opt.chunkSize
 		}
+		if opt.bundleOffset != 0 {
+			opts.bundleOffset = opt.bundleOffset
+		}
 	}
 
 	bundles := []*ccmsg.TicketBundle{}
 
-	for i := uint64(0); i < opts.bundles; i++ {
-		chunkIdx := uint64(i * 2)
+	for i := opts.bundleOffset; i < opts.bundles+opts.bundleOffset; i++ {
+		chunkIdx := i * 2 // 2 chunks per bundle
 		bundles = append(bundles, &ccmsg.TicketBundle{
 			Remainder: &ccmsg.TicketBundleRemainder{
 				PuzzleInfo: &ccmsg.ColocationPuzzleInfo{
@@ -441,7 +447,8 @@ func (suite *SchedulerTestSuite) TestChangedChunkSize() {
 
 	assert.Zero(t, len(queue))
 }
-func (suite *SchedulerTestSuite) TestSchedulerClientErrorsOneBundle() {
+
+func (suite *SchedulerTestSuite) TestSchedulerClientRetriesOneBundle() {
 	t := suite.T()
 	cl, mock := suite.newMock()
 
@@ -461,21 +468,51 @@ func (suite *SchedulerTestSuite) TestSchedulerClientErrorsOneBundle() {
 			"\x00\x01\x02\x03\x04": 0x1,
 			"\x05\x06\x07\x08\x09": 0x1,
 		},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1, bundleOffset: 1}), nil).Once()
+	// This is the retried bundle
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        256,
+		BacklogDepth: map[string]uint64{
+			"\x00\x01\x02\x03\x04": 0x2,
+			"\x05\x06\x07\x08\x09": 0x2,
+		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
 	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
 
 	queue := make(chan *fetchGroup, 128)
-	bundleCompletions := make(chan BundleOutcome, 128)
-	// Today, attempting to retry shuts down the scheduler
-	bundleCompletions <- BundleOutcome{Outcome: Retry, ChunkOffset: 0, Chunks: 2}
-	cl.schedule(context.Background(), "/", queue, bundleCompletions)
+	okGroup := func(chunkIdx uint64) *fetchGroup {
+		group := <-queue
+		assert.Nil(t, group.err)
+		assert.NotNil(t, group.bundle)
+		assert.Equal(t, chunkIdx, group.bundle.TicketRequest[0].ChunkIdx)
+		return group
+	}
 
-	group := <-queue
-	assert.NotNil(t, group.err)
-	assert.Nil(t, group.bundle)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	go cl.schedule(context.Background(), "/", queue, bundleCompletions)
+	// micro sleep to allow the scheduler read-ahead to read the second bundle
+	// otherwise we have non-determinism in the test
+	time.Sleep(time.Millisecond * 50)
+	// Request a retry of bundle at offset 0
+	okGroup(0)
+	bundleCompletions <- BundleOutcome{Outcome: Retry, ChunkOffset: 0, Chunks: 2}
+	// Defer the read-ahead bundle at offset 2
+	group := okGroup(2)
+	bundleCompletions <- BundleOutcome{Outcome: Deferred, ChunkOffset: 2, Chunks: 2, Bundle: group}
+	// Receive the retried bundle at offset 0
+	okGroup(0)
+	// Receive the deferred bundle at offset 2
+	okGroup(2)
+	// acknowledge the bundles
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 0, Chunks: 2}
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 2, Chunks: 2}
 
 	assert.Zero(t, len(queue))
+	mock.AssertExpectations(t)
 }
 
 func (suite *SchedulerTestSuite) TestSchedulerClientDefersOneBundleBadly() {

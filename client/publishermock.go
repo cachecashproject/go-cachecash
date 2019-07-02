@@ -21,7 +21,8 @@ func newPublisherMock() *publisherMock {
 }
 
 func (pc *publisherMock) newCacheConnection(l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (cacheConnection, error) {
-	args := pc.Called(l, addr, pubkey)
+	// logrus parameters trigger data races in tests - use mock.Anything to avoid comparing those deeply.
+	args := pc.Called(mock.Anything, addr, pubkey)
 	cr := args.Get(0).(*cacheMock)
 	err := args.Error(1)
 	return cr, err

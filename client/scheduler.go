@@ -77,6 +77,8 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 	for {
 		var bundles []*ccmsg.TicketBundle
 		var err error
+		// if not nil, has a Retry request
+		var retry *BundleOutcome
 
 		finishedOutcomes := false
 		for !finishedOutcomes {
@@ -97,10 +99,10 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 					}
 					queue <- bundleOutcome.Bundle
 				case Retry:
-					err = errors.Errorf("client failed bundle %d %d", bundleOutcome.ChunkOffset, bundleOutcome.Chunks)
-					queue <- &fetchGroup{err: err}
-					cl.l.Error("encountered an error, shutting down scheduler")
-					return
+					cl.l.Debugf("retrying %d chunks at chunk %d", bundleOutcome.Chunks, bundleOutcome.ChunkOffset)
+					retry = &bundleOutcome
+					// break out of this loop to insert a fetch group for this retry in-order
+					finishedOutcomes = true
 				}
 			default:
 				cl.l.Debug("No bundle outcomes to process")
@@ -109,9 +111,13 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 		}
 
 		// First iteration or have not requested the last chunk
-		if cl.chunkCount == nil || chunkRangeBegin < *cl.chunkCount {
+		if cl.chunkCount == nil || chunkRangeBegin < *cl.chunkCount || retry != nil {
 			// Have bundles to request
-			bundles, err = cl.requestBundles(ctx, path, chunkRangeBegin, 0)
+			if retry != nil {
+				bundles, err = cl.requestBundles(ctx, path, retry.ChunkOffset, retry.Chunks)
+			} else {
+				bundles, err = cl.requestBundles(ctx, path, chunkRangeBegin, 0)
+			}
 			if err != nil {
 				queue <- &fetchGroup{
 					err: err,
@@ -148,12 +154,20 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 					cl.l.Error("encountered an error, shutting down scheduler")
 					return
 				}
-
 			}
 			chunks := len(bundle.TicketRequest)
 			cl.l.WithFields(logrus.Fields{
 				"len(chunks)": chunks,
 			}).Info("pushing bundle to downloader")
+			if retry != nil && retry.Chunks != uint64(chunks) {
+				// Currently we depend on the publisher giving us the entire
+				// bundles we asked for during retry: the scheduler could
+				// conceptually loop until we have them all
+				err = errors.Errorf("Only got %d of %d chunks during retry", chunks, retry.Chunks)
+				queue <- &fetchGroup{err: err}
+				cl.l.Error("encountered an error, shutting down scheduler")
+				return
+			}
 
 			// For each chunk in TicketBundle, dispatch a request to the appropriate cache.
 			chunkResults := make([]*chunkRequest, chunks)
@@ -194,9 +208,10 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 			}
 
 			queue <- fetchGroup
-			chunkRangeBegin += uint64(chunks)
-			byteRangeBegin += uint64(chunks) * bundle.Metadata.ChunkSize
-
+			if retry == nil {
+				chunkRangeBegin += uint64(chunks)
+				byteRangeBegin += uint64(chunks) * bundle.Metadata.ChunkSize
+			}
 			minimumBacklogDepth = uint64(bundle.Metadata.MinimumBacklogDepth)
 			bundleRequestInterval = int(bundle.Metadata.BundleRequestInterval)
 		}

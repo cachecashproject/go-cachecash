@@ -132,10 +132,26 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 	// counts bytes
 	var pos = 0
 
+	// number of times a given chunk has been retried
+	// there is no sleep associated with the retry as the
+	// fast error case we want to fail fast, and in the slow
+	// remote case we want to ask the publisher for new bundles
+	// immediately.
+	retries := 0
+
+outer:
 	for group := range queue {
 		outcome := BundleOutcome{ChunkOffset: rangeBegin}
 		if group.err != nil {
 			output <- &OutputChunk{nil, group.err}
+			// Scheduler self-terminates if it is signalling a failure to us.
+			return
+		}
+
+		if retries > 5 {
+			// Too many retries on a single chunk, give it up.
+			err := errors.Errorf("Too many retries on chunk %d", rangeBegin)
+			output <- &OutputChunk{nil, err}
 			// Scheduler self-terminates if it is signalling a failure to us.
 			return
 		}
@@ -145,6 +161,15 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 		chunkResults := make([]*chunkRequest, chunks)
 		cacheConns := make([]cacheConnection, chunks)
 		outcome = BundleOutcome{ChunkOffset: rangeBegin, Chunks: chunks}
+
+		if len(bundle.TicketRequest) > 0 && bundle.TicketRequest[0].ChunkIdx != rangeBegin {
+			// Skip over read-ahead chunks with no processing until we get to
+			// the bundle we are looking for
+			outcome.Outcome = Deferred
+			outcome.Bundle = group
+			completions <- outcome
+			continue
+		}
 
 		// We receive either an error (in which case we abort the other requests and return an error to our parent) or we
 		// receive singly-encrypted data from each cache.
@@ -159,9 +184,11 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 				cacheConns[i] = result.cache
 				if b.err != nil {
 					output <- &OutputChunk{nil, errors.Wrap(b.err, "got error in chunk request; aborting any that remain in group")}
+					// TODO: signal bad caches to the publisher
+					retries++
 					outcome.Outcome = Retry
 					completions <- outcome
-					return
+					continue outer
 				}
 			}
 		}
@@ -171,19 +198,24 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 		bg, err := cl.decryptPuzzle(ctx, bundle, chunkResults, cacheConns)
 		if err != nil {
 			output <- &OutputChunk{nil, errors.Wrap(err, "failed to decrypt puzzle")}
+			// TODO: track which caches are implicated, to allow triangulation of bad cache
+			retries++
 			outcome.Outcome = Retry
 			completions <- outcome
-			return
+			continue outer
 		}
 
 		for i, d := range bg.data {
-
 			if bg.chunkIdx[i] != rangeBegin+uint64(i) {
 				output <- &OutputChunk{nil, fmt.Errorf("chunk at position %v has index %v, but expected %v",
 					i, bg.chunkIdx[i], rangeBegin+uint64(i))}
+				// This is arguably an internal logic error - the scheduler
+				// should detect and discard much earlier, but we can come back
+				// to tidy things up
+				retries++
 				outcome.Outcome = Retry
 				completions <- outcome
-				return
+				continue outer
 			}
 			cl.l.WithFields(logrus.Fields{
 				"current position": pos,
@@ -194,6 +226,7 @@ func (cl *client) GetObject(ctx context.Context, path string, output chan *Outpu
 		}
 
 		rangeBegin += chunks
+		retries = 0
 		outcome.Outcome = Completed
 		completions <- outcome
 
