@@ -42,6 +42,7 @@ func (suite *SchedulerTestSuite) newMock() (*client, *publisherMock) {
 type CROptions struct {
 	bundles    uint64
 	objectSize uint64
+	chunkSize  uint64
 }
 
 func (suite *SchedulerTestSuite) newContentResponse(options ...CROptions) *ccmsg.ContentResponse {
@@ -49,6 +50,7 @@ func (suite *SchedulerTestSuite) newContentResponse(options ...CROptions) *ccmsg
 	opts := CROptions{
 		bundles:    0,
 		objectSize: 512,
+		chunkSize:  128,
 	}
 	// Merge explicit choices
 	for _, opt := range options {
@@ -57,6 +59,9 @@ func (suite *SchedulerTestSuite) newContentResponse(options ...CROptions) *ccmsg
 		}
 		if opt.objectSize != 0 {
 			opts.objectSize = opt.objectSize
+		}
+		if opt.chunkSize != 0 {
+			opts.chunkSize = opt.chunkSize
 		}
 	}
 
@@ -96,7 +101,7 @@ func (suite *SchedulerTestSuite) newContentResponse(options ...CROptions) *ccmsg
 			},
 			Metadata: &ccmsg.ObjectMetadata{
 				ObjectSize: opts.objectSize,
-				ChunkSize:  128,
+				ChunkSize:  opts.chunkSize,
 			},
 		})
 	}
@@ -265,7 +270,7 @@ func (suite *SchedulerTestSuite) TestSchedulerError() {
 
 	group := <-queue
 	assert.Nil(t, group.bundle)
-	assert.Equal(t, "failed to fetch chunk-group at chunk offset 0: failed to request bundle from publisher: this is an error", group.err.Error())
+	assert.Equal(t, "failed to fetch chunk-group at chunk offset 0: this is an error", group.err.Error())
 	assert.Zero(t, len(queue))
 }
 
@@ -283,7 +288,28 @@ func (suite *SchedulerTestSuite) TestRequestBundle() {
 		Bundles: []*ccmsg.TicketBundle{},
 	}, nil).Once()
 
-	resp, err := cl.requestBundles(context.Background(), "/", 0)
+	resp, err := cl.requestBundles(context.Background(), "/", 0, 0)
+	assert.Nil(t, err, "failed to get bundle")
+	assert.Equal(t, []*ccmsg.TicketBundle{}, resp)
+}
+
+func (suite *SchedulerTestSuite) TestRequestLimitedBundle() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+	var chunkSize uint64 = 512
+	cl.chunkSize = &chunkSize
+
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        1024,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(&ccmsg.ContentResponse{
+		Bundles: []*ccmsg.TicketBundle{},
+	}, nil).Once()
+
+	resp, err := cl.requestBundles(context.Background(), "/", 0, 2)
 	assert.Nil(t, err, "failed to get bundle")
 	assert.Equal(t, []*ccmsg.TicketBundle{}, resp)
 }
@@ -300,7 +326,7 @@ func (suite *SchedulerTestSuite) TestRequestBundleError() {
 		BacklogDepth:    map[string]uint64{},
 	}).Return((*ccmsg.ContentResponse)(nil), errors.New("this is an error")).Once()
 
-	resp, err := cl.requestBundles(context.Background(), "/", 0)
+	resp, err := cl.requestBundles(context.Background(), "/", 0, 0)
 	assert.NotNil(t, err)
 	assert.Nil(t, resp)
 }
@@ -377,6 +403,44 @@ func (suite *SchedulerTestSuite) TestChangedChunkCount() {
 	assert.Zero(t, len(queue))
 }
 
+func (suite *SchedulerTestSuite) TestChangedChunkSize() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      256,
+		RangeEnd:        0,
+		BacklogDepth: map[string]uint64{
+			"\x00\x01\x02\x03\x04": 0x1,
+			"\x05\x06\x07\x08\x09": 0x1,
+		},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1, chunkSize: 256, objectSize: 1024}), nil).Once()
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
+
+	queue := make(chan *fetchGroup, 128)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
+
+	group := <-queue
+	assert.Nil(t, group.err)
+	assert.NotNil(t, group.bundle)
+
+	group = <-queue
+	assert.Equal(t, "object chunk size changed mid retrieval", group.err.Error())
+	assert.Nil(t, group.bundle)
+
+	assert.Zero(t, len(queue))
+}
 func (suite *SchedulerTestSuite) TestSchedulerClientErrorsOneBundle() {
 	t := suite.T()
 	cl, mock := suite.newMock()

@@ -111,15 +111,8 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 		// First iteration or have not requested the last chunk
 		if cl.chunkCount == nil || chunkRangeBegin < *cl.chunkCount {
 			// Have bundles to request
-
-			cl.l.WithFields(logrus.Fields{
-				"chunkRangeBegin": chunkRangeBegin,
-				"byteRangeBegin":  byteRangeBegin,
-			}).Info("requesting bundle")
-
-			bundles, err = cl.requestBundles(ctx, path, byteRangeBegin)
+			bundles, err = cl.requestBundles(ctx, path, chunkRangeBegin, 0)
 			if err != nil {
-				err = errors.Wrapf(err, "failed to fetch chunk-group at chunk offset %d", chunkRangeBegin)
 				queue <- &fetchGroup{
 					err: err,
 				}
@@ -140,6 +133,8 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 				// Cache the chunk count to permit completion detection when retrying non-terminal blocks
 				_count := bundle.Metadata.ChunkCount()
 				cl.chunkCount = &_count
+				_size := bundle.Metadata.GetChunkSize()
+				cl.chunkSize = &_size
 			} else {
 				if bundle.Metadata.ChunkCount() != *cl.chunkCount {
 					err = errors.New("object chunk count changed mid retrieval")
@@ -147,6 +142,13 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 					cl.l.Error("encountered an error, shutting down scheduler")
 					return
 				}
+				if bundle.Metadata.GetChunkSize() != *cl.chunkSize {
+					err = errors.New("object chunk size changed mid retrieval")
+					queue <- &fetchGroup{err: err}
+					cl.l.Error("encountered an error, shutting down scheduler")
+					return
+				}
+
 			}
 			chunks := len(bundle.TicketRequest)
 			cl.l.WithFields(logrus.Fields{
@@ -242,9 +244,25 @@ type chunkRequest struct {
 	err     error
 }
 
-func (cl *client) requestBundles(ctx context.Context, path string, rangeBegin uint64) ([]*ccmsg.TicketBundle, error) {
+func (cl *client) requestBundles(ctx context.Context, path string, chunkOffset uint64, chunkCount uint64) ([]*ccmsg.TicketBundle, error) {
 	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/requestBundle")
 	defer span.End()
+
+	var byteRangeBegin uint64
+	if chunkOffset != 0 {
+		byteRangeBegin = *cl.chunkSize * chunkOffset
+	}
+
+	var byteRangeEnd uint64 // "continue to the end of the object"
+	if chunkCount != 0 {
+		byteRangeEnd = byteRangeBegin + *cl.chunkSize*chunkCount
+	}
+
+	cl.l.WithFields(logrus.Fields{
+		"chunkOffset":    chunkOffset,
+		"byteRangeBegin": byteRangeBegin,
+	}).Info("requesting bundle")
+
 	cl.l.Info("enumerating backlog length")
 
 	backlogs := make(map[string]uint64)
@@ -258,8 +276,8 @@ func (cl *client) requestBundles(ctx context.Context, path string, rangeBegin ui
 	req := &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            path,
-		RangeBegin:      rangeBegin,
-		RangeEnd:        0, // "continue to the end of the object"
+		RangeBegin:      byteRangeBegin,
+		RangeEnd:        byteRangeEnd,
 		BacklogDepth:    backlogs,
 	}
 	cl.l.Infof("sending content request to publisher: %v", req)
@@ -267,7 +285,8 @@ func (cl *client) requestBundles(ctx context.Context, path string, rangeBegin ui
 	// Send request to publisher; get TicketBundle in response.
 	resp, err := cl.publisherConn.GetContent(ctx, req)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to request bundle from publisher")
+		err = errors.Wrapf(err, "failed to fetch chunk-group at chunk offset %d", chunkOffset)
+		return nil, err
 	}
 	bundles := resp.Bundles
 	for _, bundle := range bundles {

@@ -60,6 +60,7 @@ type client struct {
 	// These fields are actually single-object specific and should be factored into a dedicated stream object.
 	lastBundleRequest time.Time
 	chunkCount        *uint64
+	chunkSize         *uint64
 }
 
 var _ Client = (*client)(nil)
