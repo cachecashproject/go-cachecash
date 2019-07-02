@@ -40,6 +40,8 @@ type BundleOutcome struct {
 	Outcome     Outcome
 	ChunkOffset uint64
 	Chunks      uint64
+	// Bundle carries a deferred bundle which the client is not ready to process yet
+	Bundle *fetchGroup
 }
 
 // schedule is responsible for requesting bundles from publishers and chunk data from caches.
@@ -87,10 +89,13 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 					// Here is where a readahead check 'is it time to read ahead' would sit and replace the time.After heuristic
 				case Deferred:
 					// Deferral isn't handled further down the pipeline yet.
-					err = errors.Errorf("client deferred bundle %d %d", bundleOutcome.ChunkOffset, bundleOutcome.Chunks)
-					queue <- &fetchGroup{err: err}
-					cl.l.Error("encountered an error, shutting down scheduler")
-					return
+					if bundleOutcome.Bundle == nil {
+						err = errors.New("nil Bundle in Deferred bundleOutcome")
+						queue <- &fetchGroup{err: err}
+						cl.l.Error("encountered an error, shutting down scheduler")
+						return
+					}
+					queue <- bundleOutcome.Bundle
 				case Retry:
 					err = errors.Errorf("client failed bundle %d %d", bundleOutcome.ChunkOffset, bundleOutcome.Chunks)
 					queue <- &fetchGroup{err: err}

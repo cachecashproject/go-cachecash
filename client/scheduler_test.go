@@ -414,7 +414,7 @@ func (suite *SchedulerTestSuite) TestSchedulerClientErrorsOneBundle() {
 	assert.Zero(t, len(queue))
 }
 
-func (suite *SchedulerTestSuite) TestSchedulerClientDefersOneBundle() {
+func (suite *SchedulerTestSuite) TestSchedulerClientDefersOneBundleBadly() {
 	t := suite.T()
 	cl, mock := suite.newMock()
 
@@ -440,13 +440,76 @@ func (suite *SchedulerTestSuite) TestSchedulerClientDefersOneBundle() {
 
 	queue := make(chan *fetchGroup, 128)
 	bundleCompletions := make(chan BundleOutcome, 128)
-	// Today, attempting to defer shuts down the scheduler
+	// Deferring without providing the fetch group is an error
 	bundleCompletions <- BundleOutcome{Outcome: Deferred, ChunkOffset: 0, Chunks: 2}
 	cl.schedule(context.Background(), "/", queue, bundleCompletions)
 
 	group := <-queue
 	assert.NotNil(t, group.err)
 	assert.Nil(t, group.bundle)
+
+	assert.Zero(t, len(queue))
+}
+
+func (suite *SchedulerTestSuite) TestSchedulerClientDefersBundles() {
+	t := suite.T()
+	cl, mock := suite.newMock()
+
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      0,
+		RangeEnd:        0,
+		BacklogDepth:    map[string]uint64{},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
+	mock.On("GetContent", &ccmsg.ContentRequest{
+		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
+		Path:            "/",
+		RangeBegin:      256,
+		RangeEnd:        0,
+		BacklogDepth: map[string]uint64{
+			"\x00\x01\x02\x03\x04": 0x1,
+			"\x05\x06\x07\x08\x09": 0x1,
+		},
+	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
+	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
+	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
+
+	queue := make(chan *fetchGroup, 128)
+	bundleCompletions := make(chan BundleOutcome, 128)
+	fg1 := fetchGroup{bundle: &ccmsg.TicketBundle{TicketRequest: []*ccmsg.TicketRequest{&ccmsg.TicketRequest{ChunkIdx: 0}}}}
+	fg2 := fetchGroup{bundle: &ccmsg.TicketBundle{TicketRequest: []*ccmsg.TicketRequest{&ccmsg.TicketRequest{ChunkIdx: 2}}}}
+	fgs := []*fetchGroup{&fg1, &fg2}
+	// defer all bundles - readahead will read all the bundles for this sample object
+	bundleCompletions <- BundleOutcome{Outcome: Deferred, ChunkOffset: 0, Chunks: 2, Bundle: &fg1}
+	bundleCompletions <- BundleOutcome{Outcome: Deferred, ChunkOffset: 2, Chunks: 2, Bundle: &fg2}
+	// now acknowledge
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 0, Chunks: 2}
+	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 2, Chunks: 2}
+	cl.schedule(context.Background(), "/", queue, bundleCompletions)
+
+	assert.Equal(t, 4, len(queue))
+
+	// This test may seem counter-intuitive, but it is an artifact of being a
+	// close-surface unit test. the scheduler processes client outcomes first,
+	// and deferrals are handled by immediate submission back into the channel
+	// so unless we have an active client in the test - which we don't need
+	// - the test code sees the deferrals first.
+	// The deferred deliveries
+	for idx, fg := range fgs {
+		group := <-queue
+		assert.Nil(t, group.err)
+		assert.NotNil(t, group.bundle)
+		assert.Equalf(t, group, fg, "Bad group %d", idx)
+	}
+
+	// The initial deliveries
+	for i := 0; i < 2; i++ {
+		group := <-queue
+		assert.Nil(t, group.err)
+		assert.NotNil(t, group.bundle)
+		assert.NotContains(t, fgs, group)
+	}
 
 	assert.Zero(t, len(queue))
 }
