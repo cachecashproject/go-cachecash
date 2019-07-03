@@ -41,7 +41,7 @@ type ContentPublisher struct {
 	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
 	// caches map[cachecash.PublicKey]*ParticipatingCache
 
-	PublisherCacheAddr string
+	PublisherAddr string
 }
 
 type CacheInfo struct {
@@ -52,15 +52,15 @@ type reverseMappingEntry struct {
 	path string
 }
 
-func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherCacheAddr string, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
+func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherAddr string, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
 	p := &ContentPublisher{
-		l:                  l,
-		db:                 db,
-		signer:             signer,
-		catalog:            catalog,
-		caches:             make(map[string]*ParticipatingCache),
-		reverseMapping:     make(map[common.ObjectID]reverseMappingEntry),
-		PublisherCacheAddr: publisherCacheAddr,
+		l:              l,
+		db:             db,
+		signer:         signer,
+		catalog:        catalog,
+		caches:         make(map[string]*ParticipatingCache),
+		reverseMapping: make(map[common.ObjectID]reverseMappingEntry),
+		PublisherAddr:  publisherAddr,
 	}
 
 	return p, nil

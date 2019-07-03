@@ -56,7 +56,7 @@ In this case we're going to use the `cachecash-curl` program at this publisher t
 The `-logLevel` option can be changed to control output verbosity for each program.
 
 ```
-make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug -trace http://localhost:14268 cachecash://localhost:8080/file0.bin
+make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug -trace http://localhost:14268 cachecash://localhost:7070/file0.bin
 diff output.bin testdata/content/file0.bin
 ```
 

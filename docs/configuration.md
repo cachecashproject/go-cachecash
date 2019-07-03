@@ -37,8 +37,7 @@ contact_url = ""
 
 # publisher example config
 ```
-client_grpc_addr = ":8080"
-cache_grpc_addr = ":8082"
+grpc_addr = ":7070"
 status_addr = ":8100"
 bootstrap_addr = "bootstrapd:7777"
 default_cache_duration = 300

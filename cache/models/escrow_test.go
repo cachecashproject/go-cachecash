@@ -570,7 +570,7 @@ func testEscrowsSelect(t *testing.T) {
 }
 
 var (
-	escrowDBTypes = map[string]string{`Txid`: `BYTEA`, `InnerMasterKey`: `VARCHAR`, `OuterMasterKey`: `VARCHAR`, `Slots`: `INT`, `PublisherCacheAddr`: `VARCHAR`}
+	escrowDBTypes = map[string]string{`Txid`: `BYTEA`, `InnerMasterKey`: `VARCHAR`, `OuterMasterKey`: `VARCHAR`, `Slots`: `INT`, `PublisherAddr`: `VARCHAR`}
 	_             = bytes.MinRead
 )
 

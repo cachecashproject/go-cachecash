@@ -40,7 +40,7 @@ The OpenCensus API documentation should be consulted for more details.
 Requires a running test network such as the one started by `docker-compose up`.
 
 ```
-go build -o bin/cachecash-curl ./cmd/cachecash-curl && ./bin/cachecash-curl cachecash://localhost:8080/file0.bin 2>&1 | grep '^\{' | jq -c 'select(.kind=="timing") | del(.time, .level, .kind)'
+go build -o bin/cachecash-curl ./cmd/cachecash-curl && ./bin/cachecash-curl cachecash://localhost:7070/file0.bin 2>&1 | grep '^\{' | jq -c 'select(.kind=="timing") | del(.time, .level, .kind)'
 ```
 
 This should produce output that looks like

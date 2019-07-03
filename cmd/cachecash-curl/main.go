@@ -54,7 +54,7 @@ func mainC() error {
 	// As a rarely used CLI tool, trace always.
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	// e.g. "cachecash://localhost:8080/foo/bar"
+	// e.g. "cachecash://localhost:7070/foo/bar"
 	rawURI := flag.Arg(0)
 
 	// TODO: This URI parsing should probably be moved into a library function somewhere.  The reason that it's being
@@ -89,7 +89,7 @@ func mainC() error {
 		}
 	}()
 
-	cl, err := client.New(l, publisherAddr) // e.g. "localhost:8080"
+	cl, err := client.New(l, publisherAddr) // e.g. "localhost:7070"
 	if err != nil {
 		return errors.Wrap(err, "failed to create client")
 	}

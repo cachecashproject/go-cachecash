@@ -37,8 +37,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*publisher.ConfigFile, error
 		return nil, err
 	}
 
-	conf.ClientProtocolAddr = p.GetString("client_grpc_addr", ":8080")
-	conf.CacheProtocolAddr = p.GetString("cache_grpc_addr", ":8082")
+	conf.GrpcAddr = p.GetString("grpc_addr", ":7070")
 	conf.StatusAddr = p.GetString("status_addr", ":8100")
 	conf.BootstrapAddr = p.GetString("bootstrap_addr", "bootstrapd:7777")
 	conf.DefaultCacheDuration = time.Duration(p.GetInt64("default_cache_duration", 300)) * time.Second
@@ -124,7 +123,7 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	p, err := publisher.NewContentPublisher(l, db, cf.CacheProtocolAddr, cat, kp.PrivateKey)
+	p, err := publisher.NewContentPublisher(l, db, cf.GrpcAddr, cat, kp.PrivateKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher")
 	}

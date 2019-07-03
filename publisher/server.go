@@ -23,8 +23,7 @@ type Application interface {
 }
 
 type ConfigFile struct {
-	ClientProtocolAddr   string
-	CacheProtocolAddr    string
+	GrpcAddr             string
 	StatusAddr           string
 	BootstrapAddr        string
 	DefaultCacheDuration time.Duration
@@ -36,9 +35,8 @@ type ConfigFile struct {
 type application struct {
 	l *logrus.Logger
 
-	clientProtocolServer *clientProtocolServer
-	cacheProtocolServer  *cacheProtocolServer
-	statusServer         *statusServer
+	publisherServer *publisherServer
+	statusServer    *statusServer
 	// TODO: ...
 }
 
@@ -46,14 +44,9 @@ var _ Application = (*application)(nil)
 
 // XXX: Should this take p as an argument, or be responsible for setting it up?
 func NewApplication(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (Application, error) {
-	clientProtocolServer, err := newClientProtocolServer(l, p, conf)
+	publisherServer, err := newPublisherServer(l, p, conf)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create client protocol server")
-	}
-
-	cacheProtocolServer, err := newCacheProtocolServer(l, p, conf)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create cache protocol server")
+		return nil, errors.Wrap(err, "failed to create publisher server")
 	}
 
 	statusServer, err := newStatusServer(l, p, conf)
@@ -62,19 +55,15 @@ func NewApplication(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (Ap
 	}
 
 	return &application{
-		l:                    l,
-		clientProtocolServer: clientProtocolServer,
-		cacheProtocolServer:  cacheProtocolServer,
-		statusServer:         statusServer,
+		l:               l,
+		publisherServer: publisherServer,
+		statusServer:    statusServer,
 	}, nil
 }
 
 func (a *application) Start() error {
-	if err := a.clientProtocolServer.Start(); err != nil {
-		return errors.Wrap(err, "failed to start client protocol server")
-	}
-	if err := a.cacheProtocolServer.Start(); err != nil {
-		return errors.Wrap(err, "failed to start cache protocol server")
+	if err := a.publisherServer.Start(); err != nil {
+		return errors.Wrap(err, "failed to start publisher server")
 	}
 	if err := a.statusServer.Start(); err != nil {
 		return errors.Wrap(err, "failed to start status server")
@@ -83,11 +72,8 @@ func (a *application) Start() error {
 }
 
 func (a *application) Shutdown(ctx context.Context) error {
-	if err := a.clientProtocolServer.Shutdown(ctx); err != nil {
-		return errors.Wrap(err, "failed to shut down client protocol server")
-	}
-	if err := a.cacheProtocolServer.Shutdown(ctx); err != nil {
-		return errors.Wrap(err, "failed to shut down cache protocol server")
+	if err := a.publisherServer.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to shut down publisher server")
 	}
 	if err := a.statusServer.Shutdown(ctx); err != nil {
 		return errors.Wrap(err, "failed to shut down status server")
@@ -95,24 +81,26 @@ func (a *application) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-type clientProtocolServer struct {
+type publisherServer struct {
 	l          *logrus.Logger
 	conf       *ConfigFile
 	publisher  *ContentPublisher
 	grpcServer *grpc.Server
 	httpServer *http.Server
+	quitCh     chan bool
 }
 
-var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
+var _ common.StarterShutdowner = (*publisherServer)(nil)
 
-func newClientProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (*clientProtocolServer, error) {
+func newPublisherServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (*publisherServer, error) {
 	grpcServer := common.NewGRPCServer()
-	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcClientPublisherServer{publisher: p})
+	ccmsg.RegisterCachePublisherServer(grpcServer, &grpcPublisherServer{publisher: p})
+	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcPublisherServer{publisher: p})
 	grpc_prometheus.Register(grpcServer)
 
 	httpServer := wrapGrpc(grpcServer)
 
-	return &clientProtocolServer{
+	return &publisherServer{
 		l:          l,
 		conf:       conf,
 		publisher:  p,
@@ -134,71 +122,16 @@ func wrapGrpc(grpcServer *grpc.Server) *http.Server {
 	}
 }
 
-func (s *clientProtocolServer) Start() error {
-	s.l.Info("clientProtocolServer - Start - enter")
+func (s *publisherServer) Start() error {
+	s.l.Info("publisherServer - Start - enter")
 
-	lis, err := net.Listen("tcp", s.conf.ClientProtocolAddr)
+	lis, err := net.Listen("tcp", s.conf.GrpcAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to bind listener")
 	}
 
 	// httpLis, err := net.Listen("tcp", s.conf.ClientProtocolHttpAddr)
 	httpLis, err := net.Listen("tcp", ":8043")
-	if err != nil {
-		return errors.Wrap(err, "failed to bind listener")
-	}
-
-	go func() {
-		// This will block until we call `Stop`.
-		if err := s.grpcServer.Serve(lis); err != nil {
-			s.l.WithError(err).Error("failed to serve clientProtocolServer(grpc)")
-		}
-	}()
-
-	go func() {
-		// This will block until we call `Stop`.
-		if err := s.httpServer.Serve(httpLis); err != nil {
-			s.l.WithError(err).Error("failed to serve clientProtocolServer(http)")
-		}
-	}()
-
-	s.l.Info("clientProtocolServer - Start - exit")
-	return nil
-}
-
-func (s *clientProtocolServer) Shutdown(ctx context.Context) error {
-	// TODO: Should use `GracefulStop` until context expires, and then fall back on `Stop`.
-	s.grpcServer.Stop()
-
-	return nil
-}
-
-type cacheProtocolServer struct {
-	l          *logrus.Logger
-	conf       *ConfigFile
-	publisher  *ContentPublisher
-	grpcServer *grpc.Server
-	quitCh     chan bool
-}
-
-var _ common.StarterShutdowner = (*cacheProtocolServer)(nil)
-
-func newCacheProtocolServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (*cacheProtocolServer, error) {
-	grpcServer := common.NewGRPCServer()
-	ccmsg.RegisterCachePublisherServer(grpcServer, &grpcCachePublisherServer{publisher: p})
-
-	return &cacheProtocolServer{
-		l:          l,
-		conf:       conf,
-		publisher:  p,
-		grpcServer: grpcServer,
-	}, nil
-}
-
-func (s *cacheProtocolServer) Start() error {
-	s.l.Info("cacheProtocolServer - Start - enter")
-
-	lis, err := net.Listen("tcp", s.conf.CacheProtocolAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to bind listener")
 	}
@@ -212,7 +145,14 @@ func (s *cacheProtocolServer) Start() error {
 	go func() {
 		// This will block until we call `Stop`.
 		if err := s.grpcServer.Serve(lis); err != nil {
-			s.l.WithError(err).Error("failed to serve cacheProtocolServer")
+			s.l.WithError(err).Error("failed to serve publisherServer(grpc)")
+		}
+	}()
+
+	go func() {
+		// This will block until we call `Stop`.
+		if err := s.httpServer.Serve(httpLis); err != nil {
+			s.l.WithError(err).Error("failed to serve publisherServer(http)")
 		}
 	}()
 
@@ -248,11 +188,11 @@ func (s *cacheProtocolServer) Start() error {
 	}()
 	s.quitCh = quit
 
-	s.l.Info("cacheProtocolServer - Start - exit")
+	s.l.Info("publisherServer - Start - exit")
 	return nil
 }
 
-func (s *cacheProtocolServer) Shutdown(ctx context.Context) error {
+func (s *publisherServer) Shutdown(ctx context.Context) error {
 	// stop fetching caches
 	s.quitCh <- true
 

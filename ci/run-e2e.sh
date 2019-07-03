@@ -16,7 +16,7 @@ for x in upstream{,-apache,-lighttpd,-caddy,-python}; do
 
 	echo "[*] Fetching from $x..."
 	rm -f output.bin
-	docker run --rm -v $PWD:/out --net=host cachecash/go-cachecash cachecash-curl -o /out/output.bin cachecash://localhost:8080/file1.bin
+	docker run --rm -v $PWD:/out --net=host cachecash/go-cachecash cachecash-curl -o /out/output.bin cachecash://localhost:7070/file1.bin
 	diff -q output.bin testdata/content/file1.bin
 	echo "[+] Success"
 

@@ -11,11 +11,11 @@ CREATE TABLE logical_cache_mapping (
 );
 
 CREATE TABLE escrow (
-    txid                   bytea PRIMARY KEY NOT NULL,
-    inner_master_key       varchar NOT NULL,
-    outer_master_key       varchar NOT NULL,
-    slots                  int NOT NULL,
-    publisher_cache_addr   varchar NOT NULL
+    txid               bytea PRIMARY KEY NOT NULL,
+    inner_master_key   varchar NOT NULL,
+    outer_master_key   varchar NOT NULL,
+    slots              int NOT NULL,
+    publisher_addr     varchar NOT NULL
 );
 
 -- -- QQ: Do we want ticket numbers to be per-escrow or per-escrow-per-block?

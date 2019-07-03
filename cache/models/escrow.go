@@ -23,28 +23,28 @@ import (
 
 // Escrow is an object representing the database table.
 type Escrow struct {
-	Txid               common.EscrowID `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
-	InnerMasterKey     []byte          `boil:"inner_master_key" json:"inner_master_key" toml:"inner_master_key" yaml:"inner_master_key"`
-	OuterMasterKey     []byte          `boil:"outer_master_key" json:"outer_master_key" toml:"outer_master_key" yaml:"outer_master_key"`
-	Slots              uint64          `boil:"slots" json:"slots" toml:"slots" yaml:"slots"`
-	PublisherCacheAddr string          `boil:"publisher_cache_addr" json:"publisher_cache_addr" toml:"publisher_cache_addr" yaml:"publisher_cache_addr"`
+	Txid           common.EscrowID `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
+	InnerMasterKey []byte          `boil:"inner_master_key" json:"inner_master_key" toml:"inner_master_key" yaml:"inner_master_key"`
+	OuterMasterKey []byte          `boil:"outer_master_key" json:"outer_master_key" toml:"outer_master_key" yaml:"outer_master_key"`
+	Slots          uint64          `boil:"slots" json:"slots" toml:"slots" yaml:"slots"`
+	PublisherAddr  string          `boil:"publisher_addr" json:"publisher_addr" toml:"publisher_addr" yaml:"publisher_addr"`
 
 	R *escrowR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L escrowL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var EscrowColumns = struct {
-	Txid               string
-	InnerMasterKey     string
-	OuterMasterKey     string
-	Slots              string
-	PublisherCacheAddr string
+	Txid           string
+	InnerMasterKey string
+	OuterMasterKey string
+	Slots          string
+	PublisherAddr  string
 }{
-	Txid:               "txid",
-	InnerMasterKey:     "inner_master_key",
-	OuterMasterKey:     "outer_master_key",
-	Slots:              "slots",
-	PublisherCacheAddr: "publisher_cache_addr",
+	Txid:           "txid",
+	InnerMasterKey: "inner_master_key",
+	OuterMasterKey: "outer_master_key",
+	Slots:          "slots",
+	PublisherAddr:  "publisher_addr",
 }
 
 // Generated where
@@ -98,17 +98,17 @@ func (w whereHelperstring) GT(x string) qm.QueryMod  { return qmhelper.Where(w.f
 func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
 var EscrowWhere = struct {
-	Txid               whereHelpercommon_EscrowID
-	InnerMasterKey     whereHelper__byte
-	OuterMasterKey     whereHelper__byte
-	Slots              whereHelperuint64
-	PublisherCacheAddr whereHelperstring
+	Txid           whereHelpercommon_EscrowID
+	InnerMasterKey whereHelper__byte
+	OuterMasterKey whereHelper__byte
+	Slots          whereHelperuint64
+	PublisherAddr  whereHelperstring
 }{
-	Txid:               whereHelpercommon_EscrowID{field: `txid`},
-	InnerMasterKey:     whereHelper__byte{field: `inner_master_key`},
-	OuterMasterKey:     whereHelper__byte{field: `outer_master_key`},
-	Slots:              whereHelperuint64{field: `slots`},
-	PublisherCacheAddr: whereHelperstring{field: `publisher_cache_addr`},
+	Txid:           whereHelpercommon_EscrowID{field: `txid`},
+	InnerMasterKey: whereHelper__byte{field: `inner_master_key`},
+	OuterMasterKey: whereHelper__byte{field: `outer_master_key`},
+	Slots:          whereHelperuint64{field: `slots`},
+	PublisherAddr:  whereHelperstring{field: `publisher_addr`},
 }
 
 // EscrowRels is where relationship names are stored.
@@ -128,8 +128,8 @@ func (*escrowR) NewStruct() *escrowR {
 type escrowL struct{}
 
 var (
-	escrowColumns               = []string{"txid", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
-	escrowColumnsWithoutDefault = []string{"txid", "inner_master_key", "outer_master_key", "slots", "publisher_cache_addr"}
+	escrowColumns               = []string{"txid", "inner_master_key", "outer_master_key", "slots", "publisher_addr"}
+	escrowColumnsWithoutDefault = []string{"txid", "inner_master_key", "outer_master_key", "slots", "publisher_addr"}
 	escrowColumnsWithDefault    = []string{}
 	escrowPrimaryKeyColumns     = []string{"txid"}
 )

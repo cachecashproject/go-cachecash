@@ -55,8 +55,8 @@ func (e *Escrow) Slots() uint64 {
 	return e.Inner.Slots
 }
 
-func (e *Escrow) PublisherCacheAddr() string {
-	return e.Inner.PublisherCacheAddr
+func (e *Escrow) PublisherAddr() string {
+	return e.Inner.PublisherAddr
 }
 
 type Cache struct {
@@ -130,8 +130,8 @@ func (c *Cache) getChunk(ctx context.Context, escrowID common.EscrowID, objectID
 		}
 
 		// XXX: Should not create a new connection for each attempt.
-		c.l.Info("dialing publisher's cache-facing service: ", escrow.PublisherCacheAddr())
-		conn, err := common.GRPCDial(escrow.PublisherCacheAddr())
+		c.l.Info("dialing publishers service: ", escrow.PublisherAddr())
+		conn, err := common.GRPCDial(escrow.PublisherAddr())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to dial")
 		}
@@ -487,10 +487,10 @@ func VerifyRequest(m *ccmsg.ClientCacheRequest) error {
 	return nil
 }
 
-func getPublisherAddr(ctx context.Context, publisherCacheAddr string) (string, error) {
+func getPublisherAddr(ctx context.Context, publisherAddr string) (string, error) {
 	// XXX. if an ip/hostname is set, try to use that. This could be an address in a private ip range though
-	if !strings.HasPrefix(publisherCacheAddr, ":") {
-		return publisherCacheAddr, nil
+	if !strings.HasPrefix(publisherAddr, ":") {
+		return publisherAddr, nil
 	}
 
 	peer, ok := peer.FromContext(ctx)
@@ -506,8 +506,8 @@ func getPublisherAddr(ctx context.Context, publisherCacheAddr string) (string, e
 		srcIP = addr.IP
 	}
 
-	publisherAddr := strings.Split(publisherCacheAddr, ":")
-	portStr := publisherAddr[len(publisherAddr)-1]
+	addr := strings.Split(publisherAddr, ":")
+	portStr := addr[len(addr)-1]
 	port, err := strconv.ParseUint(portStr, 10, 32)
 	if err != nil {
 		return "", errors.Wrap(err, "invalid port")
@@ -529,19 +529,19 @@ func (c *Cache) OfferEscrow(ctx context.Context, req *ccmsg.EscrowOfferRequest) 
 	})
 	l.Info("starting to create escrow...")
 
-	publisherAddr, err := getPublisherAddr(ctx, req.PublisherCacheAddr)
+	publisherAddr, err := getPublisherAddr(ctx, req.PublisherAddr)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get PublisherCacheAddr")
+		return nil, errors.Wrap(err, "failed to get PublisherAddr")
 	}
 	l.Info("found publisher addr: ", publisherAddr)
 
 	escrow := &Escrow{
 		Inner: models.Escrow{
-			Txid:               txid,
-			InnerMasterKey:     req.InnerMasterKey,
-			OuterMasterKey:     req.OuterMasterKey,
-			Slots:              req.Slots,
-			PublisherCacheAddr: publisherAddr,
+			Txid:           txid,
+			InnerMasterKey: req.InnerMasterKey,
+			OuterMasterKey: req.OuterMasterKey,
+			Slots:          req.Slots,
+			PublisherAddr:  publisherAddr,
 		},
 	}
 	c.Escrows[txid] = escrow

@@ -26,7 +26,7 @@ func addrFromCacheDescription(cache *ccmsg.CacheDescription) string {
 	return fmt.Sprintf("%s:%d", cache.ExternalIp, cache.Port)
 }
 
-func InitEscrows(ctx context.Context, s *cacheProtocolServer, caches []*ccmsg.CacheDescription) error {
+func InitEscrows(ctx context.Context, s *publisherServer, caches []*ccmsg.CacheDescription) error {
 	if len(s.publisher.escrows) > 0 {
 		// escrow already exists
 		return nil
@@ -75,11 +75,11 @@ func CreateEscrow(ctx context.Context, publisher *ContentPublisher, cacheDescrip
 	}
 
 	offerRequest := &ccmsg.EscrowOfferRequest{
-		EscrowId:           escrowID[:],
-		InnerMasterKey:     innerMasterKey,
-		OuterMasterKey:     outerMasterKey,
-		Slots:              2500,
-		PublisherCacheAddr: publisher.PublisherCacheAddr,
+		EscrowId:       escrowID[:],
+		InnerMasterKey: innerMasterKey,
+		OuterMasterKey: outerMasterKey,
+		Slots:          2500,
+		PublisherAddr:  publisher.PublisherAddr,
 	}
 
 	num := len(cacheDescriptions)
@@ -153,7 +153,7 @@ func OfferEscrow(ctx context.Context, l *logrus.Logger, offerRequest *ccmsg.Escr
 	}, nil
 }
 
-func UpdateKnownCaches(ctx context.Context, s *cacheProtocolServer, caches []*ccmsg.CacheDescription) error {
+func UpdateKnownCaches(ctx context.Context, s *publisherServer, caches []*ccmsg.CacheDescription) error {
 	for _, cache := range caches {
 		model, err := models.Caches(qm.Where("public_key = ?", cache.PublicKey)).One(ctx, s.publisher.db)
 		if err != nil {

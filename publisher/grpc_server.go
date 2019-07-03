@@ -7,13 +7,13 @@ import (
 	"go.opencensus.io/trace"
 )
 
-type grpcClientPublisherServer struct {
+type grpcPublisherServer struct {
 	publisher *ContentPublisher
 }
 
-var _ ccmsg.ClientPublisherServer = (*grpcClientPublisherServer)(nil)
+var _ ccmsg.ClientPublisherServer = (*grpcPublisherServer)(nil)
 
-func (s *grpcClientPublisherServer) GetContent(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error) {
+func (s *grpcPublisherServer) GetContent(ctx context.Context, req *ccmsg.ContentRequest) (*ccmsg.ContentResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "cachecash.com/Publisher/GetContent")
 	defer span.End()
 	bundles, err := s.publisher.HandleContentRequest(ctx, req)
@@ -30,12 +30,8 @@ func (s *grpcClientPublisherServer) GetContent(ctx context.Context, req *ccmsg.C
 	}, nil
 }
 
-type grpcCachePublisherServer struct {
-	publisher *ContentPublisher
-}
+var _ ccmsg.CachePublisherServer = (*grpcPublisherServer)(nil)
 
-var _ ccmsg.CachePublisherServer = (*grpcCachePublisherServer)(nil)
-
-func (s *grpcCachePublisherServer) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
+func (s *grpcPublisherServer) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
 	return s.publisher.CacheMiss(ctx, req)
 }

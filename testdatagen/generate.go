@@ -37,7 +37,7 @@ type TestScenarioParams struct {
 	L        *logrus.Logger
 	Upstream catalog.Upstream
 
-	PublisherCacheAddr string
+	PublisherAddr string
 }
 
 type TestScenario struct {
@@ -229,16 +229,16 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 			return nil, err
 		}
 
-		if params.PublisherCacheAddr == "" {
-			params.PublisherCacheAddr = "localhost:8082"
+		if params.PublisherAddr == "" {
+			params.PublisherAddr = "localhost:7070"
 		}
 
 		ce := &cache.Escrow{
 			Inner: cacheModels.Escrow{
-				InnerMasterKey:     innerMasterKeys[i],
-				OuterMasterKey:     testutil.RandBytes(16),
-				Slots:              uint64(2500 + i),
-				PublisherCacheAddr: params.PublisherCacheAddr,
+				InnerMasterKey: innerMasterKeys[i],
+				OuterMasterKey: testutil.RandBytes(16),
+				Slots:          uint64(2500 + i),
+				PublisherAddr:  params.PublisherAddr,
 			},
 		}
 		if params.GenerateObject {

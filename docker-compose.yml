@@ -43,13 +43,12 @@ services:
     build: .
     command: publisherd -logLevel debug -trace http://jaeger:14268
     ports:
-    - 8080:8080
-    - 8082:8082
+    - 7070:7070
     - 8043:8043
     # status
     - 8100:8100
     environment:
-    - PUBLISHER_CACHE_GRPC_ADDR=publisher:8082
+    - PUBLISHER_PUBLISHER_ADDR=publisher:7070
     - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
     - PUBLISHER_BOOTSTRAP_ADDR=bootstrapd:7777
     - PUBLISHER_DATABASE=host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable
