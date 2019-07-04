@@ -74,6 +74,11 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 	bundleRequestInterval := 0
 	schedulerNotify := make(chan bool, 64)
 
+	// set cached object attributes rather than depending on zero objects to
+	// permit client reuse
+	cl.chunkCount = nil
+	cl.chunkSize = nil
+
 	for {
 		var bundles []*ccmsg.TicketBundle
 		var err error
