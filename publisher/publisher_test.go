@@ -205,3 +205,20 @@ func (suite *PublisherUnitTestSuite) TestContentRequestFailedGetData() {
 
 	assert.Regexp(t, "failed to get metadata", err)
 }
+
+func (suite *PublisherUnitTestSuite) TestContentRequestBadRange() {
+	t := suite.T()
+	p := &ContentPublisher{
+		l: suite.l,
+	}
+	ctx := context.TODO()
+	request := &ccmsg.ContentRequest{
+		Path:            "/foo/bar",
+		RangeBegin:      uint64(51),
+		RangeEnd:        uint64(50),
+		ClientPublicKey: &ccmsg.PublicKey{PublicKey: []byte{}},
+	}
+	_, err := p.HandleContentRequest(ctx, request)
+
+	assert.Regexp(t, "invalid range", err)
+}

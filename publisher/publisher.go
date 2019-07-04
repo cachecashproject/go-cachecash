@@ -180,12 +180,23 @@ const (
 	bundlesPerRequest = 3
 )
 
+// HandleContentRequest serves ticket bundles to clients.
+//  This is only exported for integration_test.go.
 func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.ContentRequest) ([]*ccmsg.TicketBundle, error) {
 	p.l.WithFields(logrus.Fields{
 		"path":       req.Path,
 		"rangeBegin": req.RangeBegin,
 		"rangeEnd":   req.RangeEnd,
 	}).Info("content request")
+
+	// - The _byte range_ is translated to a _chunk range_ depending on how the publisher would like to chunk the object.
+	//   (Right now, we only support fixed-size chunks, but this is not inherent.)  The publisher may also choose how
+	//   many chunks it would like to serve, and how many chunk-groups they will be divided into.  (The following steps
+	//   are repeated for each chunk-group; the results are returned together in a single response to the client.)
+	if req.RangeEnd != 0 && req.RangeEnd <= req.RangeBegin {
+		// TODO: Return 4xx, since this is a bad request from the client.
+		return nil, errors.New("invalid range")
+	}
 
 	for cache, depth := range req.BacklogDepth {
 		p.l.WithFields(logrus.Fields{
@@ -206,15 +217,6 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	p.l.WithFields(logrus.Fields{
 		"size": obj.ObjectSize(),
 	}).Debug("received metadata and chunks")
-
-	// - The _byte range_ is translated to a _chunk range_ depending on how the publisher would like to chunk the object.
-	//   (Right now, we only support fixed-size chunks, but this is not inherent.)  The publisher may also choose how
-	//   many chunks it would like to serve, and how many chunk-groups they will be divided into.  (The following steps
-	//   are repeated for each chunk-group; the results are returned together in a single response to the client.)
-	if req.RangeEnd != 0 && req.RangeEnd <= req.RangeBegin {
-		// TODO: Return 4xx, since this is a bad request from the client.
-		return nil, errors.New("invalid range")
-	}
 
 	// - The publisher selects a single escrow that will be used to service the request.
 	p.l.Debug("selecting escrow")
