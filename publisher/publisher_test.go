@@ -10,6 +10,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/cachecashproject/go-cachecash/testutil"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -59,7 +60,7 @@ func (suite *PublisherTestSuite) SetupTest() {
 		t.Fatalf("failed to create catalog")
 	}
 
-	db, mock, err := sqlmock.New()
+	db, sqlMock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("failed to create stub database connection: %v", err)
 	}
@@ -81,7 +82,7 @@ func (suite *PublisherTestSuite) SetupTest() {
 		AddRow(2, 0, 124, innerMasterKeys[1]).
 		AddRow(3, 0, 125, innerMasterKeys[2]).
 		AddRow(4, 0, 126, innerMasterKeys[3])
-	mock.ExpectQuery("^SELECT \\* FROM \"escrow_caches\" WHERE \\(escrow_id = \\$1\\);").
+	sqlMock.ExpectQuery("^SELECT \\* FROM \"escrow_caches\" WHERE \\(escrow_id = \\$1\\);").
 		WithArgs(0).
 		WillReturnRows(rows)
 
@@ -90,7 +91,7 @@ func (suite *PublisherTestSuite) SetupTest() {
 		AddRow(124, cachePublicKeys[1], net.ParseIP("127.0.0.1"), 9001).
 		AddRow(125, cachePublicKeys[2], net.ParseIP("127.0.0.1"), 9002).
 		AddRow(126, cachePublicKeys[3], net.ParseIP("127.0.0.1"), 9003)
-	mock.ExpectQuery("^SELECT \\* FROM \"cache\" WHERE \\(\"id\" IN \\(\\$1,\\$2,\\$3,\\$4\\)\\);").
+	sqlMock.ExpectQuery("^SELECT \\* FROM \"cache\" WHERE \\(\"id\" IN \\(\\$1,\\$2,\\$3,\\$4\\)\\);").
 		WithArgs(123, 124, 125, 126).
 		WillReturnRows(rows)
 
@@ -165,4 +166,42 @@ func (suite *PublisherTestSuite) TestContentRequestEndWholeObject() {
 		ClientPublicKey: &ccmsg.PublicKey{PublicKey: suite.clientPublic},
 	})
 	assert.Nil(t, err, "failed to get bundle")
+}
+
+// Unit test entirely mocked suite; PublisherTestSuite has larger tests that
+// allow for actual ORM operation etc
+type PublisherUnitTestSuite struct {
+	suite.Suite
+
+	l *logrus.Logger
+}
+
+func TestPublisherUnitTestSuite(t *testing.T) {
+	suite.Run(t, new(PublisherUnitTestSuite))
+}
+
+func (suite *PublisherUnitTestSuite) SetupTest() {
+	suite.l = logrus.New()
+	suite.l.SetLevel(logrus.DebugLevel)
+}
+
+func (suite *PublisherUnitTestSuite) TestContentRequestFailedGetData() {
+	t := suite.T()
+	catalogMock := catalog.NewContentCatalogMock()
+	p := &ContentPublisher{
+		l:       suite.l,
+		catalog: catalogMock,
+	}
+	ctx := context.TODO()
+	request := &ccmsg.ContentRequest{
+		Path:            "/foo/bar",
+		RangeBegin:      uint64(0),
+		RangeEnd:        uint64(51),
+		ClientPublicKey: &ccmsg.PublicKey{PublicKey: []byte{}},
+	}
+	catalogMock.On("GetData", ctx, &ccmsg.ContentRequest{Path: request.Path}).Return((*catalog.ObjectMetadata)(nil), errors.New("no data"))
+
+	_, err := p.HandleContentRequest(ctx, request)
+
+	assert.Regexp(t, "failed to get metadata", err)
 }

@@ -247,8 +247,8 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 
 	numberOfBundles := bundlesPerRequest
 	if req.RangeEnd != 0 {
-		// TODO: if we need more than one bundle to reach RangeEnd,
-		// calculate how many we need to send
+		// TODO: if we need more than one bundle to reach RangeEnd, calculate
+		// some number of bundles to balance read-ahead and latency
 		numberOfBundles = 1
 	}
 
