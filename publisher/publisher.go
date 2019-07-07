@@ -21,6 +21,24 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+// ContentPublisher is the main state for the publisher daemon.
+//
+// During startup the CLI entry point populates this by calling
+// LoadFromDatabase, and the intent is that from that point all state is
+// cached in RAM but the database is the source of truth with soft degradation.
+// Some code may be inconsistent with this design principle - please fix if
+// noticed.
+// Reasoning:
+// - for a single escrow cache counts are anticipated to be O(100's)
+// - for a single publisher escrow counts are anticipated to be O(10's)
+// - at least for the early / medium term: the network should support a great
+//   many publishers and a great many escrows of course, but this component
+//   itself is working on a 'fits in RAM' problem and thus we can optimise it
+//   to be low latency
+// - the publisher needs to be available for clients to obtain content, and
+//   AWS performs regular outages to postgreSQL as part of regular maintenance and operations.
+// - once truth is established the cached in RAM data can be operated on very quickly
+//   e.g. the contents of an escrow cannot change after establishment
 type ContentPublisher struct {
 	// The ContentPublisher knows each cache's "inner master key" (aka "master key")?  This is an AES key.
 	// For each cache, it also knows an IP address, a port number, and a public key.
@@ -32,14 +50,13 @@ type ContentPublisher struct {
 	catalog catalog.ContentCatalog
 
 	escrows []*Escrow
-	caches  map[string]*ParticipatingCache
+	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
+	// caches map[cachecash.PublicKey]*ParticipatingCache
+	caches map[string]*ParticipatingCache
 
 	// XXX: It's obviously not great that this is necessary.
 	// Maps object IDs to metadata; necessary to allow the publisher to generate cache-miss responses.
 	reverseMapping map[common.ObjectID]reverseMappingEntry
-
-	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
-	// caches map[cachecash.PublicKey]*ParticipatingCache
 
 	PublisherAddr string
 }
