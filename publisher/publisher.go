@@ -61,10 +61,6 @@ type ContentPublisher struct {
 	PublisherAddr string
 }
 
-type CacheInfo struct {
-	// ...
-}
-
 type reverseMappingEntry struct {
 	path string
 }
