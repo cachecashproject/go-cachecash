@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"math"
 
 	"github.com/cachecashproject/go-cachecash/batchsignature"
 	"github.com/cachecashproject/go-cachecash/catalog"
@@ -19,10 +20,20 @@ import (
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/dchest/siphash"
 )
 
 // publisherCache tracks the publishers data about a cache
 type publisherCache struct {
+	// can store multiple different length permutations as a single cache may be
+	// in escrows of very different sizes - permutation size is set at the first
+	// prime > 2**N that is at least 75x the escrows cache count. This usage is
+	// to obtain the same permutation from different but similar size escrows
+	// for efficiency, with more room for reuse and variation the larger the
+	// escrows have grown.. The 75x ensures a minimum lookup count large enough
+	// to be effective.
+	permutations  map[int][]uint64
 	participation *ParticipatingCache
 }
 
@@ -134,7 +145,12 @@ func (p *ContentPublisher) AddEscrow(escrow *Escrow) error {
 			pubCache.participation = cache
 		} else {
 			p.caches[key] = &publisherCache{
+				permutations:  make(map[int][]uint64),
 				participation: cache}
+		}
+		_, err := p.getCachePermutation(key, uint(len(escrow.Caches)))
+		if err != nil {
+			return errors.Wrap(err, "Failed to calculate lookup permutation")
 		}
 	}
 
@@ -543,4 +559,64 @@ func (p *ContentPublisher) AddEscrowToDatabase(ctx context.Context, escrow *Escr
 func generateObjectID(path string) (common.ObjectID, error) {
 	digest := sha256.Sum256([]byte(path))
 	return common.BytesToObjectID(digest[0:common.ObjectIDSize])
+}
+
+// get from cache or calculate if needed the maglev-hash permutations of a cache
+func (p *ContentPublisher) getCachePermutation(pubkey string, escrowSize uint) ([]uint64, error) {
+	bits := math.Ceil(math.Log2(float64((escrowSize * 75))))
+	// Lookup table sizes are primes, so we have approximate to actual
+	if escrowSize > 100 {
+		return []uint64{}, errors.New("cannot handle escrows with more than 100 caches yet (more primes needed)")
+	}
+	approximate := uint64(math.Exp2(bits))
+	// 128 -> 131
+	// 256 -> 257
+	// 512 -> 521
+	// 1024 -> etc
+	approxToLength := map[uint64]uint64{
+		128:  131,
+		256:  257,
+		512:  521,
+		1024: 1031,
+		2048: 2053,
+		4096: 4099,
+		8192: 8209,
+	}
+	length := approxToLength[approximate]
+
+	cache, found := p.caches[pubkey]
+	if !found {
+		return []uint64{}, errors.New("Cannot get permutation for unknown cache")
+	}
+	prior, ok := cache.permutations[int(length)]
+	if ok {
+		return prior, nil
+	}
+
+	// These keys were chosen randomly and are arbitrary unless and until we
+	// decide to have multiple publishers collaborating (e.g. scale-out for a
+	// single set of escrows). They should stay the same for the life of a
+	// publisher at minimum to reduce chunk churn on caches.
+	var k0 uint64 = 0x103c1888a30d6f7f
+	var k1 uint64 = 0xea8e301f56febad4
+	h64 := siphash.Hash(k0, k1, []byte(pubkey))
+	// The largest permutation we might ever need is probably order (500k ) or 20
+	// bits, so just use the one siphash for both mod and offset calculation.
+	if length > 500000 {
+		return []uint64{}, errors.New("cannot handle escrows with more than 500K caches")
+	}
+	offset := h64 % length
+	skip := (h64>>uint(bits))%(length-1) + 1
+	permutation := make([]uint64, length)
+	//	permutation[i][j]←(offset+j×skip)modM
+	var j uint64
+	for j = 0; j < length; j++ {
+		permutation[j] = (offset + j*skip) % length
+	}
+	// Cache the result
+	// This may require a lock for memory safety from
+	// here ----
+	cache.permutations[int(length)] = permutation
+	// to here ----
+	return permutation, nil
 }

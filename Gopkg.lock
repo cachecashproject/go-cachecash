@@ -68,6 +68,14 @@
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:6dcae7d5f78aa5e72824f3fa4a34c17dd20353a37d5cced19bf4b0371f67817c"
+  name = "github.com/dchest/siphash"
+  packages = ["."]
+  pruneopts = ""
+  revision = "34f201214d993633bb24f418ba11736ab8b55aa7"
+  version = "v1.2.1"
+
+[[projects]]
   digest = "1:e9a8323b3a2985369e7e960e202db93db04cf0fda7b3e12d08aaf46d975ec34b"
   name = "github.com/dgraph-io/badger"
   packages = [
@@ -535,8 +543,18 @@
   packages = [
     ".",
     "internal",
+    "internal/tagencoding",
+    "metric/metricdata",
+    "metric/metricproducer",
+    "plugin/ocgrpc",
+    "resource",
+    "stats",
+    "stats/internal",
+    "stats/view",
+    "tag",
     "trace",
     "trace/internal",
+    "trace/propagation",
     "trace/tracestate",
   ]
   pruneopts = ""
@@ -713,6 +731,7 @@
     "github.com/DATA-DOG/go-sqlmock",
     "github.com/capnm/sysinfo",
     "github.com/client9/reopen",
+    "github.com/dchest/siphash",
     "github.com/dgraph-io/badger",
     "github.com/gobuffalo/packr",
     "github.com/gogo/protobuf/proto",
@@ -741,6 +760,7 @@
     "github.com/volatiletech/sqlboiler/randomize",
     "github.com/volatiletech/sqlboiler/strmangle",
     "github.com/volatiletech/sqlboiler/types",
+    "go.opencensus.io/plugin/ocgrpc",
     "go.opencensus.io/trace",
     "golang.org/x/crypto/ed25519",
     "google.golang.org/grpc",
