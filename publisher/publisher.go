@@ -21,6 +21,11 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+// publisherCache tracks the publishers data about a cache
+type publisherCache struct {
+	participation *ParticipatingCache
+}
+
 // ContentPublisher is the main state for the publisher daemon.
 //
 // During startup the CLI entry point populates this by calling
@@ -50,9 +55,7 @@ type ContentPublisher struct {
 	catalog catalog.ContentCatalog
 
 	escrows []*Escrow
-	// XXX: Need cachecash.PublicKey to be an array of bytes, not a slice of bytes, or else we can't use it as a map key
-	// caches map[cachecash.PublicKey]*ParticipatingCache
-	caches map[string]*ParticipatingCache
+	caches  map[string]*publisherCache
 
 	// XXX: It's obviously not great that this is necessary.
 	// Maps object IDs to metadata; necessary to allow the publisher to generate cache-miss responses.
@@ -71,7 +74,7 @@ func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherAddr string, cat
 		db:             db,
 		signer:         signer,
 		catalog:        catalog,
-		caches:         make(map[string]*ParticipatingCache),
+		caches:         make(map[string]*publisherCache),
 		reverseMapping: make(map[common.ObjectID]reverseMappingEntry),
 		PublisherAddr:  publisherAddr,
 	}
@@ -117,13 +120,22 @@ func (p *ContentPublisher) LoadFromDatabase(ctx context.Context) (int, error) {
 	return len(escrows), nil
 }
 
-// XXX: Temporary
+// AddEscrow - internal helper?
+// XXX: Temporary (we have nothing syncing from DB back to memory or maintaining memory integrity)
 func (p *ContentPublisher) AddEscrow(escrow *Escrow) error {
 	p.escrows = append(p.escrows, escrow)
 
 	// setup a map from pubkey -> *cache
 	for _, cache := range escrow.Caches {
-		p.caches[string(cache.PublicKey())] = cache
+		key := string(cache.PublicKey())
+		pubCache, ok := p.caches[key]
+		if ok {
+			// update the cache - new network contact details etc
+			pubCache.participation = cache
+		} else {
+			p.caches[key] = &publisherCache{
+				participation: cache}
+		}
 	}
 
 	return nil

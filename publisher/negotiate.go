@@ -172,8 +172,8 @@ func UpdateKnownCaches(ctx context.Context, s *publisherServer, caches []*ccmsg.
 			// update escrows in memory too
 			c, ok := s.publisher.caches[string(cache.PublicKey)]
 			if ok {
-				c.Cache.Inetaddr = inetAddr
-				c.Cache.Port = port
+				c.participation.Cache.Inetaddr = inetAddr
+				c.participation.Cache.Port = port
 			}
 
 			_, err = model.Update(ctx, s.publisher.db, boil.Infer())
