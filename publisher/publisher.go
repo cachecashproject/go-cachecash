@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/cachecashproject/go-cachecash/batchsignature"
 	"github.com/cachecashproject/go-cachecash/catalog"
@@ -105,7 +106,9 @@ func (p *ContentPublisher) LoadFromDatabase(ctx context.Context) (int, error) {
 			Caches: []*ParticipatingCache{},
 		}
 
-		ecs, err := e.EscrowCaches().All(ctx, p.db)
+		// The default retrieval order would typically be the ID, but DB
+		// clustering can cause that to vary, so we specify
+		ecs, err := e.EscrowCaches(qm.OrderBy(models.EscrowCacheColumns.CacheID)).All(ctx, p.db)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to query EscrowsCaches")
 		}
@@ -137,6 +140,9 @@ func (p *ContentPublisher) AddEscrow(escrow *Escrow) error {
 	escrow.Publisher = p
 	p.escrows = append(p.escrows, escrow)
 
+	sort.Slice(escrow.Caches, func(i, j int) bool {
+		return escrow.Caches[i].Cache.ID < escrow.Caches[j].Cache.ID
+	})
 	// setup a map from pubkey -> *cache
 	for _, cache := range escrow.Caches {
 		key := string(cache.PublicKey())
@@ -157,8 +163,9 @@ func (p *ContentPublisher) AddEscrow(escrow *Escrow) error {
 	return escrow.CalculateLookup()
 }
 
-// XXX: Temporary
 func (p *ContentPublisher) getEscrowByRequest(req *ccmsg.ContentRequest) (*Escrow, error) {
+	// XXX This should find an escrow in RAM (cache) then fall back to the DB if
+	// needed.
 	if len(p.escrows) == 0 {
 		return nil, errors.New("no escrow for request")
 	}
