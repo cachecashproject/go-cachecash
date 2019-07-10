@@ -19,6 +19,12 @@ type Escrow struct {
 	Publisher *ContentPublisher
 	Inner     models.Escrow
 	Caches    []*ParticipatingCache
+	// Each row stores an index into Caches; each bundle width of indexes must
+	// be a group of unique indexes; currently this is hardcoded. lookups that
+	// are dealing with error cases such as clients which cannot use a given
+	// cache select the next cache from Caches without violating the uniqueness
+	// rule.
+	lookup *[]int
 }
 
 // The info object does not need to have its keys populated.
@@ -64,6 +70,47 @@ func (e *Escrow) reserveTicketNumbers(qty int) ([]uint64, error) {
 		nos = append(nos, i)
 	}
 	return nos, nil
+}
+
+// CalculateLookup calculates chunk lookup tables for maglev style chunk allocations
+// This can fail if there are not enough caches.
+// This routine operates off populated structs - load from database before calling
+func (e *Escrow) CalculateLookup() error {
+	permutations := [][]uint64{}
+	for _, cache := range e.Caches {
+		permutation, err := e.Publisher.getCachePermutation(string(cache.Cache.PublicKey), uint(len(e.Caches)))
+		if err != nil {
+			return err
+		}
+		permutations = append(permutations, permutation)
+	}
+	caches := len(permutations)
+	if caches == 0 {
+		return errors.New("Cannot calculate a lookup table with 0 caches")
+	}
+	// Each row stores an index into e.Caches
+	lookup := make([]int, len(permutations[0]))
+	next := make([]int, caches)
+	for pos := range lookup {
+		lookup[pos] = -1
+	}
+	n := 0
+	for {
+		for i := 0; i < caches; i++ {
+			c := permutations[i][next[i]]
+			for lookup[c] >= 0 {
+				next[i]++
+				c = permutations[i][next[i]]
+			}
+			lookup[c] = i
+			next[i]++
+			n++
+			if n == len(lookup) {
+				e.lookup = &lookup
+				return nil
+			}
+		}
+	}
 }
 
 type ParticipatingCache struct {

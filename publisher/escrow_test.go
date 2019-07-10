@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-type TicketBundleTestSuite struct {
+type EscrowTestSuite struct {
 	suite.Suite
 
 	l *logrus.Logger
@@ -29,10 +29,10 @@ type TicketBundleTestSuite struct {
 }
 
 func TestTicketBundleTestSuite(t *testing.T) {
-	suite.Run(t, new(TicketBundleTestSuite))
+	suite.Run(t, new(EscrowTestSuite))
 }
 
-func (suite *TicketBundleTestSuite) SetupTest() {
+func (suite *EscrowTestSuite) SetupTest() {
 	t := suite.T()
 
 	l := logrus.New()
@@ -70,7 +70,7 @@ func (suite *TicketBundleTestSuite) SetupTest() {
 	}
 }
 
-func (suite *TicketBundleTestSuite) generateCacheInfo() ParticipatingCache {
+func (suite *EscrowTestSuite) generateCacheInfo() ParticipatingCache {
 	t := suite.T()
 
 	pub, _, err := ed25519.GenerateKey(nil) // TOOS: use faster, lower-quality entropy?
@@ -88,7 +88,7 @@ func (suite *TicketBundleTestSuite) generateCacheInfo() ParticipatingCache {
 	}
 }
 
-func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
+func (suite *EscrowTestSuite) TestGenerateTicketBundle() {
 	t := suite.T()
 
 	const chunkCount = 2
@@ -132,3 +132,57 @@ func (suite *TicketBundleTestSuite) TestGenerateTicketBundle() {
 
 // TODO: Need to add regression test specifically testing that chunk IDs are assigned correctly.  Had bug where all
 //   chunks were given identical chunk IDs (that of the last chunk).  This was only caught by the integration tests.
+
+func (suite *EscrowTestSuite) TestCalculateLookup() {
+	t := suite.T()
+	e := suite.escrow
+	p := e.Publisher
+	caches := make([]*ParticipatingCache, 0, 4)
+	for i := 0; i < 4; i++ {
+		cache := &ParticipatingCache{
+			Cache: models.Cache{
+				PublicKey: ed25519.PublicKey("key " + string(i)),
+			},
+		}
+		caches = append(caches, cache)
+		key := string(cache.PublicKey())
+		p.caches[key] = &publisherCache{
+			permutations:  make(map[int][]uint64),
+			participation: cache}
+	}
+
+	e.Caches = caches
+	assert.Nil(t, e.CalculateLookup())
+	assert.Equal(t, []int{
+		2, 3, 2, 3, 0, 0, 1, 3, 3, 0, 3, 0, 1, 1, 1, 2, 3, 2, 3, 2, 2, 2, 2,
+		0, 3, 3, 1, 1, 1, 1, 0, 0, 0, 0, 2, 2, 2, 2, 0, 3, 0, 3, 0, 3, 1, 1,
+		3, 2, 2, 2, 0, 0, 2, 1, 3, 0, 3, 0, 3, 0, 3, 0, 2, 2, 2, 2, 2, 2, 2,
+		1, 0, 3, 1, 3, 1, 3, 1, 1, 0, 3, 2, 2, 2, 2, 1, 1, 3, 0, 0, 1, 3, 1,
+		1, 2, 3, 2, 3, 2, 0, 1, 1, 3, 0, 3, 0, 0, 0, 0, 1, 3, 2, 3, 2, 3, 2,
+		3, 1, 3, 3, 2, 3, 1, 3, 1, 1, 0, 0, 2, 2, 2, 3, 1, 3, 0, 0, 0, 2, 3,
+		1, 1, 1, 2, 2, 2, 2, 3, 1, 3, 1, 3, 0, 3, 0, 0, 0, 1, 1, 2, 2, 2, 2,
+		0, 0, 0, 1, 3, 3, 3, 3, 1, 1, 1, 0, 2, 2, 2, 1, 3, 1, 1, 0, 0, 0, 3,
+		1, 3, 1, 3, 2, 2, 2, 0, 3, 1, 1, 1, 3, 0, 3, 0, 0, 1, 3, 1, 3, 2, 2,
+		0, 0, 0, 1, 1, 2, 3, 2, 3, 0, 3, 0, 0, 2, 2, 3, 3, 1, 1, 1, 1, 0, 2,
+		3, 2, 3, 2, 1, 1, 2, 0, 3, 1, 3, 1, 1, 3, 0, 0, 0, 0, 2, 2, 1, 2, 2,
+		3, 0, 3, 0, 3, 1, 3, 3, 2, 2, 0, 0, 0, 1, 2, 3, 0, 3, 0, 3, 1, 1, 0,
+		3, 2, 2, 2, 2, 2, 2, 0, 0, 3, 1, 3, 1, 1, 1, 3, 0, 3, 2, 2, 2, 2, 2,
+		0, 0, 0, 0, 1, 3, 1, 1, 2, 3, 2, 3, 0, 3, 2, 1, 3, 0, 3, 0, 0, 0, 0,
+		2, 3, 2, 3, 2, 2, 2, 3, 0, 0, 3, 1, 3, 1, 1, 1, 0, 0, 0, 2, 2, 2, 3,
+		1, 3, 0, 3, 0, 1, 1, 1, 1, 2, 2, 2, 2, 0, 2, 1, 1, 3, 3, 0, 3, 0, 0,
+		0, 1, 2, 2, 2, 2, 2, 0, 0, 1, 3, 3, 3, 1, 3, 1, 3, 1, 0, 2, 2, 2, 1,
+		1, 1, 3, 0, 0, 2, 3, 1, 3, 1, 3, 2, 2, 2, 2, 1, 1, 1, 0, 3, 0, 3, 0,
+		0, 1, 1, 2, 3, 2, 3, 0, 0, 0, 1, 3, 2, 3, 0, 3, 1, 1, 1, 0, 2, 2, 1,
+		3, 1, 1, 1, 0, 0, 2, 3, 1, 1, 1, 1, 2, 2, 2, 3, 1, 3, 1, 1, 0, 0, 0,
+		0, 0, 1, 1, 2, 2, 2, 3, 0, 0, 0, 3, 3, 3, 3, 2, 0, 0, 0, 0, 2, 2, 3,
+		1, 3, 1, 3, 1, 0, 0, 3, 2, 3, 2, 1, 1, 2, 2, 0, 3, 1, 3, 1, 1, 0, 3,
+		0, 0, 2, 3, 1, 1, 2, 0, 0, 0, 0, 1, 1, 1, 3}, *e.lookup)
+}
+
+func (suite *EscrowTestSuite) TestCalculateLookupNoCaches() {
+	t := suite.T()
+	e := suite.escrow
+	caches := make([]*ParticipatingCache, 0)
+	e.Caches = caches
+	assert.NotNil(t, e.CalculateLookup())
+}

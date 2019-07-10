@@ -187,7 +187,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	}
 	ts.Publisher = prov
 
-	// Create escrow and add it to the publisher.
+	// Create escrow
 	escrow, err := prov.NewEscrow(&ccmsg.EscrowInfo{
 		Id:              ts.EscrowID[:],
 		DrawDelay:       5,
@@ -198,9 +198,6 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		},
 	})
 	if err != nil {
-		return nil, err
-	}
-	if err := prov.AddEscrow(escrow); err != nil {
 		return nil, err
 	}
 	ts.Escrow = escrow
@@ -258,6 +255,11 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		}
 		c.Escrows[escrow.Inner.Txid] = ce
 		ts.Caches = append(ts.Caches, c)
+	}
+
+	// Add escrow to the publisher.
+	if err := prov.AddEscrow(escrow); err != nil {
+		return nil, err
 	}
 
 	return ts, nil

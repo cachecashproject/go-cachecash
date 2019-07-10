@@ -134,6 +134,7 @@ func (p *ContentPublisher) LoadFromDatabase(ctx context.Context) (int, error) {
 // AddEscrow - internal helper?
 // XXX: Temporary (we have nothing syncing from DB back to memory or maintaining memory integrity)
 func (p *ContentPublisher) AddEscrow(escrow *Escrow) error {
+	escrow.Publisher = p
 	p.escrows = append(p.escrows, escrow)
 
 	// setup a map from pubkey -> *cache
@@ -153,8 +154,7 @@ func (p *ContentPublisher) AddEscrow(escrow *Escrow) error {
 			return errors.Wrap(err, "Failed to calculate lookup permutation")
 		}
 	}
-
-	return nil
+	return escrow.CalculateLookup()
 }
 
 // XXX: Temporary
