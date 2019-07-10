@@ -463,7 +463,7 @@ func (p *ContentPublisher) getChunkID(obj *catalog.ObjectMetadata, chunkIdx uint
 	return id, nil
 }
 
-func (p *ContentPublisher) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
+func (p *ContentPublisher) cacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
 	// TODO: How do we identify the cache submitting the request?
 
 	objectID, err := common.BytesToObjectID(req.ObjectId)

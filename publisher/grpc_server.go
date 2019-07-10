@@ -33,5 +33,5 @@ func (s *grpcPublisherServer) GetContent(ctx context.Context, req *ccmsg.Content
 var _ ccmsg.CachePublisherServer = (*grpcPublisherServer)(nil)
 
 func (s *grpcPublisherServer) CacheMiss(ctx context.Context, req *ccmsg.CacheMissRequest) (*ccmsg.CacheMissResponse, error) {
-	return s.publisher.CacheMiss(ctx, req)
+	return s.publisher.cacheMiss(ctx, req)
 }
