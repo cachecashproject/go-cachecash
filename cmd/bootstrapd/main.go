@@ -89,7 +89,7 @@ func mainC() error {
 
 	app, err := bootstrap.NewApplication(l, b, cf)
 	if err != nil {
-		return errors.Wrap(err, "failed to create cache application")
+		return errors.Wrap(err, "failed to create bootstrap application")
 	}
 
 	if err := common.RunStarterShutdowner(l, app); err != nil {

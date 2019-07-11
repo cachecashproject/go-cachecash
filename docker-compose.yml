@@ -128,6 +128,20 @@ services:
     volumes:
     - ./data/cache-3:/data
 
+  cache-4:
+    image: cachecash/go-cachecash
+    build: .
+    command: cached -logLevel debug -trace http://jaeger:14268
+    ports:
+    - 9004:9000
+    - 9447:9443
+    # status
+    - 7104:9100
+    environment:
+    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    volumes:
+    - ./data/cache-4:/data
+
   jaeger:
     image: jaegertracing/all-in-one:1.8
     ports:

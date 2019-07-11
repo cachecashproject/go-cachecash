@@ -26,14 +26,16 @@ func addrFromCacheDescription(cache *ccmsg.CacheDescription) string {
 	return fmt.Sprintf("%s:%d", cache.ExternalIp, cache.Port)
 }
 
+// InitEscrows is for local test-networks self-assembly
 func InitEscrows(ctx context.Context, s *publisherServer, caches []*ccmsg.CacheDescription) error {
 	if len(s.publisher.escrows) > 0 {
 		// escrow already exists
 		return nil
 	}
 
-	if len(caches) < 4 {
-		return errors.New("not enough caches available")
+	// require 5 so that we can have one fail and still have 4 in each bundle
+	if len(caches) < 5 {
+		return errors.New("not enough caches available (need 5)")
 	}
 
 	s.l.Info("no existing escrow, creating one")
