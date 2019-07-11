@@ -198,7 +198,7 @@ message Certificate {
     bytes signature = 4;
 }
 
-// Containss enough data to let a cache recompute/verify the ticket-bundle digest.
+// Contains enough data to let a cache recompute/verify the ticket-bundle digest.
 message TicketBundleSubdigests {
     repeated bytes ticket_request_digest = 1;
     repeated bytes ticket_l1_digest = 2;
@@ -230,7 +230,25 @@ message ContentRequest {
 
     uint64 sequence_no = 4; // XXX: I'm not sure that this is required.  It's a unique-per-client value fed into the keyed PRF used to derive inner keys.
 
-    map<string, uint64> backlog_depth = 7;
+    message ClientCacheStatus {
+        uint64 backlog_depth = 1;
+        enum Status {
+            // No special information from the client about the cache
+            DEFAULT = 0;
+            // The client cannot use the cache, at this time we're not
+            // discriminating why but possible reasons include cannot establish
+            // TLS connections, routing failures, PMTUd black holes, or
+            // potentially some form of fraud detection (but thats hard!). The
+            // publisher cannot trust this enum to make value judgements about
+            // the cache, but must honour it as far as delivering service to the
+            // client.
+            UNUSABLE = 1;
+        }
+        Status status = 2;
+    }
+    // keyed by cache public key
+    map<string, ClientCacheStatus> cache_status = 7;
+
 }
 
 // Response to a ContentRequest.

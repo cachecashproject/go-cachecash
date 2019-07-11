@@ -285,12 +285,16 @@ func (cl *client) requestBundles(ctx context.Context, path string, chunkOffset u
 
 	cl.l.Info("enumerating backlog length")
 
-	backlogs := make(map[string]uint64)
+	cacheStatus := make(map[string]*ccmsg.ContentRequest_ClientCacheStatus)
 	for _, cc := range cl.cacheConns {
+		status := &ccmsg.ContentRequest_ClientCacheStatus{}
+		backlog := cc.BacklogLength()
 		cl.l.WithFields(logrus.Fields{
-			"cache": cc.PublicKey(),
-		}).Info("backlog length: ", cc.BacklogLength())
-		backlogs[string(cc.PublicKeyBytes())] = cc.BacklogLength()
+			"cache":   cc.PublicKey(),
+			"backlog": backlog,
+		}).Info("cache status")
+		status.BacklogDepth = backlog
+		cacheStatus[string(cc.PublicKeyBytes())] = status
 	}
 
 	req := &ccmsg.ContentRequest{
@@ -298,7 +302,7 @@ func (cl *client) requestBundles(ctx context.Context, path string, chunkOffset u
 		Path:            path,
 		RangeBegin:      byteRangeBegin,
 		RangeEnd:        byteRangeEnd,
-		BacklogDepth:    backlogs,
+		CacheStatus:     cacheStatus,
 	}
 	cl.l.Infof("sending content request to publisher: %v", req)
 

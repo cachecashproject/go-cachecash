@@ -137,16 +137,20 @@ func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      256,
 		RangeEnd:        0,
-		BacklogDepth: map[string]uint64{
-			"\x00\x01\x02\x03\x04": 0x1,
-			"\x05\x06\x07\x08\x09": 0x1,
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -178,23 +182,27 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      256,
 		RangeEnd:        0,
-		BacklogDepth: map[string]uint64{
-			"\x00\x01\x02\x03\x04": 0x1,
-			"\x05\x06\x07\x08\x09": 0x1,
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
 		},
 	}).Return(suite.newContentResponse(), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
@@ -202,9 +210,13 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 		Path:            "/",
 		RangeBegin:      256,
 		RangeEnd:        0,
-		BacklogDepth: map[string]uint64{
-			"\x00\x01\x02\x03\x04": 0x1,
-			"\x05\x06\x07\x08\x09": 0x1,
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -236,7 +248,7 @@ func (suite *SchedulerTestSuite) TestSchedulerAllBundlesAtOnce() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(CROptions{bundles: 2}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
 	mock.makeNewCacheCall(cl.l, "192.0.2.2:1002", "\x05\x06\x07\x08\x09")
@@ -267,7 +279,7 @@ func (suite *SchedulerTestSuite) TestSchedulerError() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return((*ccmsg.ContentResponse)(nil), errors.New("this is an error")).Once()
 
 	queue := make(chan *fetchGroup, 128)
@@ -289,7 +301,7 @@ func (suite *SchedulerTestSuite) TestRequestBundle() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(&ccmsg.ContentResponse{
 		Bundles: []*ccmsg.TicketBundle{},
 	}, nil).Once()
@@ -310,7 +322,7 @@ func (suite *SchedulerTestSuite) TestRequestLimitedBundle() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        1024,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(&ccmsg.ContentResponse{
 		Bundles: []*ccmsg.TicketBundle{},
 	}, nil).Once()
@@ -329,7 +341,7 @@ func (suite *SchedulerTestSuite) TestRequestBundleError() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return((*ccmsg.ContentResponse)(nil), errors.New("this is an error")).Once()
 
 	resp, err := cl.requestBundles(context.Background(), "/", 0, 0)
@@ -346,14 +358,14 @@ func (suite *SchedulerTestSuite) TestCacheConnectionError() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("newCacheConnection", cl.l, "192.0.2.1:1001",
 		ed25519.PublicKey(([]byte)("\x00\x01\x02\x03\x04"))).Return(
@@ -379,16 +391,20 @@ func (suite *SchedulerTestSuite) TestChangedChunkCount() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      256,
 		RangeEnd:        0,
-		BacklogDepth: map[string]uint64{
-			"\x00\x01\x02\x03\x04": 0x1,
-			"\x05\x06\x07\x08\x09": 0x1,
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1, objectSize: 1024}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -418,16 +434,20 @@ func (suite *SchedulerTestSuite) TestChangedChunkSize() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      256,
 		RangeEnd:        0,
-		BacklogDepth: map[string]uint64{
-			"\x00\x01\x02\x03\x04": 0x1,
-			"\x05\x06\x07\x08\x09": 0x1,
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1, chunkSize: 256, objectSize: 1024}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -457,16 +477,20 @@ func (suite *SchedulerTestSuite) TestSchedulerClientRetriesOneBundle() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      256,
 		RangeEnd:        0,
-		BacklogDepth: map[string]uint64{
-			"\x00\x01\x02\x03\x04": 0x1,
-			"\x05\x06\x07\x08\x09": 0x1,
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1, bundleOffset: 1}), nil).Once()
 	// This is the retried bundle
@@ -475,9 +499,13 @@ func (suite *SchedulerTestSuite) TestSchedulerClientRetriesOneBundle() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        256,
-		BacklogDepth: map[string]uint64{
-			"\x00\x01\x02\x03\x04": 0x2,
-			"\x05\x06\x07\x08\x09": 0x2,
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x2,
+			},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x2,
+			},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -524,16 +552,20 @@ func (suite *SchedulerTestSuite) TestSchedulerClientDefersOneBundleBadly() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      256,
 		RangeEnd:        0,
-		BacklogDepth: map[string]uint64{
-			"\x00\x01\x02\x03\x04": 0x1,
-			"\x05\x06\x07\x08\x09": 0x1,
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -561,16 +593,20 @@ func (suite *SchedulerTestSuite) TestSchedulerClientDefersBundles() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
 		Path:            "/",
 		RangeBegin:      256,
 		RangeEnd:        0,
-		BacklogDepth: map[string]uint64{
-			"\x00\x01\x02\x03\x04": 0x1,
-			"\x05\x06\x07\x08\x09": 0x1,
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
+				BacklogDepth: 0x1,
+			},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")

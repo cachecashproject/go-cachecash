@@ -137,7 +137,7 @@ func (suite *ClientTestSuite) TestGetObject() {
 		Path:            path,
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(1, 0, 512, 128), nil).Once()
 	pubMock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04",
 		[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
@@ -180,7 +180,7 @@ func (suite *ClientTestSuite) TestGetObject() {
 		Path:            path,
 		RangeBegin:      0,
 		RangeEnd:        0,
-		BacklogDepth:    map[string]uint64{},
+		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
 	}).Return(suite.newContentResponse(1, 0, 256, 32), nil).Once()
 	pubMock.On("GetContent", mock.MatchedBy(func(request *ccmsg.ContentRequest) bool {
 		return (path == request.Path && request.RangeBegin == 0x80 && request.RangeEnd == 0)

@@ -245,7 +245,8 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		return nil, errors.New("invalid range")
 	}
 
-	for cache, depth := range req.BacklogDepth {
+	for cache, status := range req.CacheStatus {
+		depth := status.BacklogDepth
 		p.l.WithFields(logrus.Fields{
 			"cache":   base64.StdEncoding.EncodeToString([]byte(cache)),
 			"backlog": depth,
