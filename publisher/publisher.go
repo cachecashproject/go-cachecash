@@ -108,19 +108,13 @@ func (p *ContentPublisher) LoadFromDatabase(ctx context.Context) (int, error) {
 
 		// The default retrieval order would typically be the ID, but DB
 		// clustering can cause that to vary, so we specify
-		ecs, err := e.EscrowCaches(qm.OrderBy(models.EscrowCacheColumns.CacheID)).All(ctx, p.db)
+		ecs, err := e.EscrowCaches(qm.Load("Cache"), qm.OrderBy(models.EscrowCacheColumns.CacheID)).All(ctx, p.db)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to query EscrowsCaches")
 		}
-
 		for _, ec := range ecs {
-			c, err := ec.Cache().One(ctx, p.db)
-			if err != nil {
-				return 0, errors.Wrap(err, "failed to query Cache")
-			}
-
 			escrow.Caches = append(escrow.Caches, &ParticipatingCache{
-				Cache:          *c,
+				Cache:          *ec.R.Cache,
 				InnerMasterKey: ec.InnerMasterKey,
 			})
 		}
