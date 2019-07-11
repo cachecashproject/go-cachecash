@@ -4,7 +4,7 @@ package ledger
 //
 // Functions for actual encoding/decoding these values are in `encoding/binary` in the standard library.
 
-func UvarintSize(i uint) int {
+func UvarintSize(i uint64) int {
 	switch {
 	case i < 2<<7:
 		return 1

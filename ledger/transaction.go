@@ -65,7 +65,37 @@ func (tx *Transaction) MarshalTo(data []byte) (int, error) {
 }
 
 func (tx *Transaction) Unmarshal(data []byte) error {
-	return nil
+	_, err := tx.UnmarshalFrom(data)
+	return err
+}
+
+// N.B.: This is not strictly required for the protobuf interface, but it's useful for test code to be able to tell how
+// many bytes were consumed.
+func (tx *Transaction) UnmarshalFrom(data []byte) (int, error) {
+	tx.Version = data[0]
+	if tx.Version != 1 {
+		return 0, errors.New("unexpected transaction version")
+	}
+	txType := (TxType)(data[1])
+	tx.Flags = binary.LittleEndian.Uint16(data[2:])
+	if tx.Flags != 0 {
+		return 0, errors.New("unexpected transaction flags")
+	}
+
+	switch txType {
+	case TxTypeTransfer:
+		tx.Body = &TransferTransaction{}
+	case TxTypeEscrowOpen:
+		tx.Body = &EscrowOpenTransaction{}
+	default:
+		return 0, errors.New("unexpected transaction type")
+	}
+
+	ni, err := tx.Body.UnmarshalFrom(data[4:])
+	if err != nil {
+		return 0, err
+	}
+	return ni + 4, nil
 }
 
 func (tx *Transaction) Size() int {
@@ -93,6 +123,8 @@ type TransactionBody interface {
 	Size() int
 	TxType() TxType
 	MarshalTo(data []byte) (n int, err error)
+	Unmarshal(data []byte) error
+	UnmarshalFrom(data []byte) (n int, err error)
 }
 
 // A TransferTransaction is very similar to a Bitcoin transaction.  It consumes one or more unspent outputs of previous
@@ -118,8 +150,8 @@ type TransferTransaction struct {
 var _ TransactionBody = (*TransferTransaction)(nil)
 
 func (tx *TransferTransaction) Size() int {
-	// We don't need to include len(tx.Witnesses) because it must be equal to len(tx.Inputs)
-	n := 4 + UvarintSize(uint(len(tx.Inputs))) + UvarintSize(uint(len(tx.Outputs)))
+	// We don't need to include len(tx.Witnesses) because it must be equal to len(tx.Inputs).
+	n := UvarintSize(uint64(len(tx.Inputs))) + UvarintSize(uint64(len(tx.Outputs)))
 	for _, o := range tx.Inputs {
 		n += o.Size()
 	}
@@ -137,40 +169,83 @@ func (tx *TransferTransaction) TxType() TxType {
 }
 
 func (tx *TransferTransaction) MarshalTo(data []byte) (int, error) {
-	var i int
+	var n int
 
-	i = binary.PutUvarint(data, uint64(len(tx.Inputs)))
-	data = data[i:]
+	if len(tx.Inputs) != len(tx.Witnesses) {
+		return 0, errors.New("number of witnesses must match number of inputs")
+	}
+
+	n += binary.PutUvarint(data, uint64(len(tx.Inputs)))
 
 	// XXX: There's quite a bit of repetition here.  Refactor?
 	for _, o := range tx.Inputs {
-		i, err := o.MarshalTo(data)
+		ni, err := o.MarshalTo(data[n:])
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to marshal TransactionInput")
 		}
-		data = data[i:]
+		n += ni
 	}
 
-	i = binary.PutUvarint(data, uint64(len(tx.Outputs)))
-	data = data[i:]
+	n += binary.PutUvarint(data[n:], uint64(len(tx.Outputs)))
 
 	for _, o := range tx.Outputs {
-		i, err := o.MarshalTo(data)
+		ni, err := o.MarshalTo(data[n:])
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to marshal TransactionOutput")
 		}
-		data = data[i:]
+		n += ni
 	}
 
 	for _, o := range tx.Witnesses {
-		i, err := o.MarshalTo(data)
+		ni, err := o.MarshalTo(data[n:])
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to marshal TransactionWitness")
 		}
-		data = data[i:]
+		n += ni
 	}
 
-	return 0, nil
+	return n, nil
+}
+
+func (tx *TransferTransaction) Unmarshal(data []byte) error {
+	_, err := tx.UnmarshalFrom(data)
+	return err
+}
+
+func (tx *TransferTransaction) UnmarshalFrom(data []byte) (int, error) {
+	inputQty, n := binary.Uvarint(data)
+	tx.Inputs = make([]TransactionInput, inputQty)
+	tx.Witnesses = make([]TransactionWitness, inputQty)
+
+	for i := 0; i < len(tx.Inputs); i++ {
+		ni, err := tx.Inputs[i].UnmarshalFrom(data[n:])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to unmarshal TransactionInput")
+		}
+		n += ni
+	}
+
+	outputQty, ni := binary.Uvarint(data[n:])
+	n += ni
+	tx.Outputs = make([]TransactionOutput, outputQty)
+
+	for i := 0; i < len(tx.Outputs); i++ {
+		ni, err := tx.Outputs[i].UnmarshalFrom(data[n:])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to unmarshal TransactionOutput")
+		}
+		n += ni
+	}
+
+	for i := 0; i < len(tx.Witnesses); i++ {
+		ni, err := tx.Witnesses[i].UnmarshalFrom(data[n:])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to unmarshal TransactionWitness")
+		}
+		n += ni
+	}
+
+	return n, nil
 }
 
 // An EscrowOpenTransaction ...
@@ -195,6 +270,14 @@ func (tx *EscrowOpenTransaction) MarshalTo(data []byte) (n int, err error) {
 	return 0, nil
 }
 
+func (tx *EscrowOpenTransaction) Unmarshal(data []byte) error {
+	return nil
+}
+
+func (tx *EscrowOpenTransaction) UnmarshalFrom(data []byte) (n int, err error) {
+	return 0, nil
+}
+
 type TransactionInput struct {
 	PreviousTx []byte // TODO: type
 	Index      uint8  // (of output in PreviousTx) // TODO: type
@@ -203,25 +286,46 @@ type TransactionInput struct {
 }
 
 func (ti *TransactionInput) Size() int {
-	return 5 + len(ti.PreviousTx) + len(ti.ScriptSig)
+	// N.B.: PreviousTx is fixed-length
+	return 5 + len(ti.PreviousTx) + int(UvarintSize(uint64(len(ti.ScriptSig)))) + len(ti.ScriptSig)
 }
 
 func (ti *TransactionInput) MarshalTo(data []byte) (int, error) {
 	if len(ti.PreviousTx) != TransactionIDSize {
 		return 0, errors.New("bad size for previous transaction ID")
 	}
-	i := copy(data, ti.PreviousTx)
+	n := copy(data, ti.PreviousTx)
 
-	data[i] = (byte)(ti.Index)
-	i += 1
+	data[n] = (byte)(ti.Index)
+	n += 1
 
-	i += binary.PutUvarint(data[i:], uint64(len(ti.ScriptSig)))
-	i += copy(data[i:], ti.ScriptSig)
+	n += binary.PutUvarint(data[n:], uint64(len(ti.ScriptSig)))
+	n += copy(data[n:], ti.ScriptSig)
 
-	binary.LittleEndian.PutUint32(data[i:], ti.SequenceNo)
-	i += 4
+	binary.LittleEndian.PutUint32(data[n:], ti.SequenceNo)
+	n += 4
 
-	return i, nil
+	return n, nil
+}
+
+func (ti *TransactionInput) UnmarshalFrom(data []byte) (int, error) {
+	var n int
+
+	ti.PreviousTx = data[n : n+TransactionIDSize]
+	n += TransactionIDSize
+
+	ti.Index = uint8(data[n])
+	n += 1
+
+	fieldLen, ni := binary.Uvarint(data[n:])
+	n += ni
+	ti.ScriptSig = data[n : n+int(fieldLen)]
+	n += int(fieldLen)
+
+	ti.SequenceNo = binary.LittleEndian.Uint32(data[n:])
+	n += 4
+
+	return n, nil
 }
 
 type TransactionOutput struct {
@@ -230,39 +334,70 @@ type TransactionOutput struct {
 }
 
 func (to *TransactionOutput) Size() int {
-	return 4 + len(to.ScriptPubKey)
+	return 4 + int(UvarintSize(uint64(len(to.ScriptPubKey)))) + len(to.ScriptPubKey)
 }
 
 func (to *TransactionOutput) MarshalTo(data []byte) (int, error) {
 	binary.LittleEndian.PutUint32(data, to.Value)
 	i := 4
 
-	data[i] = (byte)(len(to.ScriptPubKey))
-	i += copy(data[i+1:], to.ScriptPubKey) + 1
+	i += binary.PutUvarint(data[i:], uint64(len(to.ScriptPubKey)))
+	i += copy(data[i:], to.ScriptPubKey)
 
 	return i, nil
+}
+
+func (to *TransactionOutput) UnmarshalFrom(data []byte) (int, error) {
+	to.Value = binary.LittleEndian.Uint32(data)
+	n := 4
+
+	fieldLen, ni := binary.Uvarint(data[n:])
+	n += ni
+	to.ScriptPubKey = data[n : n+int(fieldLen)]
+	n += int(fieldLen)
+
+	return n, nil
 }
 
 // In Bitcoin, this is serialized as a data stack.  The number of items in the stack (2, for witness data) is given as a
 // compactSize-encoded uint.  Each of the items (the signature and then the pubkey) are given a single-byte length
 // prefix.
+//
+// In Cachecash, we use a uvarint for the number of items, and then each item has a uvarint length prefix.
+//
 type TransactionWitness struct {
-	Signature []byte
-	PubKey    []byte
+	Data [][]byte
 }
 
 func (tw *TransactionWitness) Size() int {
-	return 3 + len(tw.Signature) + len(tw.PubKey)
+	n := UvarintSize(uint64(len(tw.Data)))
+	for _, d := range tw.Data {
+		n += UvarintSize(uint64(len(d))) + len(d)
+	}
+	return n
 }
 
 func (tw *TransactionWitness) MarshalTo(data []byte) (int, error) {
-	i := binary.PutUvarint(data, 2)
+	n := binary.PutUvarint(data, uint64(len(tw.Data)))
 
-	data[i] = (byte)(len(tw.Signature))
-	i += copy(data[i+1:], tw.Signature) + 1
+	for _, d := range tw.Data {
+		n += binary.PutUvarint(data[n:], uint64(len(d)))
+		n += copy(data[n:], d)
+	}
 
-	data[i] = (byte)(len(tw.PubKey))
-	i += copy(data[i+1:], tw.PubKey) + 1
+	return n, nil
+}
 
-	return i, nil
+func (tw *TransactionWitness) UnmarshalFrom(data []byte) (int, error) {
+	stackSize, n := binary.Uvarint(data)
+
+	tw.Data = nil
+	for i := uint64(0); i < stackSize; i++ {
+		fieldLen, ni := binary.Uvarint(data[n:])
+		n += ni
+		tw.Data = append(tw.Data, data[n:n+int(fieldLen)])
+		n += int(fieldLen)
+	}
+
+	return n, nil
 }
