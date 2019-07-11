@@ -8,7 +8,6 @@ import (
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
-	"github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -77,12 +76,17 @@ func (suite *PublisherTestSuite) SetupTest() {
 		innerMasterKeys = append(innerMasterKeys, testutil.RandBytes(16))
 	}
 
+	escrows := sqlmock.NewRows([]string{"id"}).AddRow(0)
+	sqlMock.ExpectQuery("^SELECT \\* FROM \"escrow\";").
+		WithArgs().
+		WillReturnRows(escrows)
+
 	rows := sqlmock.NewRows([]string{"id", "escrow_id", "cache_id", "inner_master_key"}).
 		AddRow(1, 0, 123, innerMasterKeys[0]).
 		AddRow(2, 0, 124, innerMasterKeys[1]).
 		AddRow(3, 0, 125, innerMasterKeys[2]).
 		AddRow(4, 0, 126, innerMasterKeys[3])
-	sqlMock.ExpectQuery("^SELECT \\* FROM \"escrow_caches\" WHERE \\(escrow_id = \\$1\\);").
+	sqlMock.ExpectQuery("^SELECT \"escrow_caches\"\\.\\* FROM \"escrow_caches\" WHERE \\(\"escrow_caches\"\\.\"escrow_id\"=\\$1\\) ORDER BY cache_id;").
 		WithArgs(0).
 		WillReturnRows(rows)
 
@@ -101,11 +105,8 @@ func (suite *PublisherTestSuite) SetupTest() {
 		t.Fatalf("failed to construct publisher: %v", err)
 	}
 
-	escrow := Escrow{
-		Inner: models.Escrow{},
-	}
-
-	suite.publisher.escrows = append(suite.publisher.escrows, &escrow)
+	_, err = suite.publisher.LoadFromDatabase(context.TODO())
+	assert.Nil(t, err)
 }
 
 func (suite *PublisherTestSuite) TestContentRequest() {

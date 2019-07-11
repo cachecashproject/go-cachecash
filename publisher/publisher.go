@@ -15,14 +15,13 @@ import (
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/publisher/models"
+	"github.com/dchest/siphash"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
-
-	"github.com/dchest/siphash"
 )
 
 // publisherCache tracks the publishers data about a cache
@@ -220,6 +219,12 @@ cache, per escrow.  They should also be designed to support escrow rollover.
 const (
 	chunksPerGroup    = 4
 	bundlesPerRequest = 3
+	// These keys were chosen randomly and are arbitrary unless and until we
+	// decide to have multiple publishers collaborating (e.g. scale-out for a
+	// single set of escrows). They should stay the same for the life of a
+	// publisher at minimum to reduce chunk churn on caches.
+	k0 uint64 = 0x103c1888a30d6f7f
+	k1 uint64 = 0xea8e301f56febad4
 )
 
 // HandleContentRequest serves ticket bundles to clients.
@@ -267,26 +272,18 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 		return nil, errors.Wrap(err, "failed to get escrow for request")
 	}
 
-	// - The publisher selects a set of caches that are enrolled in that escrow.  This selection should be designed to
-	//   place the same chunks on the same caches (expanding the number in rotation as demand for the chunks grows), and
-	//   to reuse the same caches for consecutive chunk-groups served to a single client (so that connection reuse and
-	//   pipelining can improve performance, once implemented).
-	p.l.Debug("selecting caches")
-	ecs, err := models.EscrowCaches(qm.Load("Cache"), qm.Where("escrow_id = ?", escrow.Inner.ID)).All(ctx, p.db)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to query database")
+	p.l.Debug("selecting caches for bundle at offset")
+	// path + content byte offset
+	// path so that very short files don't all land on the same set of initial caches
+	// content byte offset / chunk offset so that the content of files are spread over caches
+	// This is v0 - see the content caching doc for future plans.
+	prefix := []byte{}
+	if req.ClientPublicKey == nil {
+		return nil, errors.New("No client public key")
 	}
-
-	caches := []ParticipatingCache{}
-	for _, participant := range ecs {
-		caches = append(caches, ParticipatingCache{
-			InnerMasterKey: participant.InnerMasterKey,
-			Cache:          *participant.R.Cache,
-		})
-	}
-
-	chunkRangeBegin := uint64(req.RangeBegin / obj.PolicyChunkSize())
 	clientPublicKey := req.ClientPublicKey.PublicKey
+	prefix = append(prefix, req.Path...)
+	chunkRangeBegin := uint64(req.RangeBegin / obj.PolicyChunkSize())
 	sequenceNo := req.SequenceNo
 
 	numberOfBundles := bundlesPerRequest
@@ -297,8 +294,8 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	}
 
 	bundles := []*ccmsg.TicketBundle{}
-	for i := 0; i < numberOfBundles; i++ {
-		bundle, err := p.generateBundle(ctx, escrow, caches, obj, req.Path, chunkRangeBegin, clientPublicKey, sequenceNo)
+	for bundleIdx := 0; bundleIdx < numberOfBundles; bundleIdx++ {
+		bundle, err := p.generateBundle(ctx, escrow, obj, req.Path, chunkRangeBegin, clientPublicKey, sequenceNo, prefix)
 		if err != nil {
 			return nil, err
 		}
@@ -315,7 +312,7 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	return bundles, nil
 }
 
-func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, caches []ParticipatingCache, obj *catalog.ObjectMetadata, path string, chunkRangeBegin uint64, clientPublicKey ed25519.PublicKey, sequenceNo uint64) (*ccmsg.TicketBundle, error) {
+func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, obj *catalog.ObjectMetadata, path string, chunkRangeBegin uint64, clientPublicKey ed25519.PublicKey, sequenceNo uint64, prefix []byte) (*ccmsg.TicketBundle, error) {
 	// XXX: this doesn't work with empty files
 	if chunkRangeBegin >= uint64(obj.ChunkCount()) {
 		return nil, errors.New("chunkRangeBegin beyond last chunk")
@@ -347,9 +344,41 @@ func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, c
 		chunkIndices = append(chunkIndices, chunkIdx)
 	}
 
+	// XXX: Should be based on the upstream path, which the current implementation conflates with the request path.
+	objID, err := generateObjectID(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate object ID")
+	}
+	p.reverseMapping[objID] = reverseMappingEntry{path: path}
+
+	bundleInput := append(prefix, string(chunkRangeBegin)...)
+	h64 := siphash.Hash(k0, k1, bundleInput)
+	firstIndex := (*escrow.lookup)[h64%uint64(len(*escrow.lookup))]
+	caches := []*ParticipatingCache{}
+
+	for i := firstIndex; len(caches) != chunksPerGroup; i = (i + 1) % len(escrow.Caches) {
+		cache := escrow.Caches[i]
+		for j := 0; j < len(caches); j++ {
+			if caches[j] == cache {
+				return nil, errors.New("insufficient caches to create Bundle - would have to reuse cache")
+			}
+		}
+		caches = append(caches, cache)
+	}
+	p.l.WithFields(logrus.Fields{
+		"chunkIdx":    chunkRangeBegin,
+		"objectID":    objID,
+		"bundleInput": bundleInput,
+		"h64":         h64,
+		"firstIndex":  firstIndex,
+		"caches":      caches,
+	}).Debug("Allocating Caches")
+
+	// XXX: Should be redundant - unwind the differing checks and make sure, then remove.
 	if len(caches) < len(chunkIndices) {
 		return nil, errors.New(fmt.Sprintf("not enough caches: have %v; need %v", len(caches), len(chunkIndices)))
 	}
+	// ditto
 	caches = caches[0:len(chunkIndices)]
 
 	// - For each cache, the publisher chooses a logical slot index.  (For details, see documentation on the logical
@@ -367,17 +396,11 @@ func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, c
 		}
 	*/
 
-	// XXX: Should be based on the upstream path, which the current implementation conflates with the request path.
-	objID, err := generateObjectID(path)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate object ID")
-	}
-	p.reverseMapping[objID] = reverseMappingEntry{path: path}
-
 	// Reserve a lottery ticket for each cache.  (Recall that lottery ticket numbers must be unique, and we are limited
 	// in the number that we can issue during each blockchain block to the number that we declared in our begin-escrow
 	// transaction.)
 	// XXX: We need to make sure that these numbers are released to be reused if the request fails.
+	//      <-- robertc: we can't guarante that (things do fail on ec2 etc - does it cost money if this doesn't unwind, or just limit bundles issued?)
 	p.l.Debug("reserving tickets")
 	ticketNos, err := escrow.reserveTicketNumbers(len(caches))
 	if err != nil {
@@ -397,7 +420,7 @@ func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, c
 			TicketNo: ticketNos[i],
 			ChunkIdx: uint32(chunkIdx),
 			ChunkID:  chunkIDs[i],
-			Cache:    caches[i],
+			Cache:    *caches[i],
 		})
 
 		b, err := obj.GetChunk(uint32(chunkIdx))
@@ -594,12 +617,6 @@ func (p *ContentPublisher) getCachePermutation(pubkey string, escrowSize uint) (
 		return prior, nil
 	}
 
-	// These keys were chosen randomly and are arbitrary unless and until we
-	// decide to have multiple publishers collaborating (e.g. scale-out for a
-	// single set of escrows). They should stay the same for the life of a
-	// publisher at minimum to reduce chunk churn on caches.
-	var k0 uint64 = 0x103c1888a30d6f7f
-	var k1 uint64 = 0xea8e301f56febad4
 	h64 := siphash.Hash(k0, k1, []byte(pubkey))
 	// The largest permutation we might ever need is probably order (500k ) or 20
 	// bits, so just use the one siphash for both mod and offset calculation.
