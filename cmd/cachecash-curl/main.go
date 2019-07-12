@@ -110,7 +110,7 @@ func mainC() error {
 	}
 	for chunk := range o {
 		if chunk.Err != nil {
-			return errors.Wrap(err, "failed to fetch object")
+			return errors.Wrap(chunk.Err, "failed to fetch object")
 		}
 		if *outputPath != "" {
 			l.Infof("writing %d bytes to file: %s", len(chunk.Data), *outputPath)
