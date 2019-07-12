@@ -58,8 +58,10 @@ func (cc *cacheMock) Close(context.Context) error {
 	return nil
 }
 
-func (cc *cacheMock) BacklogLength() uint64 {
-	return uint64(len(cc.backlog))
+func (cc *cacheMock) GetStatus() ccmsg.ContentRequest_ClientCacheStatus {
+	return ccmsg.ContentRequest_ClientCacheStatus{
+		BacklogDepth: uint64(len(cc.backlog)),
+	}
 }
 
 func (cc *cacheMock) PublicKey() string {

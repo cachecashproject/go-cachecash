@@ -20,11 +20,18 @@ type cacheGrpc struct {
 	l      *logrus.Logger
 	pubkey []byte
 
+	// working state --
+	// used to discriminate between chunk requests
 	nextSequenceNo uint64
+	// Unsubmitted chunk requests for this cache
+	backlog chan DownloadTask
+	// Client side assessment of the cache - we don't depend solely on the GRPC
+	// connectivity state because we need to cope with running but broken caches
+	status ccmsg.ContentRequest_ClientCacheStatus_Status
 
+	// The GRPC Connection and API client
 	conn       *grpc.ClientConn
 	grpcClient ccmsg.ClientCacheClient
-	backlog    chan DownloadTask
 }
 
 type cacheConnection interface {
@@ -32,7 +39,7 @@ type cacheConnection interface {
 	QueueRequest(DownloadTask)
 	ExchangeTicketL2(context.Context, *ccmsg.ClientCacheRequest) error
 	Close(context.Context) error
-	BacklogLength() uint64
+	GetStatus() ccmsg.ContentRequest_ClientCacheStatus
 	PublicKey() string
 	PublicKeyBytes() []byte
 }
@@ -154,8 +161,11 @@ func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 	return nil
 }
 
-func (cc *cacheGrpc) BacklogLength() uint64 {
-	return uint64(len(cc.backlog))
+func (cc *cacheGrpc) GetStatus() ccmsg.ContentRequest_ClientCacheStatus {
+	return ccmsg.ContentRequest_ClientCacheStatus{
+		BacklogDepth: uint64(len(cc.backlog)),
+		Status:       cc.status,
+	}
 }
 
 func (cc *cacheGrpc) PublicKey() string {

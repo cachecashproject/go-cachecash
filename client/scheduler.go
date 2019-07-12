@@ -249,7 +249,7 @@ func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklog
 
 func (cl *client) checkBacklogDepth(n uint64) bool {
 	for _, c := range cl.cacheConns {
-		if c.BacklogLength() <= n {
+		if c.GetStatus().BacklogDepth <= n {
 			return true
 		}
 	}
@@ -287,14 +287,12 @@ func (cl *client) requestBundles(ctx context.Context, path string, chunkOffset u
 
 	cacheStatus := make(map[string]*ccmsg.ContentRequest_ClientCacheStatus)
 	for _, cc := range cl.cacheConns {
-		status := &ccmsg.ContentRequest_ClientCacheStatus{}
-		backlog := cc.BacklogLength()
+		status := cc.GetStatus()
 		cl.l.WithFields(logrus.Fields{
-			"cache":   cc.PublicKey(),
-			"backlog": backlog,
+			"cache":  cc.PublicKey(),
+			"status": status,
 		}).Info("cache status")
-		status.BacklogDepth = backlog
-		cacheStatus[string(cc.PublicKeyBytes())] = status
+		cacheStatus[string(cc.PublicKeyBytes())] = &status
 	}
 
 	req := &ccmsg.ContentRequest{
