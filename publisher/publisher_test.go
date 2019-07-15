@@ -26,6 +26,8 @@ type PublisherTestSuite struct {
 	chunkSize int
 
 	clientPublic ed25519.PublicKey
+
+	cachePublicKeys []ed25519.PublicKey
 }
 
 func TestPublisherTestSuite(t *testing.T) {
@@ -67,7 +69,7 @@ func (suite *PublisherTestSuite) SetupTest() {
 	innerMasterKeys := [][]byte{}
 	cachePublicKeys := []ed25519.PublicKey{}
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 5; i++ {
 		public, _, err := ed25519.GenerateKey(nil)
 		if err != nil {
 			t.Fatalf("failed to generate cache keypair: %v", err)
@@ -85,7 +87,8 @@ func (suite *PublisherTestSuite) SetupTest() {
 		AddRow(1, 0, 123, innerMasterKeys[0]).
 		AddRow(2, 0, 124, innerMasterKeys[1]).
 		AddRow(3, 0, 125, innerMasterKeys[2]).
-		AddRow(4, 0, 126, innerMasterKeys[3])
+		AddRow(4, 0, 126, innerMasterKeys[3]).
+		AddRow(5, 0, 127, innerMasterKeys[4])
 	sqlMock.ExpectQuery("^SELECT \"escrow_caches\"\\.\\* FROM \"escrow_caches\" WHERE \\(\"escrow_caches\"\\.\"escrow_id\"=\\$1\\) ORDER BY cache_id;").
 		WithArgs(0).
 		WillReturnRows(rows)
@@ -94,9 +97,10 @@ func (suite *PublisherTestSuite) SetupTest() {
 		AddRow(123, cachePublicKeys[0], net.ParseIP("127.0.0.1"), 9000).
 		AddRow(124, cachePublicKeys[1], net.ParseIP("127.0.0.1"), 9001).
 		AddRow(125, cachePublicKeys[2], net.ParseIP("127.0.0.1"), 9002).
-		AddRow(126, cachePublicKeys[3], net.ParseIP("127.0.0.1"), 9003)
-	sqlMock.ExpectQuery("^SELECT \\* FROM \"cache\" WHERE \\(\"id\" IN \\(\\$1,\\$2,\\$3,\\$4\\)\\);").
-		WithArgs(123, 124, 125, 126).
+		AddRow(126, cachePublicKeys[3], net.ParseIP("127.0.0.1"), 9003).
+		AddRow(127, cachePublicKeys[3], net.ParseIP("127.0.0.1"), 9004)
+	sqlMock.ExpectQuery("^SELECT \\* FROM \"cache\" WHERE \\(\"id\" IN \\(\\$1,\\$2,\\$3,\\$4\\,\\$5\\)\\);").
+		WithArgs(123, 124, 125, 126, 127).
 		WillReturnRows(rows)
 
 	// XXX: Once we start using the catalog, passing nil is going to cause runtime panics.
@@ -107,6 +111,7 @@ func (suite *PublisherTestSuite) SetupTest() {
 
 	_, err = suite.publisher.LoadFromDatabase(context.TODO())
 	assert.Nil(t, err)
+	suite.cachePublicKeys = cachePublicKeys
 }
 
 func (suite *PublisherTestSuite) TestContentRequest() {
@@ -165,6 +170,43 @@ func (suite *PublisherTestSuite) TestContentRequestEndWholeObject() {
 		RangeBegin:      uint64(0),
 		RangeEnd:        uint64(0),
 		ClientPublicKey: &ccmsg.PublicKey{PublicKey: suite.clientPublic},
+	})
+	assert.Nil(t, err, "failed to get bundle")
+}
+
+func (suite *PublisherTestSuite) TestContentRequestTooManyFailedCaches() {
+	t := suite.T()
+
+	_, err := suite.publisher.HandleContentRequest(context.TODO(), &ccmsg.ContentRequest{
+		Path:            "/foo/bar",
+		RangeBegin:      uint64(0),
+		RangeEnd:        uint64(suite.chunkSize),
+		ClientPublicKey: &ccmsg.PublicKey{PublicKey: suite.clientPublic},
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			string(suite.cachePublicKeys[0]): &ccmsg.ContentRequest_ClientCacheStatus{
+				Status: ccmsg.ContentRequest_ClientCacheStatus_UNUSABLE,
+			},
+			string(suite.cachePublicKeys[1]): &ccmsg.ContentRequest_ClientCacheStatus{
+				Status: ccmsg.ContentRequest_ClientCacheStatus_UNUSABLE,
+			},
+		},
+	})
+	assert.NotNil(t, err, "got an impossible bundle")
+}
+
+func (suite *PublisherTestSuite) TestContentRequestWithFailedCache() {
+	t := suite.T()
+
+	_, err := suite.publisher.HandleContentRequest(context.TODO(), &ccmsg.ContentRequest{
+		Path:            "/foo/bar",
+		RangeBegin:      uint64(0),
+		RangeEnd:        uint64(suite.chunkSize),
+		ClientPublicKey: &ccmsg.PublicKey{PublicKey: suite.clientPublic},
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			string(suite.cachePublicKeys[0]): &ccmsg.ContentRequest_ClientCacheStatus{
+				Status: ccmsg.ContentRequest_ClientCacheStatus_UNUSABLE,
+			},
+		},
 	})
 	assert.Nil(t, err, "failed to get bundle")
 }

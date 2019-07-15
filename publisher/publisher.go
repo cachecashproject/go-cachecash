@@ -246,11 +246,10 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	}
 
 	for cache, status := range req.CacheStatus {
-		depth := status.BacklogDepth
 		p.l.WithFields(logrus.Fields{
-			"cache":   base64.StdEncoding.EncodeToString([]byte(cache)),
-			"backlog": depth,
-		}).Debug("received cache backlog length")
+			"cache":  base64.StdEncoding.EncodeToString([]byte(cache)),
+			"status": status,
+		}).Debug("received cache status")
 	}
 
 	// - The object's _path_ is used to ensure that the object exists, and that the specified chunks are in-cache and
@@ -296,7 +295,7 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 
 	bundles := []*ccmsg.TicketBundle{}
 	for bundleIdx := 0; bundleIdx < numberOfBundles; bundleIdx++ {
-		bundle, err := p.generateBundle(ctx, escrow, obj, req.Path, chunkRangeBegin, clientPublicKey, sequenceNo, prefix)
+		bundle, err := p.generateBundle(ctx, escrow, obj, req.Path, chunkRangeBegin, clientPublicKey, sequenceNo, prefix, &req.CacheStatus)
 		if err != nil {
 			return nil, err
 		}
@@ -313,7 +312,9 @@ func (p *ContentPublisher) HandleContentRequest(ctx context.Context, req *ccmsg.
 	return bundles, nil
 }
 
-func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, obj *catalog.ObjectMetadata, path string, chunkRangeBegin uint64, clientPublicKey ed25519.PublicKey, sequenceNo uint64, prefix []byte) (*ccmsg.TicketBundle, error) {
+func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, obj *catalog.ObjectMetadata, path string,
+	chunkRangeBegin uint64, clientPublicKey ed25519.PublicKey, sequenceNo uint64, prefix []byte,
+	cacheStatus *map[string]*ccmsg.ContentRequest_ClientCacheStatus) (*ccmsg.TicketBundle, error) {
 	// XXX: this doesn't work with empty files
 	if chunkRangeBegin >= uint64(obj.ChunkCount()) {
 		return nil, errors.New("chunkRangeBegin beyond last chunk")
@@ -356,7 +357,8 @@ func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, o
 	h64 := siphash.Hash(k0, k1, bundleInput)
 	firstIndex := (*escrow.lookup)[h64%uint64(len(*escrow.lookup))]
 	caches := []*ParticipatingCache{}
-
+	// Allocate the ideal cache -> chunks without consideration of errors to
+	// keep allocation stable
 	for i := firstIndex; len(caches) != chunksPerGroup; i = (i + 1) % len(escrow.Caches) {
 		cache := escrow.Caches[i]
 		for j := 0; j < len(caches); j++ {
@@ -374,6 +376,40 @@ func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, o
 		"firstIndex":  firstIndex,
 		"caches":      caches,
 	}).Debug("Allocating Caches")
+
+	// substitute individual faulting caches with other ones with good status
+	badcaches := 0
+	for i := range caches {
+		cache := caches[i]
+		if (*cacheStatus)[string(cache.PublicKey())].GetStatus() == ccmsg.ContentRequest_ClientCacheStatus_DEFAULT {
+			// Good cache. Could also consider backlog length or other signal.
+			continue
+		}
+		// The first possible cache is a chunks worth higher up.
+		offset := i + firstIndex + chunksPerGroup
+		for j := 0; j < len(escrow.Caches)-chunksPerGroup-badcaches; j++ {
+			index := (offset + j) % len(escrow.Caches)
+			cache := escrow.Caches[index]
+			if (*cacheStatus)[string(cache.PublicKey())].GetStatus() == ccmsg.ContentRequest_ClientCacheStatus_DEFAULT {
+				caches[i] = cache
+				break
+			}
+		}
+		cache = caches[i]
+		if (*cacheStatus)[string(cache.PublicKey())].GetStatus() != ccmsg.ContentRequest_ClientCacheStatus_DEFAULT {
+			// Failed to find a good cache.
+			return nil, errors.New("insufficient caches to create Bundle - would have to use cache in error state")
+		}
+		badcaches++
+	}
+	p.l.WithFields(logrus.Fields{
+		"chunkIdx":    chunkRangeBegin,
+		"objectID":    objID,
+		"bundleInput": bundleInput,
+		"h64":         h64,
+		"firstIndex":  firstIndex,
+		"caches":      caches,
+	}).Debug("Caches after error conditions")
 
 	// XXX: Should be redundant - unwind the differing checks and make sure, then remove.
 	if len(caches) < len(chunkIndices) {
