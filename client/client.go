@@ -183,8 +183,6 @@ outer:
 				chunkResults[i] = b
 				cacheConns[i] = result.cache
 				if b.err != nil {
-					output <- &OutputChunk{nil, errors.Wrap(b.err, "got error in chunk request; aborting any that remain in group")}
-					// TODO: signal bad caches to the publisher
 					retries++
 					outcome.Outcome = Retry
 					completions <- outcome

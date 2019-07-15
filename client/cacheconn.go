@@ -124,6 +124,8 @@ func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 	tt := common.StartTelemetryTimer(cc.l, "getChunk")
 	msgData, err := cc.grpcClient.GetChunk(ctx, reqData)
 	if err != nil {
+		// TODO - make this transient - reset after a period of time
+		cc.status = ccmsg.ContentRequest_ClientCacheStatus_UNUSABLE
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
 	tt.Stop()
@@ -141,6 +143,7 @@ func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 	tt = common.StartTelemetryTimer(cc.l, "exchangeTicketL1")
 	msgL1, err := cc.grpcClient.ExchangeTicketL1(ctx, reqL1)
 	if err != nil {
+		cc.status = ccmsg.ContentRequest_ClientCacheStatus_UNUSABLE
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
 	tt.Stop()
@@ -153,6 +156,7 @@ func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 		msgL1.OuterKey.Key,
 		msgData.Data)
 	if err != nil {
+		cc.status = ccmsg.ContentRequest_ClientCacheStatus_UNUSABLE
 		return errors.Wrap(err, "failed to decrypt data")
 	}
 	b.encData = encData
