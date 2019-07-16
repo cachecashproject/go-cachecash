@@ -593,7 +593,9 @@ func (suite *SchedulerTestSuite) TestSchedulerClientDefersBundles() {
 		Path:            "/",
 		RangeBegin:      0,
 		RangeEnd:        0,
-		CacheStatus:     map[string]*ccmsg.ContentRequest_ClientCacheStatus{},
+		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
 		ClientPublicKey: cachecash.PublicKeyMessage(cl.publicKey),
@@ -614,8 +616,14 @@ func (suite *SchedulerTestSuite) TestSchedulerClientDefersBundles() {
 
 	queue := make(chan *fetchGroup, 128)
 	bundleCompletions := make(chan BundleOutcome, 128)
-	fg1 := fetchGroup{bundle: &ccmsg.TicketBundle{TicketRequest: []*ccmsg.TicketRequest{&ccmsg.TicketRequest{ChunkIdx: 0}}}}
-	fg2 := fetchGroup{bundle: &ccmsg.TicketBundle{TicketRequest: []*ccmsg.TicketRequest{&ccmsg.TicketRequest{ChunkIdx: 2}}}}
+	fg1 := fetchGroup{bundle: &ccmsg.TicketBundle{
+		TicketRequest: []*ccmsg.TicketRequest{&ccmsg.TicketRequest{ChunkIdx: 0}},
+		CacheInfo:     []*ccmsg.CacheInfo{&ccmsg.CacheInfo{Pubkey: &ccmsg.PublicKey{PublicKey: []byte("\x00\x01\x02\x03\x04")}}},
+	}}
+	fg2 := fetchGroup{bundle: &ccmsg.TicketBundle{
+		TicketRequest: []*ccmsg.TicketRequest{&ccmsg.TicketRequest{ChunkIdx: 2}},
+		CacheInfo:     []*ccmsg.CacheInfo{&ccmsg.CacheInfo{Pubkey: &ccmsg.PublicKey{PublicKey: []byte("\x00\x01\x02\x03\x04")}}},
+	}}
 	fgs := []*fetchGroup{&fg1, &fg2}
 	// defer all bundles - readahead will read all the bundles for this sample object
 	bundleCompletions <- BundleOutcome{Outcome: Deferred, ChunkOffset: 0, Chunks: 2, Bundle: &fg1}
@@ -623,6 +631,7 @@ func (suite *SchedulerTestSuite) TestSchedulerClientDefersBundles() {
 	// now acknowledge
 	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 0, Chunks: 2}
 	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 2, Chunks: 2}
+	cl.cacheConns["\x00\x01\x02\x03\x04"] = newCacheMock("", ed25519.PublicKey("\x00\x01\x02\x03\x04"), [][]byte{})
 	cl.schedule(context.Background(), "/", queue, bundleCompletions)
 
 	assert.Equal(t, 4, len(queue))

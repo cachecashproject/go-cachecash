@@ -44,6 +44,17 @@ type BundleOutcome struct {
 	Bundle *fetchGroup
 }
 
+func (cl *client) hasFailedCaches(group *fetchGroup) bool {
+	for i := range group.bundle.TicketRequest {
+		ci := group.bundle.CacheInfo[i]
+		pubKey := ci.Pubkey.GetPublicKey()
+		if cl.cacheConns[(cacheID)(pubKey)].GetStatus().Status != ccmsg.ContentRequest_ClientCacheStatus_DEFAULT {
+			return true
+		}
+	}
+	return false
+}
+
 // schedule is responsible for requesting bundles from publishers and chunk data from caches.
 //
 //
@@ -102,9 +113,19 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 						cl.l.Error("encountered an error, shutting down scheduler")
 						return
 					}
-					queue <- bundleOutcome.Bundle
+					// there is no point passing this bundle back down for
+					// decryption etc if it has bundles from a cache we have
+					// failed out
+					if cl.hasFailedCaches(bundleOutcome.Bundle) {
+						cl.l.Debugf("retrying %d deferred chunks at chunk %d", bundleOutcome.Chunks, bundleOutcome.ChunkOffset)
+						retry = &bundleOutcome
+						// break out of this loop to insert a fetch group for this retry in-order
+						finishedOutcomes = true
+					} else {
+						queue <- bundleOutcome.Bundle
+					}
 				case Retry:
-					cl.l.Debugf("retrying %d chunks at chunk %d", bundleOutcome.Chunks, bundleOutcome.ChunkOffset)
+					cl.l.Debugf("retrying %d failed chunks at chunk %d", bundleOutcome.Chunks, bundleOutcome.ChunkOffset)
 					retry = &bundleOutcome
 					// break out of this loop to insert a fetch group for this retry in-order
 					finishedOutcomes = true
@@ -209,7 +230,6 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 					clientNotify:    clientNotify,
 					schedulerNotify: schedulerNotify,
 				})
-
 			}
 
 			queue <- fetchGroup

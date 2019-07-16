@@ -167,6 +167,7 @@ outer:
 			// the bundle we are looking for
 			outcome.Outcome = Deferred
 			outcome.Bundle = group
+			outcome.ChunkOffset = bundle.TicketRequest[0].ChunkIdx
 			completions <- outcome
 			continue
 		}
