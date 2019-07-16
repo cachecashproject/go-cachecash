@@ -228,7 +228,7 @@ outer:
 		retries = 0
 		outcome.Outcome = Completed
 		completions <- outcome
-
+		group.schedulerNotify <- true
 	}
 }
 

@@ -12,9 +12,10 @@ import (
 )
 
 type fetchGroup struct {
-	bundle *ccmsg.TicketBundle
-	err    error
-	notify []chan DownloadResult
+	bundle          *ccmsg.TicketBundle
+	err             error
+	notify          []chan DownloadResult
+	schedulerNotify chan<- bool
 }
 
 // Outcome is used to signal what the outcome of the client handling of a bundle was.
@@ -199,8 +200,9 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 			chunkResults := make([]*chunkRequest, chunks)
 
 			fetchGroup := &fetchGroup{
-				bundle: bundle,
-				notify: []chan DownloadResult{},
+				bundle:          bundle,
+				notify:          []chan DownloadResult{},
+				schedulerNotify: schedulerNotify,
 			}
 
 			for i := 0; i < chunks; i++ {
