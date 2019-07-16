@@ -8,9 +8,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 	build-essential \
 	sqlite3
 
-ARG GO_VERSION=1.12.4
+ARG GO_VERSION=1.12.7
 RUN wget "https://dl.google.com/go/go$GO_VERSION.linux-amd64.tar.gz" \
-	&& echo "d7d1f1f88ddfe55840712dc1747f37a790cbcaa448f6c9cf51bbe10aa65442f5  go$GO_VERSION.linux-amd64.tar.gz" | sha256sum -c - \
+	&& echo "66d83bfb5a9ede000e33c6579a91a29e6b101829ad41fffb5c5bb6c900e109d9  go$GO_VERSION.linux-amd64.tar.gz" | sha256sum -c - \
 	&& tar -C /usr/local -xzf go$GO_VERSION.linux-amd64.tar.gz
 
 ENV GOPATH=/go PATH="/go/bin:$PATH:/usr/local/go/bin"
