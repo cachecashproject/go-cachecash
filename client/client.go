@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
@@ -52,6 +53,8 @@ type client struct {
 
 	publicKey  ed25519.PublicKey
 	privateKey ed25519.PrivateKey
+
+	connMutex  sync.RWMutex
 	cacheConns map[cacheID]cacheConnection
 
 	// TODO: publishers should be pooled and cached too
@@ -93,7 +96,9 @@ func New(l *logrus.Logger, addr string) (Client, error) {
 // If none is available, a new connection is initiated and return.
 func (cl *client) GetCacheConnection(ctx context.Context, addr string, pubKey ed25519.PublicKey) (cacheConnection, error) {
 	cid := (cacheID)(string(pubKey))
+	cl.connMutex.RLock()
 	cc, ok := cl.cacheConns[cid]
+	cl.connMutex.RUnlock()
 	if ok {
 		return cc, nil
 	}
@@ -102,6 +107,8 @@ func (cl *client) GetCacheConnection(ctx context.Context, addr string, pubKey ed
 		cl.l.WithError(err).Error("failed to connect to cache")
 		return nil, err
 	}
+	cl.connMutex.Lock()
+	defer cl.connMutex.Unlock()
 	cl.cacheConns[cid] = cc
 	go cc.Run(ctx)
 	return cc, nil
@@ -233,11 +240,16 @@ outer:
 }
 
 func (cl *client) Close(ctx context.Context) error {
-	// XXX: Open question: how should cache/publisher connection management work?  Probably needs to be a setting, or on
-	// a timer, where we have some way of automatically closing connections we aren't using any longer but do allow for
-	// reuse.  In the meantime, this function (which may not be appropriately named) manually closes them.  It isn't
-	// concurrency-safe, which is probably an issue.
+	// XXX: Open question: how should cache/publisher connection management
+	// work?  Probably needs to be a setting, or on a timer, where we have some
+	// way of automatically closing connections we aren't using any longer but
+	// do allow for reuse.  In the meantime, this function (which may not be
+	// appropriately named) manually closes them.  It does not shut down the
+	// scheduler, which may throw errors after this has been called if it was
+	// running when Close() was called.
 
+	cl.connMutex.Lock()
+	defer cl.connMutex.Unlock()
 	cl.l.Infof("client.Close() - enter - %v cache conns open", len(cl.cacheConns))
 
 	var retErr error

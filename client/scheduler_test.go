@@ -631,7 +631,9 @@ func (suite *SchedulerTestSuite) TestSchedulerClientDefersBundles() {
 	// now acknowledge
 	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 0, Chunks: 2}
 	bundleCompletions <- BundleOutcome{Outcome: Completed, ChunkOffset: 2, Chunks: 2}
+	cl.connMutex.Lock()
 	cl.cacheConns["\x00\x01\x02\x03\x04"] = newCacheMock("", ed25519.PublicKey("\x00\x01\x02\x03\x04"), [][]byte{})
+	cl.connMutex.Unlock()
 	cl.schedule(context.Background(), "/", queue, bundleCompletions)
 
 	assert.Equal(t, 4, len(queue))

@@ -46,6 +46,8 @@ type BundleOutcome struct {
 }
 
 func (cl *client) hasFailedCaches(group *fetchGroup) bool {
+	cl.connMutex.RLock()
+	defer cl.connMutex.RUnlock()
 	for i := range group.bundle.TicketRequest {
 		ci := group.bundle.CacheInfo[i]
 		pubKey := ci.Pubkey.GetPublicKey()
@@ -270,6 +272,8 @@ func (cl *client) waitUntilNextRequest(schedulerNotify chan bool, minimumBacklog
 }
 
 func (cl *client) checkBacklogDepth(n uint64) bool {
+	cl.connMutex.RLock()
+	defer cl.connMutex.RUnlock()
 	for _, c := range cl.cacheConns {
 		if c.GetStatus().BacklogDepth <= n {
 			return true
