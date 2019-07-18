@@ -42,7 +42,6 @@ func (cc *cacheMock) Run(context.Context) {
 			resp:  chunkRequest,
 			cache: cc,
 		}
-		task.schedulerNotify <- true
 	}
 }
 

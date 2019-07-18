@@ -230,9 +230,8 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 				fetchGroup.notify = append(fetchGroup.notify, clientNotify)
 
 				cc.QueueRequest(DownloadTask{
-					req:             b,
-					clientNotify:    clientNotify,
-					schedulerNotify: schedulerNotify,
+					req:          b,
+					clientNotify: clientNotify,
 				})
 			}
 

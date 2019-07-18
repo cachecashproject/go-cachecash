@@ -45,9 +45,8 @@ type cacheConnection interface {
 }
 
 type DownloadTask struct {
-	req             *chunkRequest
-	clientNotify    chan DownloadResult
-	schedulerNotify chan bool
+	req          *chunkRequest
+	clientNotify chan DownloadResult
 }
 
 type DownloadResult struct {
@@ -101,7 +100,6 @@ func (cc *cacheGrpc) Run(ctx context.Context) {
 			resp:  chunkRequest,
 			cache: cc,
 		}
-		task.schedulerNotify <- true
 	}
 	l.Info("downloader successfully terminated")
 }

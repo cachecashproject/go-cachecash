@@ -194,6 +194,8 @@ outer:
 					retries++
 					outcome.Outcome = Retry
 					completions <- outcome
+					// Request immediate scheduler action
+					group.schedulerNotify <- true
 					continue outer
 				}
 			}
@@ -208,6 +210,7 @@ outer:
 			retries++
 			outcome.Outcome = Retry
 			completions <- outcome
+			group.schedulerNotify <- true
 			continue outer
 		}
 
@@ -221,6 +224,7 @@ outer:
 				retries++
 				outcome.Outcome = Retry
 				completions <- outcome
+				group.schedulerNotify <- true
 				continue outer
 			}
 			cl.l.WithFields(logrus.Fields{
