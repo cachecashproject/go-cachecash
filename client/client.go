@@ -112,7 +112,6 @@ func (cl *client) GetCacheConnection(ctx context.Context, addr string, pubKey ed
 	cl.connMutex.Lock()
 	defer cl.connMutex.Unlock()
 	cl.cacheConns[cid] = cc
-	go cc.Run(ctx)
 	return cc, nil
 }
 

@@ -12,7 +12,7 @@ type cacheMock struct {
 	pubkey      string
 	pubkeyBytes []byte
 
-	backlog chan DownloadTask
+	backlog uint64
 	chunks  [][]byte
 }
 
@@ -23,30 +23,23 @@ func newCacheMock(addr string, pubkey ed25519.PublicKey, chunks [][]byte) *cache
 		pubkey:      base64.StdEncoding.EncodeToString(pubkey),
 		pubkeyBytes: pubkey,
 
-		backlog: make(chan DownloadTask, 128),
-		chunks:  chunks,
+		chunks: chunks,
 	}
 }
 
-func (cc *cacheMock) Run(context.Context) {
+// SubmitRequest isn't actually queueing in this test double implementation
+func (cc *cacheMock) SubmitRequest(ctx context.Context, clientNotify chan DownloadResult, chunkRequest *chunkRequest) {
 	if len(cc.chunks) == 0 {
 		return
 	}
 
-	for task := range cc.backlog {
-		chunkRequest := task.req
-		if len(cc.chunks) > 0 {
-			chunkRequest.encData, cc.chunks = cc.chunks[0], cc.chunks[1:]
-		}
-		task.clientNotify <- DownloadResult{
-			resp:  chunkRequest,
-			cache: cc,
-		}
+	if len(cc.chunks) > 0 {
+		chunkRequest.encData, cc.chunks = cc.chunks[0], cc.chunks[1:]
 	}
-}
-
-func (cc *cacheMock) QueueRequest(task DownloadTask) {
-	cc.backlog <- task
+	clientNotify <- DownloadResult{
+		resp:  chunkRequest,
+		cache: cc,
+	}
 }
 
 func (cc *cacheMock) ExchangeTicketL2(context.Context, *ccmsg.ClientCacheRequest) {}
@@ -57,7 +50,7 @@ func (cc *cacheMock) Close(context.Context) error {
 
 func (cc *cacheMock) GetStatus() ccmsg.ContentRequest_ClientCacheStatus {
 	return ccmsg.ContentRequest_ClientCacheStatus{
-		BacklogDepth: uint64(len(cc.backlog)),
+		BacklogDepth: cc.backlog,
 	}
 }
 

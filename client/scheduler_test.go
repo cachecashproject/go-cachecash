@@ -145,12 +145,8 @@ func (suite *SchedulerTestSuite) TestSchedulerOneBundle() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
-			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
-			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -197,12 +193,8 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
-			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
-			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{},
 		},
 	}).Return(suite.newContentResponse(), nil).Once()
 	mock.On("GetContent", &ccmsg.ContentRequest{
@@ -211,12 +203,8 @@ func (suite *SchedulerTestSuite) TestSchedulerZeroBundles() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
-			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
-			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -399,12 +387,8 @@ func (suite *SchedulerTestSuite) TestChangedChunkCount() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
-			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
-			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1, objectSize: 1024}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -442,12 +426,8 @@ func (suite *SchedulerTestSuite) TestChangedChunkSize() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
-			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
-			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1, chunkSize: 256, objectSize: 1024}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -485,12 +465,8 @@ func (suite *SchedulerTestSuite) TestSchedulerClientRetriesOneBundle() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
-			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
-			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1, bundleOffset: 1}), nil).Once()
 	// This is the retried bundle
@@ -500,12 +476,8 @@ func (suite *SchedulerTestSuite) TestSchedulerClientRetriesOneBundle() {
 		RangeBegin:      0,
 		RangeEnd:        256,
 		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
-			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x2,
-			},
-			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x2,
-			},
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -560,12 +532,8 @@ func (suite *SchedulerTestSuite) TestSchedulerClientDefersOneBundleBadly() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
-			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
-			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
@@ -603,12 +571,8 @@ func (suite *SchedulerTestSuite) TestSchedulerClientDefersBundles() {
 		RangeBegin:      256,
 		RangeEnd:        0,
 		CacheStatus: map[string]*ccmsg.ContentRequest_ClientCacheStatus{
-			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
-			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{
-				BacklogDepth: 0x1,
-			},
+			"\x00\x01\x02\x03\x04": &ccmsg.ContentRequest_ClientCacheStatus{},
+			"\x05\x06\x07\x08\x09": &ccmsg.ContentRequest_ClientCacheStatus{},
 		},
 	}).Return(suite.newContentResponse(CROptions{bundles: 1}), nil).Once()
 	mock.makeNewCacheCall(cl.l, "192.0.2.1:1001", "\x00\x01\x02\x03\x04")
