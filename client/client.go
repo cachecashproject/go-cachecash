@@ -271,7 +271,7 @@ func (cl *client) Close(ctx context.Context) error {
 
 func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*chunkRequest, cacheConns []cacheConnection) (*chunkGroup, error) {
 	// Solve colocation puzzle.
-	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/solvePuzzle")
+	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/decryptPuzzle")
 	defer span.End()
 	tt := common.StartTelemetryTimer(cl.l, "solvePuzzle")
 	var singleEncryptedChunks [][]byte
@@ -279,11 +279,15 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 		singleEncryptedChunks = append(singleEncryptedChunks, result.encData)
 	}
 	pi := bundle.Remainder.PuzzleInfo
-	secret, _, err := colocationpuzzle.Solve(colocationpuzzle.Parameters{
-		Rounds:      pi.Rounds,
-		StartOffset: uint32(pi.StartOffset),
-		StartRange:  uint32(pi.StartRange),
-	}, singleEncryptedChunks, pi.Goal)
+	secret, _, err := func() ([]byte, uint32, error) {
+		_, span := trace.StartSpan(ctx, "cachecash.com/Client/solvePuzzle")
+		defer span.End()
+		return colocationpuzzle.Solve(colocationpuzzle.Parameters{
+			Rounds:      pi.Rounds,
+			StartOffset: uint32(pi.StartOffset),
+			StartRange:  uint32(pi.StartRange),
+		}, singleEncryptedChunks, pi.Goal)
+	}()
 	tt.Stop()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to solve colocation puzzle")
