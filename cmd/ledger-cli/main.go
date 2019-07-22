@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"flag"
 	"os"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/ledger"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -31,10 +31,15 @@ func mainC() error {
 	l := logrus.New()
 	ctx := context.Background()
 
-	txdata := make([]byte, 8)
-	_, _ = rand.Read(txdata)
+	txBytes := make([]byte, 8)
+	_, _ = rand.Read(txBytes)
 
-	l.WithFields(logrus.Fields{"tx": hex.EncodeToString(txdata)}).Info("generated new faux-transaction")
+	txdata := ledger.Transaction{}
+	if err := txdata.Unmarshal(txBytes); err != nil {
+		return errors.Wrap(err, "failed to unmarshal transaction")
+	}
+
+	l.WithFields(logrus.Fields{"tx": txdata}).Info("generated new faux-transaction")
 
 	conn, err := grpc.Dial(*ledgerAddr, grpc.WithInsecure())
 	if err != nil {

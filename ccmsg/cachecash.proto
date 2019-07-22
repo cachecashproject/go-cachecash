@@ -1,6 +1,7 @@
 syntax = "proto3";
 package ccmsg;
 
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 
 // ------------------------
 // Common structs
@@ -482,7 +483,10 @@ service Ledger {
 }
 
 message PostTransactionRequest {
-    bytes tx = 1;
+    bytes tx = 1 [
+        (gogoproto.nullable) = false,
+        (gogoproto.customtype) = "github.com/cachecashproject/go-cachecash/ledger.Transaction"
+    ];
 }
 
 message PostTransactionResponse {

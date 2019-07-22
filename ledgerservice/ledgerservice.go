@@ -3,7 +3,6 @@ package ledgerservice
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
@@ -31,7 +30,7 @@ func NewLedgerService(l *logrus.Logger, db *sql.DB) (*LedgerService, error) {
 }
 
 func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTransactionRequest) (*ccmsg.PostTransactionResponse, error) {
-	s.l.WithFields(logrus.Fields{"tx": hex.EncodeToString(req.Tx)}).Info("PostTransaction")
+	s.l.WithFields(logrus.Fields{"tx": req.Tx}).Info("PostTransaction")
 
 	dbTx, err := s.db.Begin()
 	if err != nil {
@@ -39,7 +38,12 @@ func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTran
 	}
 	// defer dbTx.Close() ?
 
-	mpTx := models.MempoolTransaction{Raw: req.Tx}
+	txBytes, err := req.Tx.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal tx into bytes")
+	}
+
+	mpTx := models.MempoolTransaction{Raw: txBytes}
 	if err := mpTx.Insert(ctx, dbTx, boil.Infer()); err != nil {
 		return nil, errors.Wrap(err, "failed to insert mempool transaction")
 	}
