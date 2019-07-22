@@ -16,56 +16,67 @@ import "testing"
 func TestParent(t *testing.T) {
 	t.Run("Blocks", testBlocks)
 	t.Run("MempoolTransactions", testMempoolTransactions)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogs)
 }
 
 func TestDelete(t *testing.T) {
 	t.Run("Blocks", testBlocksDelete)
 	t.Run("MempoolTransactions", testMempoolTransactionsDelete)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
 	t.Run("Blocks", testBlocksQueryDeleteAll)
 	t.Run("MempoolTransactions", testMempoolTransactionsQueryDeleteAll)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
 	t.Run("Blocks", testBlocksSliceDeleteAll)
 	t.Run("MempoolTransactions", testMempoolTransactionsSliceDeleteAll)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
 	t.Run("Blocks", testBlocksExists)
 	t.Run("MempoolTransactions", testMempoolTransactionsExists)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsExists)
 }
 
 func TestFind(t *testing.T) {
 	t.Run("Blocks", testBlocksFind)
 	t.Run("MempoolTransactions", testMempoolTransactionsFind)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsFind)
 }
 
 func TestBind(t *testing.T) {
 	t.Run("Blocks", testBlocksBind)
 	t.Run("MempoolTransactions", testMempoolTransactionsBind)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsBind)
 }
 
 func TestOne(t *testing.T) {
 	t.Run("Blocks", testBlocksOne)
 	t.Run("MempoolTransactions", testMempoolTransactionsOne)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsOne)
 }
 
 func TestAll(t *testing.T) {
 	t.Run("Blocks", testBlocksAll)
 	t.Run("MempoolTransactions", testMempoolTransactionsAll)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsAll)
 }
 
 func TestCount(t *testing.T) {
 	t.Run("Blocks", testBlocksCount)
 	t.Run("MempoolTransactions", testMempoolTransactionsCount)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsCount)
 }
 
 func TestHooks(t *testing.T) {
 	t.Run("Blocks", testBlocksHooks)
 	t.Run("MempoolTransactions", testMempoolTransactionsHooks)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsHooks)
 }
 
 func TestInsert(t *testing.T) {
@@ -73,6 +84,8 @@ func TestInsert(t *testing.T) {
 	t.Run("Blocks", testBlocksInsertWhitelist)
 	t.Run("MempoolTransactions", testMempoolTransactionsInsert)
 	t.Run("MempoolTransactions", testMempoolTransactionsInsertWhitelist)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsInsert)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsInsertWhitelist)
 }
 
 // TestToOne tests cannot be run in parallel
@@ -118,24 +131,29 @@ func TestToManyRemove(t *testing.T) {}
 func TestReload(t *testing.T) {
 	t.Run("Blocks", testBlocksReload)
 	t.Run("MempoolTransactions", testMempoolTransactionsReload)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsReload)
 }
 
 func TestReloadAll(t *testing.T) {
 	t.Run("Blocks", testBlocksReloadAll)
 	t.Run("MempoolTransactions", testMempoolTransactionsReloadAll)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
 	t.Run("Blocks", testBlocksSelect)
 	t.Run("MempoolTransactions", testMempoolTransactionsSelect)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsSelect)
 }
 
 func TestUpdate(t *testing.T) {
 	t.Run("Blocks", testBlocksUpdate)
 	t.Run("MempoolTransactions", testMempoolTransactionsUpdate)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
 	t.Run("Blocks", testBlocksSliceUpdateAll)
 	t.Run("MempoolTransactions", testMempoolTransactionsSliceUpdateAll)
+	t.Run("TransactionAuditlogs", testTransactionAuditlogsSliceUpdateAll)
 }

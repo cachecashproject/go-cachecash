@@ -48,6 +48,14 @@ func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTran
 		return nil, errors.Wrap(err, "failed to insert mempool transaction")
 	}
 
+	taTx := models.TransactionAuditlog{
+		Raw:    txBytes,
+		Status: models.TransactionStatusPending,
+	}
+	if err := taTx.Insert(ctx, dbTx, boil.Infer()); err != nil {
+		return nil, errors.Wrap(err, "failed to insert transaction into audit log")
+	}
+
 	if err := dbTx.Commit(); err != nil {
 		return nil, errors.Wrap(err, "failed to commit database transaction")
 	}

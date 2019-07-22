@@ -4,9 +4,11 @@
 package models
 
 var TableNames = struct {
-	Block              string
-	MempoolTransaction string
+	Block               string
+	MempoolTransaction  string
+	TransactionAuditlog string
 }{
-	Block:              "block",
-	MempoolTransaction: "mempool_transaction",
+	Block:               "block",
+	MempoolTransaction:  "mempool_transaction",
+	TransactionAuditlog: "transaction_auditlog",
 }
