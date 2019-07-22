@@ -1,9 +1,9 @@
 package ledger
 
 import (
-	"encoding/hex"
 	"testing"
 
+	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -13,15 +13,6 @@ const (
 	// An arbitrary size that is much larger than any individual thing we want to marshal.
 	bufferSize = 4096
 )
-
-// XXX: Move this somewhere it can be reused?
-func mustDecodeString(s string) []byte {
-	d, err := hex.DecodeString(s)
-	if err != nil {
-		panic(err)
-	}
-	return d
-}
 
 type TransactionTestSuite struct {
 	suite.Suite
@@ -46,9 +37,9 @@ func (suite *TransactionTestSuite) TestTransactionInput_RoundTrip() {
 	t := suite.T()
 
 	ti := TransactionInput{
-		PreviousTx: mustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+		PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 		Index:      0,
-		ScriptSig:  mustDecodeString("abc123"),
+		ScriptSig:  testutil.MustDecodeString("abc123"),
 		SequenceNo: 0xFFFFFFFF,
 	}
 
@@ -70,7 +61,7 @@ func (suite *TransactionTestSuite) TestTransactionOutput_RoundTrip() {
 
 	to := TransactionOutput{
 		Value:        1234,
-		ScriptPubKey: mustDecodeString("def456"),
+		ScriptPubKey: testutil.MustDecodeString("def456"),
 	}
 
 	data := make([]byte, bufferSize)
@@ -91,9 +82,9 @@ func (suite *TransactionTestSuite) TestTransactionWitness_RoundTrip() {
 
 	tw := TransactionWitness{
 		Data: [][]byte{
-			mustDecodeString("abc123"),
-			mustDecodeString("cafebabecafebabe"),
-			mustDecodeString("def456"),
+			testutil.MustDecodeString("abc123"),
+			testutil.MustDecodeString("cafebabecafebabe"),
+			testutil.MustDecodeString("def456"),
 		},
 	}
 
@@ -119,9 +110,9 @@ func (suite *TransactionTestSuite) TestTransferTransaction_RoundTrip() {
 		Body: &TransferTransaction{
 			Inputs: []TransactionInput{
 				{
-					PreviousTx: mustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+					PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 					Index:      0,
-					ScriptSig:  mustDecodeString("abc123"),
+					ScriptSig:  testutil.MustDecodeString("abc123"),
 					SequenceNo: 0xFFFFFFFF,
 				},
 			},
@@ -133,7 +124,7 @@ func (suite *TransactionTestSuite) TestTransferTransaction_RoundTrip() {
 			Outputs: []TransactionOutput{
 				{
 					Value:        1234,
-					ScriptPubKey: mustDecodeString("def456"),
+					ScriptPubKey: testutil.MustDecodeString("def456"),
 				},
 			},
 		},

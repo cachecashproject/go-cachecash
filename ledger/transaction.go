@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 
@@ -117,6 +118,17 @@ func (tx *Transaction) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return nil
+}
+
+func (tx *Transaction) TXID() ([]byte, error) {
+	data, err := tx.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal transaction")
+	}
+
+	d := sha256.Sum256(data)
+	d = sha256.Sum256(d[:])
+	return d[:], nil
 }
 
 type TransactionBody interface {

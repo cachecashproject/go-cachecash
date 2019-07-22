@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"encoding/hex"
 	"math/rand"
 
 	"github.com/pkg/errors"
@@ -20,4 +21,12 @@ func RandBytesFromSource(src rand.Source, n int) []byte {
 		panic(errors.Wrap(err, "failed to generate random digest"))
 	}
 	return x
+}
+
+func MustDecodeString(s string) []byte {
+	d, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return d
 }
