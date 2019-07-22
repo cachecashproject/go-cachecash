@@ -121,14 +121,12 @@ func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to build client-cache request")
 	}
-	tt := common.StartTelemetryTimer(cc.l, "getChunk")
 	msgData, err := cc.grpcClient.GetChunk(ctx, reqData)
 	if err != nil {
 		// TODO - make this transient - reset after a period of time
 		cc.status = ccmsg.ContentRequest_ClientCacheStatus_UNUSABLE
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
-	tt.Stop()
 	cc.l.WithFields(logrus.Fields{
 		"cache":    cc.PublicKey(),
 		"chunkIdx": b.bundle.TicketRequest[b.idx].ChunkIdx,
@@ -140,13 +138,11 @@ func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to build client-cache request")
 	}
-	tt = common.StartTelemetryTimer(cc.l, "exchangeTicketL1")
 	msgL1, err := cc.grpcClient.ExchangeTicketL1(ctx, reqL1)
 	if err != nil {
 		cc.status = ccmsg.ContentRequest_ClientCacheStatus_UNUSABLE
 		return errors.Wrap(err, "failed to exchange request ticket with cache")
 	}
-	tt.Stop()
 	cc.l.WithField("cache", cc.PublicKey()).Info("got L1 response from cache")
 
 	// Decrypt data.

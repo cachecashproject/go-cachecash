@@ -273,7 +273,6 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 	// Solve colocation puzzle.
 	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/decryptPuzzle")
 	defer span.End()
-	tt := common.StartTelemetryTimer(cl.l, "solvePuzzle")
 	var singleEncryptedChunks [][]byte
 	for _, result := range chunkResults {
 		singleEncryptedChunks = append(singleEncryptedChunks, result.encData)
@@ -288,7 +287,6 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 			StartRange:  uint32(pi.StartRange),
 		}, singleEncryptedChunks, pi.Goal)
 	}()
-	tt.Stop()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to solve colocation puzzle")
 	}
@@ -310,9 +308,7 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to build L2 ticket request")
 		}
-		tt := common.StartTelemetryTimer(cl.l, "exchangeTicketL2")
 		err = conn.ExchangeTicketL2(ctx, req)
-		tt.Stop()
 		if err != nil {
 			// TODO: This should not cause us to abort sending the L2 ticket to other caches, and should not prevent us
 			// from returning the plaintext data.
@@ -321,22 +317,28 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 	}
 
 	// Decrypt singly-encrypted chunks to produce final plaintext.
-	tt = common.StartTelemetryTimer(cl.l, "decryptData")
-	var plaintextChunks [][]byte
-	var chunkIdx []uint64
-	for i, ciphertext := range singleEncryptedChunks {
-		plaintext, err := util.EncryptChunk(
-			bundle.TicketRequest[i].ChunkIdx,
-			bundle.Remainder.RequestSequenceNo,
-			ticketL2.InnerSessionKey[i].Key,
-			ciphertext)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to decrypt singly-encrypted chunk")
+	plaintextChunks, chunkIdx, err := func() ([][]byte, []uint64, error) {
+		_, span := trace.StartSpan(ctx, "cachecash.com/Client/decryptData")
+		defer span.End()
+		var plaintextChunks [][]byte
+		var chunkIdx []uint64
+		for i, ciphertext := range singleEncryptedChunks {
+			plaintext, err := util.EncryptChunk(
+				bundle.TicketRequest[i].ChunkIdx,
+				bundle.Remainder.RequestSequenceNo,
+				ticketL2.InnerSessionKey[i].Key,
+				ciphertext)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to decrypt singly-encrypted chunk")
+			}
+			plaintextChunks = append(plaintextChunks, plaintext)
+			chunkIdx = append(chunkIdx, bundle.TicketRequest[i].ChunkIdx)
 		}
-		plaintextChunks = append(plaintextChunks, plaintext)
-		chunkIdx = append(chunkIdx, bundle.TicketRequest[i].ChunkIdx)
+		return plaintextChunks, chunkIdx, nil
+	}()
+	if err != nil {
+		return nil, err
 	}
-	tt.Stop()
 
 	// Return data to parent.
 	cl.l.Info("chunk-group fetch completed without error")
