@@ -38,6 +38,46 @@ func (suite *ScriptTestSuite) TestP2WPKHOutput_StandardOutput() {
 	assert.Nil(t, scr.StandardOutput(), "transaction should be standard")
 }
 
+func (suite *ScriptTestSuite) TestP2WPKHOutput_Marshal() {
+	t := suite.T()
+
+	pubKeyHash := testutil.MustDecodeString("deadb33fdeadb33fdeadb33fdeadb33fdeadb33f")
+	scr, err := MakeP2WPKHOutputScript(pubKeyHash)
+	assert.Nil(t, err)
+
+	buf, err := scr.Marshal()
+	assert.Nil(t, err)
+	assert.Equal(t, testutil.MustDecodeString("0014deadb33fdeadb33fdeadb33fdeadb33fdeadb33f"), buf)
+}
+
+func (suite *ScriptTestSuite) TestP2WPKHOutput_ParseScript() {
+	t := suite.T()
+
+	buf := testutil.MustDecodeString("0014deadb33fdeadb33fdeadb33fdeadb33fdeadb33f")
+	scr, err := ParseScript(buf)
+	assert.Nil(t, err)
+
+	assert.Nil(t, scr.StandardOutput())
+}
+
+func (suite *ScriptTestSuite) TestP2WPKHOutput_ParseScript_BadOpcode() {
+	t := suite.T()
+
+	buf := testutil.MustDecodeString("00ff")
+	scr, err := ParseScript(buf)
+	assert.NotNil(t, err)
+	assert.Nil(t, scr)
+}
+
+func (suite *ScriptTestSuite) TestP2WPKHOutput_ParseScript_ImmediateUnderrun() {
+	t := suite.T()
+
+	buf := testutil.MustDecodeString("0014deadb33fdeadb33fdeadb33fdeadb33fdeadb3") // one byte missing
+	scr, err := ParseScript(buf)
+	assert.NotNil(t, err)
+	assert.Nil(t, scr)
+}
+
 func (suite *ScriptTestSuite) TestP2WPKHOutput_PrettyPrint() {
 	t := suite.T()
 

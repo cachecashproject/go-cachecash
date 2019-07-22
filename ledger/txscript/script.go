@@ -37,7 +37,29 @@ type Script struct {
 }
 
 func ParseScript(buf []byte) (*Script, error) {
-	return nil, nil
+	scr := &Script{}
+
+	var i int
+	for i < len(buf) {
+		opcode, ok := OPCODES[buf[i]]
+		if !ok {
+			return nil, fmt.Errorf("unexpected opcode: %#x", buf[i])
+		}
+
+		// N.B.: We assume a single immediate if the instruction length is larger than /1.
+		ins := &instruction{opcode: opcode}
+		if opcode.length > 1 {
+			if i+opcode.length > len(buf) {
+				return nil, fmt.Errorf("overrun: expected immediate of %v byte(s) but found only %v", opcode.length-1, len(buf)-i)
+			}
+			ins.immediates = [][]byte{buf[i+1 : i+opcode.length]}
+		}
+
+		scr.ast = append(scr.ast, ins)
+		i += opcode.length
+	}
+
+	return scr, nil
 }
 
 func (scr *Script) Marshal() ([]byte, error) {
