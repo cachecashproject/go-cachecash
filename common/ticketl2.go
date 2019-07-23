@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/colocationpuzzle"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 )
 
 func EncryptTicketL2(p *colocationpuzzle.Puzzle, t *ccmsg.TicketL2) ([]byte, error) {
@@ -27,7 +29,9 @@ func EncryptTicketL2(p *colocationpuzzle.Puzzle, t *ccmsg.TicketL2) ([]byte, err
 	return ciphertext, nil
 }
 
-func DecryptTicketL2(secret, ciphertext []byte) (*ccmsg.TicketL2, error) {
+func DecryptTicketL2(ctx context.Context, secret, ciphertext []byte) (*ccmsg.TicketL2, error) {
+	_, span := trace.StartSpan(ctx, "cachecash.com/Client/decryptTicketL2")
+	defer span.End()
 	p := &colocationpuzzle.Puzzle{Secret: secret}
 
 	block, err := aes.NewCipher(p.Key())

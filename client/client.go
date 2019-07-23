@@ -296,7 +296,7 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 	}
 
 	// Decrypt L2 ticket.
-	ticketL2, err := common.DecryptTicketL2(secret, bundle.EncryptedTicketL2)
+	ticketL2, err := common.DecryptTicketL2(ctx, secret, bundle.EncryptedTicketL2)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to decrypt L2 ticket")
 	}

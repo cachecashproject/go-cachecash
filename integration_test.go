@@ -137,7 +137,7 @@ func (suite *IntegrationTestSuite) TestTransfer() {
 		assert.Nil(t, err)
 
 		// Decrypt L2 ticket.
-		ticketL2, err := common.DecryptTicketL2(secret, bundle.EncryptedTicketL2)
+		ticketL2, err := common.DecryptTicketL2(ctx, secret, bundle.EncryptedTicketL2)
 		assert.Nil(t, err)
 
 		// Give L2 tickets to caches.
