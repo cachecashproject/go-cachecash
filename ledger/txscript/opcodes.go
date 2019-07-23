@@ -1,5 +1,13 @@
 package txscript
 
+import (
+	"bytes"
+	"crypto/sha256"
+	"errors"
+
+	"golang.org/x/crypto/ripemd160"
+)
+
 type opcode struct {
 	code   byte
 	length int // The number of bytes taken by the instruction, including the opcode itself and any immediate.
@@ -32,25 +40,96 @@ var OPCODES = map[uint8]*opcode{
 }
 
 func opConst(vm *VirtualMachine, inst *instruction) error {
-	return nil
+	switch inst.opcode.code {
+	case OP_0:
+		vm.stack.PushInt(0)
+		return nil
+	default:
+		return errors.New("unexpected opcode for handler")
+	}
 }
 
 func opPushData(vm *VirtualMachine, inst *instruction) error {
-	return nil
+	switch inst.opcode.code {
+	case OP_DATA_20:
+		vm.stack.PushBytes(inst.immediates[0])
+		return nil
+	default:
+		return errors.New("unexpected opcode for handler")
+	}
 }
 
 func opDup(vm *VirtualMachine, inst *instruction) error {
-	return nil
+	switch inst.opcode.code {
+	case OP_DUP:
+		v, err := vm.stack.PeekBytes(vm.stack.Size() - 1)
+		if err != nil {
+			return err
+		}
+		vm.stack.PushBytes(v)
+		return nil
+	default:
+		return errors.New("unexpected opcode for handler")
+	}
 }
 
 func opHash160(vm *VirtualMachine, inst *instruction) error {
-	return nil
+	switch inst.opcode.code {
+	case OP_HASH160:
+		v, err := vm.stack.PopBytes()
+		if err != nil {
+			return err
+		}
+
+		d := sha256.Sum256(v)
+		vm.stack.PushBytes(ripemd160Sum(d[:]))
+		return nil
+	default:
+		return errors.New("unexpected opcode for handler")
+	}
+}
+
+func ripemd160Sum(b []byte) []byte {
+	h := ripemd160.New()
+	h.Write(b)
+	return h.Sum(nil)
 }
 
 func opEqual(vm *VirtualMachine, inst *instruction) error {
-	return nil
+	switch inst.opcode.code {
+	case OP_EQUALVERIFY:
+		// OP_EQUAL
+		v0, err := vm.stack.PopBytes()
+		if err != nil {
+			return err
+		}
+		v1, err := vm.stack.PopBytes()
+		if err != nil {
+			return err
+		}
+		vm.stack.PushBool(bytes.Equal(v0, v1))
+
+		// OP_VERIFY
+		v, err := vm.stack.PopBool()
+		if err != nil {
+			return err
+		}
+		if !v {
+			return errors.New("OP_VERIFY failed; top stack element is not truthy")
+		}
+
+		// Done!
+		return nil
+	default:
+		return errors.New("unexpected opcode for handler")
+	}
 }
 
 func opCheckSig(vm *VirtualMachine, inst *instruction) error {
-	return nil
+	switch inst.opcode.code {
+	case OP_CHECKSIG:
+		return errors.New("oops: OP_CHECKSIG not implemented")
+	default:
+		return errors.New("unexpected opcode for handler")
+	}
 }

@@ -6,13 +6,14 @@
 package txscript
 
 type VirtualMachine struct {
+	// stack is the underlying data on the stack.  The 0th element of this slice is the bottom element on the stack.
 	stack *ScriptStack
 }
 
-// ScriptStack represents a Bitcoin script stack.  This type offers utility functions for interpreting values that will
-// be pushed or popped as various types.
-type ScriptStack struct {
-	data [][]byte
+func (vm *VirtualMachine) Execute(scr *Script) error {
+	return nil
 }
 
-// TODO: Need to push/pop/peek []byte, various types of ints, etc.
+func (vm *VirtualMachine) ExecuteWitness(version uint8) error {
+	return nil
+}
