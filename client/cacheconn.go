@@ -9,6 +9,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/util"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
@@ -32,16 +33,24 @@ type cacheGrpc struct {
 	// The GRPC Connection and API client
 	conn       *grpc.ClientConn
 	grpcClient ccmsg.ClientCacheClient
+	// l2 ticket exchanges are completed
+	l2Done  <-chan bool
+	l2Queue chan<- l2payment
 }
 
 type cacheConnection interface {
 	Run(context.Context)
 	QueueRequest(DownloadTask)
-	ExchangeTicketL2(context.Context, *ccmsg.ClientCacheRequest) error
+	ExchangeTicketL2(context.Context, *ccmsg.ClientCacheRequest)
 	Close(context.Context) error
 	GetStatus() ccmsg.ContentRequest_ClientCacheStatus
 	PublicKey() string
 	PublicKeyBytes() []byte
+}
+
+type l2payment struct {
+	span *trace.Span
+	req  *ccmsg.ClientCacheRequest
 }
 
 type DownloadTask struct {
@@ -63,6 +72,9 @@ func newCacheConnection(l *logrus.Logger, addr string, pubkey ed25519.PublicKey)
 	}
 
 	grpcClient := ccmsg.NewClientCacheClient(conn)
+	l2Done := make(chan bool)
+	l2Queue := make(chan l2payment)
+	go sendL2Payments(l2Done, l2Queue, grpcClient, conn, l)
 
 	return &cacheGrpc{
 		l:      l,
@@ -73,11 +85,20 @@ func newCacheConnection(l *logrus.Logger, addr string, pubkey ed25519.PublicKey)
 		conn:       conn,
 		grpcClient: grpcClient,
 		backlog:    make(chan DownloadTask, 128),
+		l2Done:     l2Done,
+		l2Queue:    l2Queue,
 	}, nil
 }
 
 func (cc *cacheGrpc) Close(ctx context.Context) error {
 	cc.l.WithField("cache", cc.PublicKey()).Info("cacheGrpc.Close() - enter")
+	// A nil request to terminate the goroutine
+	cc.l2Queue <- l2payment{}
+	select {
+	case <-cc.l2Done:
+	case <-ctx.Done():
+		return errors.Wrap(ctx.Err(), "cache connection close cancelled")
+	}
 	if err := cc.conn.Close(); err != nil {
 		return errors.Wrap(err, "failed to close connection")
 	}
@@ -108,9 +129,8 @@ func (cc *cacheGrpc) QueueRequest(task DownloadTask) {
 	cc.backlog <- task
 }
 
-func (cc *cacheGrpc) ExchangeTicketL2(ctx context.Context, req *ccmsg.ClientCacheRequest) error {
-	_, err := cc.grpcClient.ExchangeTicketL2(ctx, req)
-	return err
+func (cc *cacheGrpc) ExchangeTicketL2(ctx context.Context, req *ccmsg.ClientCacheRequest) {
+	cc.l2Queue <- l2payment{span: trace.FromContext(ctx), req: req}
 }
 
 func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
@@ -172,4 +192,21 @@ func (cc *cacheGrpc) PublicKey() string {
 
 func (cc *cacheGrpc) PublicKeyBytes() []byte {
 	return cc.pubkey
+}
+
+// send l2 payments to a cache asynchronously; terminates on a nil payment object
+func sendL2Payments(l2Done chan bool, l2Queue chan l2payment, grpcClient ccmsg.ClientCacheClient, conn *grpc.ClientConn, l *logrus.Logger) {
+	for payment := range l2Queue {
+		if payment.req == nil {
+			l2Done <- true
+			return
+		}
+		func(ctx context.Context, payment l2payment) {
+			ctx = trace.NewContext(ctx, payment.span)
+			_, err := grpcClient.ExchangeTicketL2(ctx, payment.req)
+			if err != nil {
+				l.Errorf("Failed to send L2 payment to cache %s", err)
+			}
+		}(context.Background(), payment)
+	}
 }

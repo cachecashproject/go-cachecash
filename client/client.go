@@ -302,23 +302,21 @@ func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle,
 	}
 
 	// Send the L2 ticket to each cache.
-	// XXX: This should not be serialized.
-	// l2ResultCh := make(chan l2Result)
-	for _, conn := range cacheConns {
-		req, err := bundle.BuildClientCacheRequest(&ccmsg.TicketL2Info{
-			EncryptedTicketL2: bundle.EncryptedTicketL2,
-			PuzzleSecret:      secret,
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to build L2 ticket request")
+	func() {
+		ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/ExchangeL2Tickets")
+		defer span.End()
+		for _, conn := range cacheConns {
+			req, err := bundle.BuildClientCacheRequest(&ccmsg.TicketL2Info{
+				EncryptedTicketL2: bundle.EncryptedTicketL2,
+				PuzzleSecret:      secret,
+			})
+			if err != nil {
+				cl.l.Errorf("failed to build L2 ticket request for cache %s", conn.PublicKey())
+				continue
+			}
+			conn.ExchangeTicketL2(ctx, req)
 		}
-		err = conn.ExchangeTicketL2(ctx, req)
-		if err != nil {
-			// TODO: This should not cause us to abort sending the L2 ticket to other caches, and should not prevent us
-			// from returning the plaintext data.
-			return nil, errors.Wrap(err, "failed to send L2 ticket to cache")
-		}
-	}
+	}()
 
 	// Decrypt singly-encrypted chunks to produce final plaintext.
 	plaintextChunks, chunkIdx, err := func() ([][]byte, []uint64, error) {
