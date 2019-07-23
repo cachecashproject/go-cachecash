@@ -2,10 +2,7 @@ package txscript
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"errors"
-
-	"golang.org/x/crypto/ripemd160"
 )
 
 type opcode struct {
@@ -39,8 +36,8 @@ var OPCODES = map[uint8]*opcode{
 	// OP_CHECKMULTISIGVERIFY: {OP_CHECKMULTISIGVERIFY, 1, "OP_CHECKMULTISIGVERIFY", opCheckSig},
 }
 
-func opConst(vm *VirtualMachine, inst *instruction) error {
-	switch inst.opcode.code {
+func opConst(vm *VirtualMachine, ins *instruction) error {
+	switch ins.opcode.code {
 	case OP_0:
 		vm.stack.PushInt(0)
 		return nil
@@ -49,18 +46,18 @@ func opConst(vm *VirtualMachine, inst *instruction) error {
 	}
 }
 
-func opPushData(vm *VirtualMachine, inst *instruction) error {
-	switch inst.opcode.code {
+func opPushData(vm *VirtualMachine, ins *instruction) error {
+	switch ins.opcode.code {
 	case OP_DATA_20:
-		vm.stack.PushBytes(inst.immediates[0])
+		vm.stack.PushBytes(ins.immediates[0])
 		return nil
 	default:
 		return errors.New("unexpected opcode for handler")
 	}
 }
 
-func opDup(vm *VirtualMachine, inst *instruction) error {
-	switch inst.opcode.code {
+func opDup(vm *VirtualMachine, ins *instruction) error {
+	switch ins.opcode.code {
 	case OP_DUP:
 		v, err := vm.stack.PeekBytes(vm.stack.Size() - 1)
 		if err != nil {
@@ -73,30 +70,23 @@ func opDup(vm *VirtualMachine, inst *instruction) error {
 	}
 }
 
-func opHash160(vm *VirtualMachine, inst *instruction) error {
-	switch inst.opcode.code {
+func opHash160(vm *VirtualMachine, ins *instruction) error {
+	switch ins.opcode.code {
 	case OP_HASH160:
 		v, err := vm.stack.PopBytes()
 		if err != nil {
 			return err
 		}
 
-		d := sha256.Sum256(v)
-		vm.stack.PushBytes(ripemd160Sum(d[:]))
+		vm.stack.PushBytes(hash160Sum(v))
 		return nil
 	default:
 		return errors.New("unexpected opcode for handler")
 	}
 }
 
-func ripemd160Sum(b []byte) []byte {
-	h := ripemd160.New()
-	h.Write(b)
-	return h.Sum(nil)
-}
-
-func opEqual(vm *VirtualMachine, inst *instruction) error {
-	switch inst.opcode.code {
+func opEqual(vm *VirtualMachine, ins *instruction) error {
+	switch ins.opcode.code {
 	case OP_EQUALVERIFY:
 		// OP_EQUAL
 		v0, err := vm.stack.PopBytes()
@@ -125,10 +115,23 @@ func opEqual(vm *VirtualMachine, inst *instruction) error {
 	}
 }
 
-func opCheckSig(vm *VirtualMachine, inst *instruction) error {
-	switch inst.opcode.code {
+func opCheckSig(vm *VirtualMachine, ins *instruction) error {
+	switch ins.opcode.code {
 	case OP_CHECKSIG:
-		return errors.New("oops: OP_CHECKSIG not implemented")
+		vSig, err := vm.stack.PopBytes()
+		if err != nil {
+			return err
+		}
+		vPubKey, err := vm.stack.PopBytes()
+		if err != nil {
+			return err
+		}
+
+		// XXX: Implement actual check once we have sighash.
+		_, _ = vSig, vPubKey
+		vm.stack.PushBool(true)
+
+		return nil
 	default:
 		return errors.New("unexpected opcode for handler")
 	}
