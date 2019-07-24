@@ -110,8 +110,7 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 			Body: &TransferTransaction{
 				Inputs: []TransactionInput{
 					{
-						PreviousTx: prevTXID,
-						Index:      0,
+						Outpoint:   Outpoint{PreviousTx: prevTXID, Index: 0},
 						ScriptSig:  nil, // N.B.: For P2WPKH transactions, this must always be empty.
 						SequenceNo: 0xFFFFFFFF,
 					},

@@ -293,9 +293,13 @@ func (tx *EscrowOpenTransaction) UnmarshalFrom(data []byte) (n int, err error) {
 	return 0, nil
 }
 
-type TransactionInput struct {
+type Outpoint struct {
 	PreviousTx []byte // TODO: type
 	Index      uint8  // (of output in PreviousTx) // TODO: type
+}
+
+type TransactionInput struct {
+	Outpoint
 	ScriptSig  []byte // (first half of script) // TODO: type
 	SequenceNo uint32 // Normally 0xFFFFFFFF; has no effect unless the transaction has LockTime > 0.
 }

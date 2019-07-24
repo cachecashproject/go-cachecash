@@ -37,8 +37,10 @@ func (suite *TransactionTestSuite) TestTransactionInput_RoundTrip() {
 	t := suite.T()
 
 	ti := TransactionInput{
-		PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-		Index:      0,
+		Outpoint: Outpoint{
+			PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+			Index:      0,
+		},
 		ScriptSig:  testutil.MustDecodeString("abc123"),
 		SequenceNo: 0xFFFFFFFF,
 	}
@@ -110,8 +112,10 @@ func (suite *TransactionTestSuite) TestTransferTransaction_RoundTrip() {
 		Body: &TransferTransaction{
 			Inputs: []TransactionInput{
 				{
-					PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-					Index:      0,
+					Outpoint: Outpoint{
+						PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+						Index:      0,
+					},
 					ScriptSig:  testutil.MustDecodeString("abc123"),
 					SequenceNo: 0xFFFFFFFF,
 				},
