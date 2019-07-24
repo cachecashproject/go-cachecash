@@ -7,11 +7,11 @@ import (
 	"os"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/ledger"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -41,7 +41,7 @@ func mainC() error {
 
 	l.WithFields(logrus.Fields{"tx": txdata}).Info("generated new faux-transaction")
 
-	conn, err := grpc.Dial(*ledgerAddr, grpc.WithInsecure())
+	conn, err := common.GRPCDial(*ledgerAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to dial ledger service")
 	}
