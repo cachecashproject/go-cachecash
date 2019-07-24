@@ -1,7 +1,6 @@
 package ledger
 
 import (
-	"crypto/sha256"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -36,15 +35,8 @@ func (suite *AddressTestSuite) makeP2WPKHAddress() Address {
 	if err != nil {
 		t.Fatalf("failed to generate keypair: %v", err)
 	}
-	pubHash := sha256.Sum256(pub)
 
-	a := &P2WPKHAddress{
-		AddressVersion:        AddressP2WPKHTestnet,
-		WitnessProgramVersion: 0,
-		PublicKeyHash:         pubHash[0:AddressHashSize],
-	}
-
-	return a
+	return MakeP2WPKHAddress(pub)
 }
 
 func (suite *AddressTestSuite) TestBase58_RoundTrip() {

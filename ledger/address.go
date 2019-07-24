@@ -7,6 +7,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/ed25519"
 )
 
 const (
@@ -34,6 +35,17 @@ type P2WPKHAddress struct {
 }
 
 var _ Address = (*P2WPKHAddress)(nil)
+
+func MakeP2WPKHAddress(pubKey ed25519.PublicKey) *P2WPKHAddress {
+	pubHash := sha256.Sum256(pubKey)
+	pubHash = sha256.Sum256(pubHash[:]) // N.B.: We differ here from Bitcoin, which uses a RIPEMD-160 digest.
+
+	return &P2WPKHAddress{
+		AddressVersion:        AddressP2WPKHTestnet,
+		WitnessProgramVersion: 0,
+		PublicKeyHash:         pubHash[0:AddressHashSize],
+	}
+}
 
 func (a *P2WPKHAddress) Bytes() []byte {
 	data := []byte{

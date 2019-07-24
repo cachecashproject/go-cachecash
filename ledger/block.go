@@ -5,12 +5,13 @@ import (
 	"encoding/binary"
 
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/ed25519"
 )
 
 type BlockHeader struct {
 	Version       uint32
-	PreviousBlock []byte
-	MerkleRoot    []byte
+	PreviousBlock []byte // CanonicalDigest of previous block (32 bytes)
+	MerkleRoot    []byte // 32 bytes
 	Timestamp     uint32
 	// Bits          uint32
 	// Nonce         uint32
@@ -23,6 +24,28 @@ type BlockHeader struct {
 type Block struct {
 	Header       *BlockHeader
 	Transactions []Transaction
+}
+
+func NewBlock(sigKey ed25519.PrivateKey, previousBlock []byte, txs []Transaction) (*Block, error) {
+	b := &Block{
+		Header: &BlockHeader{
+			Version:       0,
+			PreviousBlock: previousBlock,
+			Timestamp:     0, // XXX: Populate this correctly.
+		},
+		Transactions: txs,
+	}
+
+	var err error
+	b.Header.MerkleRoot, err = b.MerkleRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to compute merkle root")
+	}
+
+	cd := b.CanonicalDigest()
+	b.Header.Signature = ed25519.Sign(sigKey, cd)
+
+	return b, nil
 }
 
 func (block *Block) CanonicalDigest() []byte {

@@ -109,6 +109,9 @@ func (scr *Script) PrettyPrint() (string, error) {
 	return strings.Join(ss, " "), nil
 }
 
+// MakeP2WPKHOutputScript creates a standard script suitable for use in a transaction output that is paying to a P2WPKH
+// address.  Output scripts are also called `scriptPubKey`.
+//
 // TODO: When we implement better transaction-building/signing helpers, this might want to go live with them.
 func MakeP2WPKHOutputScript(pubKeyHash []byte) (*Script, error) {
 	if len(pubKeyHash) != 20 { // XXX: Magic number!
@@ -122,6 +125,9 @@ func MakeP2WPKHOutputScript(pubKeyHash []byte) (*Script, error) {
 	}, nil
 }
 
+// MakeP2WPKHInputScript creates a standard script suitable for use in a transaction input.  Input scripts are also
+// called `scriptSig`.
+//
 func MakeP2WPKHInputScript(pubKeyHash []byte) (*Script, error) {
 	if len(pubKeyHash) != 20 { // XXX: Magic number!
 		return nil, errors.New("bad length for pubkeyhash")
