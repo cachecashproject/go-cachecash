@@ -273,10 +273,13 @@ func (cl *client) Close(ctx context.Context) error {
 	return retErr
 }
 
+// get plaintext out of the encrypted, colocation-puzzled chunks
 func (cl *client) decryptPuzzle(ctx context.Context, bundle *ccmsg.TicketBundle, chunkResults []*chunkRequest, cacheConns []cacheConnection) (*chunkGroup, error) {
-	// Solve colocation puzzle.
+	// Restore tracing context - all chunks have the same bundle parent span
+	ctx = trace.NewContext(ctx, chunkResults[0].parent)
 	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/decryptPuzzle")
 	defer span.End()
+	// Solve colocation puzzle.
 	var singleEncryptedChunks [][]byte
 	for _, result := range chunkResults {
 		singleEncryptedChunks = append(singleEncryptedChunks, result.encData)

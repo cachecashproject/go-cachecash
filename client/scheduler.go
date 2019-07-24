@@ -164,84 +164,97 @@ func (cl *client) schedule(ctx context.Context, path string, queue chan<- *fetch
 		}
 
 		for _, bundle := range bundles {
-			if cl.chunkCount == nil {
-				// Cache the chunk count to permit completion detection when retrying non-terminal blocks
-				_count := bundle.Metadata.ChunkCount()
-				cl.chunkCount = &_count
-				_size := bundle.Metadata.GetChunkSize()
-				cl.chunkSize = &_size
-			} else {
-				if bundle.Metadata.ChunkCount() != *cl.chunkCount {
-					err = errors.New("object chunk count changed mid retrieval")
+			if func() bool {
+				ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/HandleBundle")
+				// It would be nice for folk reading traces to make this span
+				// live until the end of decryptPuzzle, but there are many
+				// termination paths to track down - so pending a full reorg of
+				// this code to reduce cyclomatic complexity that would add too
+				// much cognitive overhead.
+				defer span.End()
+				if cl.chunkCount == nil {
+					// Cache the chunk count to permit completion detection when retrying non-terminal blocks
+					_count := bundle.Metadata.ChunkCount()
+					cl.chunkCount = &_count
+					_size := bundle.Metadata.GetChunkSize()
+					cl.chunkSize = &_size
+				} else {
+					if bundle.Metadata.ChunkCount() != *cl.chunkCount {
+						err = errors.New("object chunk count changed mid retrieval")
+						queue <- &fetchGroup{err: err}
+						cl.l.Error("encountered an error, shutting down scheduler")
+						return true
+					}
+					if bundle.Metadata.GetChunkSize() != *cl.chunkSize {
+						err = errors.New("object chunk size changed mid retrieval")
+						queue <- &fetchGroup{err: err}
+						cl.l.Error("encountered an error, shutting down scheduler")
+						return true
+					}
+				}
+				chunks := len(bundle.TicketRequest)
+				cl.l.WithFields(logrus.Fields{
+					"len(chunks)": chunks,
+				}).Info("pushing bundle to downloader")
+				if retry != nil && retry.Chunks != uint64(chunks) {
+					// Currently we depend on the publisher giving us the entire
+					// bundles we asked for during retry: the scheduler could
+					// conceptually loop until we have them all
+					err = errors.Errorf("Only got %d of %d chunks during retry", chunks, retry.Chunks)
 					queue <- &fetchGroup{err: err}
 					cl.l.Error("encountered an error, shutting down scheduler")
-					return
+					return true
 				}
-				if bundle.Metadata.GetChunkSize() != *cl.chunkSize {
-					err = errors.New("object chunk size changed mid retrieval")
-					queue <- &fetchGroup{err: err}
-					cl.l.Error("encountered an error, shutting down scheduler")
-					return
+
+				// For each chunk in TicketBundle, dispatch a request to the appropriate cache.
+				chunkResults := make([]*chunkRequest, chunks)
+
+				fetchGroup := &fetchGroup{
+					bundle:          bundle,
+					notify:          []chan DownloadResult{},
+					schedulerNotify: schedulerNotify,
 				}
-			}
-			chunks := len(bundle.TicketRequest)
-			cl.l.WithFields(logrus.Fields{
-				"len(chunks)": chunks,
-			}).Info("pushing bundle to downloader")
-			if retry != nil && retry.Chunks != uint64(chunks) {
-				// Currently we depend on the publisher giving us the entire
-				// bundles we asked for during retry: the scheduler could
-				// conceptually loop until we have them all
-				err = errors.Errorf("Only got %d of %d chunks during retry", chunks, retry.Chunks)
-				queue <- &fetchGroup{err: err}
-				cl.l.Error("encountered an error, shutting down scheduler")
+
+				for i := 0; i < chunks; i++ {
+					b := &chunkRequest{
+						bundle: bundle,
+						idx:    i,
+						parent: trace.FromContext(ctx),
+					}
+					chunkResults[i] = b
+
+					ci := bundle.CacheInfo[i]
+					pubKey := ci.Pubkey.GetPublicKey()
+					cc, err := cl.GetCacheConnection(ctx, ci.Addr.ConnectionString(), pubKey)
+					if err != nil {
+						cl.l.WithError(err).Error("failed to connect to cache")
+						// In future we should resubmit the bundle - but this is better than panicing.
+						fetchGroup.err = err
+						fetchGroup.bundle = nil
+						queue <- fetchGroup
+						return true
+					}
+
+					clientNotify := make(chan DownloadResult, 128)
+					fetchGroup.notify = append(fetchGroup.notify, clientNotify)
+
+					cc.QueueRequest(DownloadTask{
+						req:          b,
+						clientNotify: clientNotify,
+					})
+				}
+
+				queue <- fetchGroup
+				if retry == nil {
+					chunkRangeBegin += uint64(chunks)
+					byteRangeBegin += uint64(chunks) * bundle.Metadata.ChunkSize
+				}
+				minimumBacklogDepth = uint64(bundle.Metadata.MinimumBacklogDepth)
+				bundleRequestInterval = int(bundle.Metadata.BundleRequestInterval)
+				return false
+			}() {
 				return
 			}
-
-			// For each chunk in TicketBundle, dispatch a request to the appropriate cache.
-			chunkResults := make([]*chunkRequest, chunks)
-
-			fetchGroup := &fetchGroup{
-				bundle:          bundle,
-				notify:          []chan DownloadResult{},
-				schedulerNotify: schedulerNotify,
-			}
-
-			for i := 0; i < chunks; i++ {
-				b := &chunkRequest{
-					bundle: bundle,
-					idx:    i,
-				}
-				chunkResults[i] = b
-
-				ci := bundle.CacheInfo[i]
-				pubKey := ci.Pubkey.GetPublicKey()
-				cc, err := cl.GetCacheConnection(ctx, ci.Addr.ConnectionString(), pubKey)
-				if err != nil {
-					cl.l.WithError(err).Error("failed to connect to cache")
-					// In future we should resubmit the bundle - but this is better than panicing.
-					fetchGroup.err = err
-					fetchGroup.bundle = nil
-					queue <- fetchGroup
-					return
-				}
-
-				clientNotify := make(chan DownloadResult, 128)
-				fetchGroup.notify = append(fetchGroup.notify, clientNotify)
-
-				cc.QueueRequest(DownloadTask{
-					req:          b,
-					clientNotify: clientNotify,
-				})
-			}
-
-			queue <- fetchGroup
-			if retry == nil {
-				chunkRangeBegin += uint64(chunks)
-				byteRangeBegin += uint64(chunks) * bundle.Metadata.ChunkSize
-			}
-			minimumBacklogDepth = uint64(bundle.Metadata.MinimumBacklogDepth)
-			bundleRequestInterval = int(bundle.Metadata.BundleRequestInterval)
 		}
 		cl.waitUntilNextRequest(schedulerNotify, minimumBacklogDepth, bundleRequestInterval)
 	}
@@ -284,6 +297,7 @@ func (cl *client) checkBacklogDepth(n uint64) bool {
 type chunkRequest struct {
 	bundle *ccmsg.TicketBundle
 	idx    int
+	parent *trace.Span
 
 	encData []byte // Singly-encrypted data.
 	err     error

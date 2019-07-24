@@ -134,6 +134,9 @@ func (cc *cacheGrpc) ExchangeTicketL2(ctx context.Context, req *ccmsg.ClientCach
 }
 
 func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
+	ctx = trace.NewContext(ctx, b.parent)
+	ctx, span := trace.StartSpan(ctx, "cachecash.com/Client/requestChunk")
+	defer span.End()
 	// Send request ticket to cache; await data.
 	reqData, err := b.bundle.BuildClientCacheRequest(b.bundle.TicketRequest[b.idx])
 	if err != nil {
