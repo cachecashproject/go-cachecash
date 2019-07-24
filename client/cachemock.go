@@ -49,9 +49,7 @@ func (cc *cacheMock) QueueRequest(task DownloadTask) {
 	cc.backlog <- task
 }
 
-func (cc *cacheMock) ExchangeTicketL2(context.Context, *ccmsg.ClientCacheRequest) error {
-	return nil
-}
+func (cc *cacheMock) ExchangeTicketL2(context.Context, *ccmsg.ClientCacheRequest) {}
 
 func (cc *cacheMock) Close(context.Context) error {
 	return nil
