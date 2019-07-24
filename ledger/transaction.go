@@ -13,7 +13,8 @@ type TxType uint8
 const (
 	TxTypeUnknown    TxType = 0x00 // Not valid in serialized transactions.
 	TxTypeTransfer          = 0x01
-	TxTypeEscrowOpen        = 0x02
+	TxTypeGenesis           = 0x02
+	TxTypeEscrowOpen        = 0x03
 )
 
 // In order to be used as a gogo/protobuf custom type, a struct must implement this interface...
@@ -86,6 +87,8 @@ func (tx *Transaction) UnmarshalFrom(data []byte) (int, error) {
 	switch txType {
 	case TxTypeTransfer:
 		tx.Body = &TransferTransaction{}
+	case TxTypeGenesis:
+		tx.Body = &GenesisTransaction{}
 	case TxTypeEscrowOpen:
 		tx.Body = &EscrowOpenTransaction{}
 	default:
@@ -409,6 +412,65 @@ func (tw *TransactionWitness) UnmarshalFrom(data []byte) (int, error) {
 		n += ni
 		tw.Data = append(tw.Data, data[n:n+int(fieldLen)])
 		n += int(fieldLen)
+	}
+
+	return n, nil
+}
+
+// A GenesisTransaction creates coins from thin air.  They are only valid in the genesis block (block 0).  Because we do
+// not have coinbase transactions, we need an explicit way to get coins into the system.
+type GenesisTransaction struct {
+	Outputs []TransactionOutput
+}
+
+var _ TransactionBody = (*GenesisTransaction)(nil)
+
+func (tx *GenesisTransaction) Size() int {
+	n := UvarintSize(uint64(len(tx.Outputs)))
+	for _, o := range tx.Outputs {
+		n += o.Size()
+	}
+	return n
+}
+
+func (tx *GenesisTransaction) TxType() TxType {
+	return TxTypeGenesis
+}
+
+func (tx *GenesisTransaction) MarshalTo(data []byte) (int, error) {
+	var n int
+
+	n += binary.PutUvarint(data[n:], uint64(len(tx.Outputs)))
+
+	for _, o := range tx.Outputs {
+		ni, err := o.MarshalTo(data[n:])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to marshal TransactionOutput")
+		}
+		n += ni
+	}
+
+	return n, nil
+}
+
+func (tx *GenesisTransaction) Unmarshal(data []byte) error {
+	_, err := tx.UnmarshalFrom(data)
+	return err
+}
+
+func (tx *GenesisTransaction) UnmarshalFrom(data []byte) (int, error) {
+	var n int
+
+	outputQty, ni := binary.Uvarint(data[n:])
+	n += ni
+	tx.Outputs = make([]TransactionOutput, outputQty)
+
+	for i := 0; i < len(tx.Outputs); i++ {
+		ni, err := tx.Outputs[i].UnmarshalFrom(data[n:])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to unmarshal TransactionOutput")
+		}
+		n += ni
 	}
 
 	return n, nil

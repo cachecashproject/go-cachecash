@@ -142,3 +142,36 @@ func (suite *TransactionTestSuite) TestTransferTransaction_RoundTrip() {
 
 	assert.Equal(t, tx, tx2, "unmarshaled struct does not match original")
 }
+
+func (suite *TransactionTestSuite) TestGenesisTransaction_RoundTrip() {
+	t := suite.T()
+
+	tx := Transaction{
+		Version: 0x01,
+		Flags:   0x0000,
+		Body: &GenesisTransaction{
+			Outputs: []TransactionOutput{
+				{
+					Value:        42,
+					ScriptPubKey: testutil.MustDecodeString("abc123"),
+				},
+				{
+					Value:        123,
+					ScriptPubKey: testutil.MustDecodeString("def456"),
+				},
+			},
+		},
+	}
+
+	data := make([]byte, bufferSize)
+	n, err := tx.MarshalTo(data)
+	assert.Nil(t, err)
+	assert.Equal(t, tx.Size(), n, "MarshalTo() does not match Size()")
+
+	var tx2 Transaction
+	n2, err := tx2.UnmarshalFrom(data)
+	assert.Nil(t, err)
+	assert.Equal(t, tx.Size(), n2, "UnmarshalFrom() does not match Size()")
+
+	assert.Equal(t, tx, tx2, "unmarshaled struct does not match original")
+}
