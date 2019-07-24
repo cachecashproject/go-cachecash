@@ -103,10 +103,8 @@ func (suite *TransactionTestSuite) TestTransactionWitness_RoundTrip() {
 	assert.Equal(t, tw, tw2, "unmarshaled struct does not match original")
 }
 
-func (suite *TransactionTestSuite) TestTransferTransaction_RoundTrip() {
-	t := suite.T()
-
-	tx := Transaction{
+func (suite *TransactionTestSuite) makeTransferTransaction() *Transaction {
+	tx := &Transaction{
 		Version: 0x01,
 		Flags:   0x0000,
 		Body: &TransferTransaction{
@@ -134,6 +132,14 @@ func (suite *TransactionTestSuite) TestTransferTransaction_RoundTrip() {
 		},
 	}
 
+	return tx
+}
+
+func (suite *TransactionTestSuite) TestTransferTransaction_RoundTrip() {
+	t := suite.T()
+
+	tx := suite.makeTransferTransaction()
+
 	data := make([]byte, bufferSize)
 	n, err := tx.MarshalTo(data)
 	assert.Nil(t, err)
@@ -144,13 +150,38 @@ func (suite *TransactionTestSuite) TestTransferTransaction_RoundTrip() {
 	assert.Nil(t, err)
 	assert.Equal(t, tx.Size(), n2, "UnmarshalFrom() does not match Size()")
 
-	assert.Equal(t, tx, tx2, "unmarshaled struct does not match original")
+	assert.Equal(t, *tx, tx2, "unmarshaled struct does not match original")
 }
 
-func (suite *TransactionTestSuite) TestGenesisTransaction_RoundTrip() {
+func (suite *TransactionTestSuite) TestTransferTransaction_InOutPoints() {
 	t := suite.T()
 
-	tx := Transaction{
+	tx := suite.makeTransferTransaction()
+
+	ips := tx.Inpoints()
+	assert.Equal(t, []Outpoint{
+		{
+			PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+			Index:      0,
+		},
+	}, ips)
+
+	txid, err := tx.TXID()
+	if err != nil {
+		t.Fatalf("failed to compute TXID: %v", err) // XXX: modify TXID so that it doesn't return an error
+	}
+
+	ops := tx.Outpoints()
+	assert.Equal(t, []Outpoint{
+		{
+			PreviousTx: txid,
+			Index:      0,
+		},
+	}, ops)
+}
+
+func (suite *TransactionTestSuite) makeGenesisTransaction() *Transaction {
+	tx := &Transaction{
 		Version: 0x01,
 		Flags:   0x0000,
 		Body: &GenesisTransaction{
@@ -167,6 +198,14 @@ func (suite *TransactionTestSuite) TestGenesisTransaction_RoundTrip() {
 		},
 	}
 
+	return tx
+}
+
+func (suite *TransactionTestSuite) TestGenesisTransaction_RoundTrip() {
+	t := suite.T()
+
+	tx := suite.makeGenesisTransaction()
+
 	data := make([]byte, bufferSize)
 	n, err := tx.MarshalTo(data)
 	assert.Nil(t, err)
@@ -177,5 +216,31 @@ func (suite *TransactionTestSuite) TestGenesisTransaction_RoundTrip() {
 	assert.Nil(t, err)
 	assert.Equal(t, tx.Size(), n2, "UnmarshalFrom() does not match Size()")
 
-	assert.Equal(t, tx, tx2, "unmarshaled struct does not match original")
+	assert.Equal(t, *tx, tx2, "unmarshaled struct does not match original")
+}
+
+func (suite *TransactionTestSuite) TestGenesisTransaction_InOutPoints() {
+	t := suite.T()
+
+	tx := suite.makeGenesisTransaction()
+
+	ips := tx.Inpoints()
+	assert.Equal(t, 0, len(ips))
+
+	txid, err := tx.TXID()
+	if err != nil {
+		t.Fatalf("failed to compute TXID: %v", err) // XXX: modify TXID so that it doesn't return an error
+	}
+
+	ops := tx.Outpoints()
+	assert.Equal(t, []Outpoint{
+		{
+			PreviousTx: txid,
+			Index:      0,
+		},
+		{
+			PreviousTx: txid,
+			Index:      1,
+		},
+	}, ops)
 }

@@ -134,12 +134,34 @@ func (tx *Transaction) TXID() ([]byte, error) {
 	return d[:], nil
 }
 
+func (tx *Transaction) Inpoints() []Outpoint {
+	return tx.Body.Inpoints()
+}
+
+func (tx *Transaction) Outpoints() []Outpoint {
+	txid, err := tx.TXID()
+	if err != nil {
+		panic(err) // XXX: We should change TXID() so that it doesn't return an error.
+	}
+
+	var pp []Outpoint
+	for i := uint8(0); i < tx.Body.OutputCount(); i++ {
+		pp = append(pp, Outpoint{
+			PreviousTx: txid,
+			Index:      i,
+		})
+	}
+	return pp
+}
+
 type TransactionBody interface {
 	Size() int
 	TxType() TxType
 	MarshalTo(data []byte) (n int, err error)
 	Unmarshal(data []byte) error
 	UnmarshalFrom(data []byte) (n int, err error)
+	Inpoints() []Outpoint
+	OutputCount() uint8
 }
 
 // A TransferTransaction is very similar to a Bitcoin transaction.  It consumes one or more unspent outputs of previous
@@ -263,6 +285,21 @@ func (tx *TransferTransaction) UnmarshalFrom(data []byte) (int, error) {
 	return n, nil
 }
 
+func (tx *TransferTransaction) Inpoints() []Outpoint {
+	var pp []Outpoint
+	for _, ti := range tx.Inputs {
+		pp = append(pp, Outpoint{
+			PreviousTx: ti.PreviousTx,
+			Index:      ti.Index,
+		})
+	}
+	return pp
+}
+
+func (tx *TransferTransaction) OutputCount() uint8 {
+	return uint8(len(tx.Outputs))
+}
+
 // An EscrowOpenTransaction ...
 //
 // This is a placeholder that allows us to test the code we've written to support multiple transaction types.  It will
@@ -293,6 +330,15 @@ func (tx *EscrowOpenTransaction) UnmarshalFrom(data []byte) (n int, err error) {
 	return 0, nil
 }
 
+func (tx *EscrowOpenTransaction) Inpoints() []Outpoint {
+	return nil
+}
+
+func (tx *EscrowOpenTransaction) OutputCount() uint8 {
+	return 0
+}
+
+// XXX: This is a bad name, because we use this struct to describe both inpoints and outpoints.
 type Outpoint struct {
 	PreviousTx []byte // TODO: type
 	Index      uint8  // (of output in PreviousTx) // TODO: type
@@ -478,4 +524,12 @@ func (tx *GenesisTransaction) UnmarshalFrom(data []byte) (int, error) {
 	}
 
 	return n, nil
+}
+
+func (tx *GenesisTransaction) Inpoints() []Outpoint {
+	return nil
+}
+
+func (tx *GenesisTransaction) OutputCount() uint8 {
+	return uint8(len(tx.Outputs))
 }
