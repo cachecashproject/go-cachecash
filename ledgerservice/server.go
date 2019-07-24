@@ -97,7 +97,7 @@ type ledgerProtocolServer struct {
 var _ common.StarterShutdowner = (*ledgerProtocolServer)(nil)
 
 func newLedgerProtocolServer(l *logrus.Logger, s *LedgerService, conf *ConfigFile) (*ledgerProtocolServer, error) {
-	grpcServer := grpc.NewServer()
+	grpcServer := common.NewGRPCServer()
 	ccmsg.RegisterLedgerServer(grpcServer, &grpcLedgerServer{ledgerService: s})
 
 	httpServer := wrapGrpc(grpcServer)
