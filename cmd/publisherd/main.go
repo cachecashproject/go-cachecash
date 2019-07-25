@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"log"
 	_ "net/http/pprof"
 	"time"
 
@@ -20,9 +19,6 @@ import (
 )
 
 var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile     = flag.String("logFile", "", "Path where file should be logged")
 	configPath  = flag.String("config", "publisher.config.json", "Path to configuration file")
 	keypairPath = flag.String("keypair", "publisher.keypair.json", "Path to keypair file")
 	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
@@ -52,37 +48,31 @@ func main() {
 }
 
 func mainC() error {
+	l := common.NewCLILogger(common.LogOpt{JSON: true})
 	flag.Parse()
-	log.SetFlags(0)
 
-	l := logrus.New()
-	if err := common.ConfigureLogger(l, &common.LoggerConfig{
-		LogLevelStr: *logLevelStr,
-		LogCaller:   *logCaller,
-		LogFile:     *logFile,
-		Json:        true,
-	}); err != nil {
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash publisherd ", cachecash.CurrentVersion)
 
-	defer common.SetupTracing(*traceAPI, "cachecash-publisherd", l).Flush()
+	defer common.SetupTracing(*traceAPI, "cachecash-publisherd", &l.Logger).Flush()
 
-	cf, err := loadConfigFile(l, *configPath)
+	cf, err := loadConfigFile(&l.Logger, *configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
-	kp, err := keypair.LoadOrGenerate(l, *keypairPath)
+	kp, err := keypair.LoadOrGenerate(&l.Logger, *keypairPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to get keypair")
 	}
 
-	upstream, err := catalog.NewHTTPUpstream(l, cf.UpstreamURL, cf.DefaultCacheDuration)
+	upstream, err := catalog.NewHTTPUpstream(&l.Logger, cf.UpstreamURL, cf.DefaultCacheDuration)
 	if err != nil {
 		return errors.Wrap(err, "failed to create HTTP upstream")
 	}
 
-	cat, err := catalog.NewCatalog(l, upstream)
+	cat, err := catalog.NewCatalog(&l.Logger, upstream)
 	if err != nil {
 		return errors.Wrap(err, "failed to create catalog")
 	}
@@ -117,7 +107,7 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	p, err := publisher.NewContentPublisher(l, db, cf.GrpcAddr, cat, kp.PrivateKey)
+	p, err := publisher.NewContentPublisher(&l.Logger, db, cf.GrpcAddr, cat, kp.PrivateKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher")
 	}
@@ -128,12 +118,12 @@ func mainC() error {
 	}
 	l.Infof("loaded %d escrows from database", num)
 
-	app, err := publisher.NewApplication(l, p, cf)
+	app, err := publisher.NewApplication(&l.Logger, p, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}
 
-	if err := common.RunStarterShutdowner(l, app); err != nil {
+	if err := common.RunStarterShutdowner(&l.Logger, app); err != nil {
 		return err
 	}
 	return nil
