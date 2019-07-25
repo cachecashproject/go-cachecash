@@ -36,7 +36,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*ledgerservice.ConfigFile, e
 
 	conf.LedgerProtocolAddr = p.GetString("ledger_addr", ":8080")
 	conf.StatusAddr = p.GetString("status_addr", ":8100")
-	conf.Database = p.GetString("database", "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable")
+	conf.Database = p.GetString("database", "host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable")
 
 	return &conf, nil
 }
