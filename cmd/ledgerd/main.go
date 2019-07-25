@@ -5,7 +5,6 @@ import (
 	"flag"
 	"log"
 	_ "net/http/pprof"
-	"os"
 	"time"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
@@ -42,12 +41,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*ledgerservice.ConfigFile, e
 }
 
 func main() {
-	if err := mainC(); err != nil {
-		if _, err := os.Stderr.WriteString(err.Error() + "\n"); err != nil {
-			panic(err)
-		}
-		os.Exit(1)
-	}
+	common.Main(mainC)
 }
 
 func mainC() error {
