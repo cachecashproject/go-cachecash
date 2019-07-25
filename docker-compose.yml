@@ -1,6 +1,21 @@
 ---
 version: '3.7'
 services:
+  ledger:
+    image: cachecash/go-cachecash
+    build: .
+    command: ledgerd -logLevel debug
+    ports:
+    - 9090:9090  # Ledger service
+    - 9091:8100  # Status
+
+  ledger-db:
+    image: postgres:11
+    ports:
+    - 5433:5432
+    environment:
+    - POSTGRES_DB=ledger
+
   upstream:
     image: nginx
     ports:

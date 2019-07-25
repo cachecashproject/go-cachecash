@@ -1,0 +1,12 @@
+# host is from `docker-machine ip default`
+development:
+  dialect: postgres
+  datasource: "host=127.0.0.1 port=5433 user=postgres dbname=ledger sslmode=disable"
+  dir: "../migrations/"
+  table: migrations
+
+docker-tests:
+  dialect: postgres
+  datasource: "host=ledger-db port=5433 user=postgres dbname=ledger sslmode=disable"
+  dir: "ledgerservice/migrations/"
+  table: migrations

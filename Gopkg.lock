@@ -45,6 +45,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:2e270bd404359cbef8dc82c74baf4487efc70d2986062163b20c712dd5162c2b"
+  name = "github.com/btcsuite/btcutil"
+  packages = ["base58"]
+  pruneopts = ""
+  revision = "9e5f4b9a998d263e3ce9c56664a7816001ac8000"
+
+[[projects]]
   digest = "1:869521d1ba69d7c733b8c18aacdb415a4791b7beb90031b121ae820677ed0da6"
   name = "github.com/capnm/sysinfo"
   packages = ["."]
@@ -729,6 +737,7 @@
   input-imports = [
     "contrib.go.opencensus.io/exporter/jaeger",
     "github.com/DATA-DOG/go-sqlmock",
+    "github.com/btcsuite/btcutil/base58",
     "github.com/capnm/sysinfo",
     "github.com/client9/reopen",
     "github.com/dchest/siphash",
@@ -751,6 +760,7 @@
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/mock",
     "github.com/stretchr/testify/suite",
+    "github.com/volatiletech/null",
     "github.com/volatiletech/sqlboiler/boil",
     "github.com/volatiletech/sqlboiler/drivers",
     "github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/driver",
@@ -764,7 +774,9 @@
     "go.opencensus.io/trace",
     "golang.org/x/crypto/ed25519",
     "google.golang.org/grpc",
+    "google.golang.org/grpc/codes",
     "google.golang.org/grpc/peer",
+    "google.golang.org/grpc/status",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
