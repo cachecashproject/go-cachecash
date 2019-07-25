@@ -11,6 +11,7 @@ update_docker_compose() {
 }
 
 start_db() {
+	while ! docker run --rm --net=cachecash postgres:11 psql 'host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable' -c 'select 1;'; do sleep 10; done
 	while ! docker run --rm --net=cachecash postgres:11 psql 'host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable' -c 'select 1;'; do sleep 10; done
 }
 
@@ -23,14 +24,16 @@ fi
 case "$BUILD_MODE" in
 	test)
 		docker network create cachecash || true
-		time docker run -d -p 5432:5432 -e POSTGRES_DB=publisher --name publisher-db --net=cachecash postgres:11
+		time docker run -d -p 5433:5432 -e POSTGRES_DB=ledger --name ledger-db --net=cachecash postgres:11
+		time docker run -d -p 5434:5432 -e POSTGRES_DB=publisher --name publisher-db --net=cachecash postgres:11
 		time docker build -t cachecash-ci ci
 
-		# wait until the database is up
+		# wait until the databases are up
 		time start_db
 
 		# apply migrations
 		time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --net=cachecash cachecash-ci sql-migrate up -config=publisher/migrations/dbconfig.yml -env=docker-tests
+		time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --net=cachecash cachecash-ci sql-migrate up -config=ledgerservice/migrations/dbconfig.yml -env=docker-tests
 		;;
 	docker)
 		update_docker_compose

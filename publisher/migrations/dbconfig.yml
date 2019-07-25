@@ -1,7 +1,7 @@
 # host is from `docker-machine ip default`
 development:
   dialect: postgres
-  datasource: "host=127.0.0.1 port=5432 user=postgres dbname=publisher sslmode=disable"
+  datasource: "host=127.0.0.1 port=5434 user=postgres dbname=publisher sslmode=disable"
   dir: "../migrations/"
   table: migrations
 
