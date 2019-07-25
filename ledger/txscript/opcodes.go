@@ -14,11 +14,11 @@ type opcode struct {
 
 const (
 	OP_0           uint8 = 0x00
-	OP_DATA_20           = 0x14
-	OP_DUP               = 0x76
-	OP_HASH160           = 0xa9 // XXX: Do we want to change this to something SHA256-related?
-	OP_EQUALVERIFY       = 0x88
-	OP_CHECKSIG          = 0xac
+	OP_DATA_20     uint8 = 0x14
+	OP_DUP         uint8 = 0x76
+	OP_HASH160     uint8 = 0xa9 // XXX: Do we want to change this to something SHA256-related?
+	OP_EQUALVERIFY uint8 = 0x88
+	OP_CHECKSIG    uint8 = 0xac
 	// OP_CHECKSIGVERIFY            = 0xad
 	// OP_CHECKMULTISIG             = 0xae
 	// OP_CHECKMULTISIGVERIFY       = 0xaf

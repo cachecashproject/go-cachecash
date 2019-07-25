@@ -19,8 +19,8 @@ type AddressVersion uint8
 // These values are Cachecash-specific and do not line up with Bitcoin address version assignments.
 const (
 	AddressP2WPKHMainnet AddressVersion = 0x01
-	AddressP2WPKHGoodnet                = 0x02
-	AddressP2WPKHTestnet                = 0x03
+	AddressP2WPKHGoodnet AddressVersion = 0x02
+	AddressP2WPKHTestnet AddressVersion = 0x03
 )
 
 type Address interface {

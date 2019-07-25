@@ -12,7 +12,7 @@ type LedgerTestSuite struct {
 
 	l *logrus.Logger
 
-	ledgerService *LedgerService
+	// ledgerService *LedgerService
 }
 
 func TestLedgerTestSuite(t *testing.T) {

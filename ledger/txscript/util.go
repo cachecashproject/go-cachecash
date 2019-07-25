@@ -13,6 +13,6 @@ func hash160Sum(b []byte) []byte {
 
 func ripemd160Sum(b []byte) []byte {
 	h := ripemd160.New()
-	h.Write(b)
+	_, _ = h.Write(b)
 	return h.Sum(nil)
 }

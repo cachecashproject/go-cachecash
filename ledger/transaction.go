@@ -12,9 +12,9 @@ type TxType uint8
 
 const (
 	TxTypeUnknown    TxType = 0x00 // Not valid in serialized transactions.
-	TxTypeTransfer          = 0x01
-	TxTypeGenesis           = 0x02
-	TxTypeEscrowOpen        = 0x03
+	TxTypeTransfer   TxType = 0x01
+	TxTypeGenesis    TxType = 0x02
+	TxTypeEscrowOpen TxType = 0x03
 )
 
 // In order to be used as a gogo/protobuf custom type, a struct must implement this interface...
