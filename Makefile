@@ -31,8 +31,9 @@ dockerfiles:
 		deploy/dockerfiles/Dockerfile.build
 
 clean:
+	docker-compose down
+	docker-compose rm -sf publisher-db ledger-db
 	sudo rm -vrf ./data/
-	docker-compose rm -f publisher-db
 
 lint:
 	docker build -t cachecash-ci ci
