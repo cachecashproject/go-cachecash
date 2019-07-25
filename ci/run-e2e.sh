@@ -1,8 +1,12 @@
 #!/bin/bash
-set -xe
+set -xeu
 
 wait_escrow() {
-	while ! curl -v 'http://127.0.0.1:7100/info' | jq -e '.Escrows|length==1'; do sleep 10; done
+	while ! curl -v 'http://127.0.0.1:7100/info' | jq -e '.Escrows|length==1'; do
+		curl 'http://127.0.0.1:7100/info'
+		docker ps -a
+		sleep 10
+	done
 }
 
 for x in upstream{,-apache,-lighttpd,-caddy,-python}; do
