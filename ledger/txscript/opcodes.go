@@ -36,13 +36,15 @@ var OPCODES = map[uint8]*opcode{
 	// OP_CHECKMULTISIGVERIFY: {OP_CHECKMULTISIGVERIFY, 1, "OP_CHECKMULTISIGVERIFY", opCheckSig},
 }
 
+var BadOpcode = errors.New("unexpected opcode for handler")
+
 func opConst(vm *VirtualMachine, ins *instruction) error {
 	switch ins.opcode.code {
 	case OP_0:
 		vm.stack.PushInt(0)
 		return nil
 	default:
-		return errors.New("unexpected opcode for handler")
+		return BadOpcode
 	}
 }
 
@@ -52,7 +54,7 @@ func opPushData(vm *VirtualMachine, ins *instruction) error {
 		vm.stack.PushBytes(ins.immediates[0])
 		return nil
 	default:
-		return errors.New("unexpected opcode for handler")
+		return BadOpcode
 	}
 }
 
@@ -66,7 +68,7 @@ func opDup(vm *VirtualMachine, ins *instruction) error {
 		vm.stack.PushBytes(v)
 		return nil
 	default:
-		return errors.New("unexpected opcode for handler")
+		return BadOpcode
 	}
 }
 
@@ -81,7 +83,7 @@ func opHash160(vm *VirtualMachine, ins *instruction) error {
 		vm.stack.PushBytes(hash160Sum(v))
 		return nil
 	default:
-		return errors.New("unexpected opcode for handler")
+		return BadOpcode
 	}
 }
 
@@ -111,7 +113,7 @@ func opEqual(vm *VirtualMachine, ins *instruction) error {
 		// Done!
 		return nil
 	default:
-		return errors.New("unexpected opcode for handler")
+		return BadOpcode
 	}
 }
 
@@ -133,6 +135,6 @@ func opCheckSig(vm *VirtualMachine, ins *instruction) error {
 
 		return nil
 	default:
-		return errors.New("unexpected opcode for handler")
+		return BadOpcode
 	}
 }
