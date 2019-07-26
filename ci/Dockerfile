@@ -29,4 +29,4 @@ RUN go get github.com/rubenv/sql-migrate/...
 
 WORKDIR $GOPATH/src/github.com/cachecashproject/go-cachecash
 
-ENV PSQL_HOST=publisher-db PSQL_USER=postgres PSQL_DBNAME=publisher PSQL_SSLMODE=disable
+ENV PSQL_USER=postgres PSQL_SSLMODE=disable
