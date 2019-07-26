@@ -4,6 +4,19 @@ package catalog
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[StatusUnknown-0]
+	_ = x[StatusOK-1]
+	_ = x[StatusNotFound-2]
+	_ = x[StatusNotModified-3]
+	_ = x[StatusInternalError-4]
+	_ = x[StatusUpstreamUnreachable-5]
+	_ = x[StatusUpstreamError-6]
+}
+
 const _ObjectStatus_name = "StatusUnknownStatusOKStatusNotFoundStatusNotModifiedStatusInternalErrorStatusUpstreamUnreachableStatusUpstreamError"
 
 var _ObjectStatus_index = [...]uint8{0, 13, 21, 35, 52, 71, 96, 115}

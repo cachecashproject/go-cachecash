@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"net"
-
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"
@@ -22,6 +20,7 @@ import (
 	"github.com/volatiletech/sqlboiler/queries/qmhelper"
 	"github.com/volatiletech/sqlboiler/strmangle"
 	"golang.org/x/crypto/ed25519"
+	"net"
 )
 
 // Cache is an object representing the database table.
@@ -98,11 +97,11 @@ var CacheWhere = struct {
 	Inet6addr whereHelpernet_IP
 	Port      whereHelperuint32
 }{
-	ID:        whereHelperint{field: `id`},
-	PublicKey: whereHelpered25519_PublicKey{field: `public_key`},
-	Inetaddr:  whereHelpernet_IP{field: `inetaddr`},
-	Inet6addr: whereHelpernet_IP{field: `inet6addr`},
-	Port:      whereHelperuint32{field: `port`},
+	ID:        whereHelperint{field: "\"cache\".\"id\""},
+	PublicKey: whereHelpered25519_PublicKey{field: "\"cache\".\"public_key\""},
+	Inetaddr:  whereHelpernet_IP{field: "\"cache\".\"inetaddr\""},
+	Inet6addr: whereHelpernet_IP{field: "\"cache\".\"inet6addr\""},
+	Port:      whereHelperuint32{field: "\"cache\".\"port\""},
 }
 
 // CacheRels is where relationship names are stored.
@@ -126,7 +125,7 @@ func (*cacheR) NewStruct() *cacheR {
 type cacheL struct{}
 
 var (
-	cacheColumns               = []string{"id", "public_key", "inetaddr", "inet6addr", "port"}
+	cacheAllColumns            = []string{"id", "public_key", "inetaddr", "inet6addr", "port"}
 	cacheColumnsWithoutDefault = []string{"public_key", "inetaddr", "inet6addr", "port"}
 	cacheColumnsWithDefault    = []string{"id"}
 	cachePrimaryKeyColumns     = []string{"id"}
@@ -630,7 +629,7 @@ func (o *Cache) Insert(ctx context.Context, exec boil.ContextExecutor, columns b
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			cacheColumns,
+			cacheAllColumns,
 			cacheColumnsWithDefault,
 			cacheColumnsWithoutDefault,
 			nzDefaults,
@@ -701,7 +700,7 @@ func (o *Cache) Update(ctx context.Context, exec boil.ContextExecutor, columns b
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			cacheColumns,
+			cacheAllColumns,
 			cachePrimaryKeyColumns,
 		)
 
@@ -863,13 +862,13 @@ func (o *Cache) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 
 	if !cached {
 		insert, ret := insertColumns.InsertColumnSet(
-			cacheColumns,
+			cacheAllColumns,
 			cacheColumnsWithDefault,
 			cacheColumnsWithoutDefault,
 			nzDefaults,
 		)
 		update := updateColumns.UpdateColumnSet(
-			cacheColumns,
+			cacheAllColumns,
 			cachePrimaryKeyColumns,
 		)
 
@@ -988,10 +987,6 @@ func (q cacheQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (i
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o CacheSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no Cache slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

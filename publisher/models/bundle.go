@@ -113,13 +113,13 @@ var BundleWhere = struct {
 	ClientPublicKey   whereHelperstring
 	Objectid          whereHelperstring
 }{
-	ID:                whereHelperint{field: `id`},
-	EscrowID:          whereHelperint{field: `escrow_id`},
-	BlockID:           whereHelperint{field: `block_id`},
-	Raw:               whereHelper__byte{field: `raw`},
-	RequestSequenceNo: whereHelpertypes_Decimal{field: `request_sequence_no`},
-	ClientPublicKey:   whereHelperstring{field: `client_public_key`},
-	Objectid:          whereHelperstring{field: `objectid`},
+	ID:                whereHelperint{field: "\"bundle\".\"id\""},
+	EscrowID:          whereHelperint{field: "\"bundle\".\"escrow_id\""},
+	BlockID:           whereHelperint{field: "\"bundle\".\"block_id\""},
+	Raw:               whereHelper__byte{field: "\"bundle\".\"raw\""},
+	RequestSequenceNo: whereHelpertypes_Decimal{field: "\"bundle\".\"request_sequence_no\""},
+	ClientPublicKey:   whereHelperstring{field: "\"bundle\".\"client_public_key\""},
+	Objectid:          whereHelperstring{field: "\"bundle\".\"objectid\""},
 }
 
 // BundleRels is where relationship names are stored.
@@ -143,7 +143,7 @@ func (*bundleR) NewStruct() *bundleR {
 type bundleL struct{}
 
 var (
-	bundleColumns               = []string{"id", "escrow_id", "block_id", "raw", "request_sequence_no", "client_public_key", "objectid"}
+	bundleAllColumns            = []string{"id", "escrow_id", "block_id", "raw", "request_sequence_no", "client_public_key", "objectid"}
 	bundleColumnsWithoutDefault = []string{"raw", "request_sequence_no", "client_public_key", "objectid"}
 	bundleColumnsWithDefault    = []string{"id", "escrow_id", "block_id"}
 	bundlePrimaryKeyColumns     = []string{"id"}
@@ -640,7 +640,7 @@ func (o *Bundle) Insert(ctx context.Context, exec boil.ContextExecutor, columns 
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			bundleColumns,
+			bundleAllColumns,
 			bundleColumnsWithDefault,
 			bundleColumnsWithoutDefault,
 			nzDefaults,
@@ -711,7 +711,7 @@ func (o *Bundle) Update(ctx context.Context, exec boil.ContextExecutor, columns 
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			bundleColumns,
+			bundleAllColumns,
 			bundlePrimaryKeyColumns,
 		)
 
@@ -873,13 +873,13 @@ func (o *Bundle) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOn
 
 	if !cached {
 		insert, ret := insertColumns.InsertColumnSet(
-			bundleColumns,
+			bundleAllColumns,
 			bundleColumnsWithDefault,
 			bundleColumnsWithoutDefault,
 			nzDefaults,
 		)
 		update := updateColumns.UpdateColumnSet(
-			bundleColumns,
+			bundleAllColumns,
 			bundlePrimaryKeyColumns,
 		)
 
@@ -998,10 +998,6 @@ func (q bundleQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o BundleSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no Bundle slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

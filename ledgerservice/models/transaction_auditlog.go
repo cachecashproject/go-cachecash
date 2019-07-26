@@ -57,9 +57,9 @@ var TransactionAuditlogWhere = struct {
 	Raw    whereHelper__byte
 	Status whereHelperstring
 }{
-	Rowid:  whereHelperint{field: `rowid`},
-	Raw:    whereHelper__byte{field: `raw`},
-	Status: whereHelperstring{field: `status`},
+	Rowid:  whereHelperint{field: "\"transaction_auditlog\".\"rowid\""},
+	Raw:    whereHelper__byte{field: "\"transaction_auditlog\".\"raw\""},
+	Status: whereHelperstring{field: "\"transaction_auditlog\".\"status\""},
 }
 
 // TransactionAuditlogRels is where relationship names are stored.
@@ -79,7 +79,7 @@ func (*transactionAuditlogR) NewStruct() *transactionAuditlogR {
 type transactionAuditlogL struct{}
 
 var (
-	transactionAuditlogColumns               = []string{"rowid", "raw", "status"}
+	transactionAuditlogAllColumns            = []string{"rowid", "raw", "status"}
 	transactionAuditlogColumnsWithoutDefault = []string{"raw", "status"}
 	transactionAuditlogColumnsWithDefault    = []string{"rowid"}
 	transactionAuditlogPrimaryKeyColumns     = []string{"rowid"}
@@ -414,7 +414,7 @@ func (o *TransactionAuditlog) Insert(ctx context.Context, exec boil.ContextExecu
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			transactionAuditlogColumns,
+			transactionAuditlogAllColumns,
 			transactionAuditlogColumnsWithDefault,
 			transactionAuditlogColumnsWithoutDefault,
 			nzDefaults,
@@ -485,7 +485,7 @@ func (o *TransactionAuditlog) Update(ctx context.Context, exec boil.ContextExecu
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			transactionAuditlogColumns,
+			transactionAuditlogAllColumns,
 			transactionAuditlogPrimaryKeyColumns,
 		)
 
@@ -647,13 +647,13 @@ func (o *TransactionAuditlog) Upsert(ctx context.Context, exec boil.ContextExecu
 
 	if !cached {
 		insert, ret := insertColumns.InsertColumnSet(
-			transactionAuditlogColumns,
+			transactionAuditlogAllColumns,
 			transactionAuditlogColumnsWithDefault,
 			transactionAuditlogColumnsWithoutDefault,
 			nzDefaults,
 		)
 		update := updateColumns.UpdateColumnSet(
-			transactionAuditlogColumns,
+			transactionAuditlogAllColumns,
 			transactionAuditlogPrimaryKeyColumns,
 		)
 
@@ -772,10 +772,6 @@ func (q transactionAuditlogQuery) DeleteAll(ctx context.Context, exec boil.Conte
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o TransactionAuditlogSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no TransactionAuditlog slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

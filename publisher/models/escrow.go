@@ -112,14 +112,14 @@ var EscrowWhere = struct {
 	PrivateKey whereHelpered25519_PrivateKey
 	Raw        whereHelper__byte
 }{
-	ID:         whereHelperint{field: `id`},
-	Txid:       whereHelpercommon_EscrowID{field: `txid`},
-	StartBlock: whereHelperint{field: `start_block`},
-	EndBlock:   whereHelperint{field: `end_block`},
-	State:      whereHelperstring{field: `state`},
-	PublicKey:  whereHelpered25519_PublicKey{field: `public_key`},
-	PrivateKey: whereHelpered25519_PrivateKey{field: `private_key`},
-	Raw:        whereHelper__byte{field: `raw`},
+	ID:         whereHelperint{field: "\"escrow\".\"id\""},
+	Txid:       whereHelpercommon_EscrowID{field: "\"escrow\".\"txid\""},
+	StartBlock: whereHelperint{field: "\"escrow\".\"start_block\""},
+	EndBlock:   whereHelperint{field: "\"escrow\".\"end_block\""},
+	State:      whereHelperstring{field: "\"escrow\".\"state\""},
+	PublicKey:  whereHelpered25519_PublicKey{field: "\"escrow\".\"public_key\""},
+	PrivateKey: whereHelpered25519_PrivateKey{field: "\"escrow\".\"private_key\""},
+	Raw:        whereHelper__byte{field: "\"escrow\".\"raw\""},
 }
 
 // EscrowRels is where relationship names are stored.
@@ -146,7 +146,7 @@ func (*escrowR) NewStruct() *escrowR {
 type escrowL struct{}
 
 var (
-	escrowColumns               = []string{"id", "txid", "start_block", "end_block", "state", "public_key", "private_key", "raw"}
+	escrowAllColumns            = []string{"id", "txid", "start_block", "end_block", "state", "public_key", "private_key", "raw"}
 	escrowColumnsWithoutDefault = []string{"txid", "state", "public_key", "private_key", "raw"}
 	escrowColumnsWithDefault    = []string{"id", "start_block", "end_block"}
 	escrowPrimaryKeyColumns     = []string{"id"}
@@ -819,7 +819,7 @@ func (o *Escrow) Insert(ctx context.Context, exec boil.ContextExecutor, columns 
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			escrowColumns,
+			escrowAllColumns,
 			escrowColumnsWithDefault,
 			escrowColumnsWithoutDefault,
 			nzDefaults,
@@ -890,7 +890,7 @@ func (o *Escrow) Update(ctx context.Context, exec boil.ContextExecutor, columns 
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			escrowColumns,
+			escrowAllColumns,
 			escrowPrimaryKeyColumns,
 		)
 
@@ -1052,13 +1052,13 @@ func (o *Escrow) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOn
 
 	if !cached {
 		insert, ret := insertColumns.InsertColumnSet(
-			escrowColumns,
+			escrowAllColumns,
 			escrowColumnsWithDefault,
 			escrowColumnsWithoutDefault,
 			nzDefaults,
 		)
 		update := updateColumns.UpdateColumnSet(
-			escrowColumns,
+			escrowAllColumns,
 			escrowPrimaryKeyColumns,
 		)
 
@@ -1177,10 +1177,6 @@ func (q escrowQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o EscrowSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no Escrow slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

@@ -580,7 +580,7 @@ func testBlocksUpdate(t *testing.T) {
 	if 0 == len(blockPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(blockColumns) == len(blockPrimaryKeyColumns) {
+	if len(blockAllColumns) == len(blockPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -621,7 +621,7 @@ func testBlocksUpdate(t *testing.T) {
 func testBlocksSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(blockColumns) == len(blockPrimaryKeyColumns) {
+	if len(blockAllColumns) == len(blockPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -654,11 +654,11 @@ func testBlocksSliceUpdateAll(t *testing.T) {
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(blockColumns, blockPrimaryKeyColumns) {
-		fields = blockColumns
+	if strmangle.StringSliceMatch(blockAllColumns, blockPrimaryKeyColumns) {
+		fields = blockAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			blockColumns,
+			blockAllColumns,
 			blockPrimaryKeyColumns,
 		)
 	}
@@ -688,7 +688,7 @@ func testBlocksSliceUpdateAll(t *testing.T) {
 func testBlocksUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(blockColumns) == len(blockPrimaryKeyColumns) {
+	if len(blockAllColumns) == len(blockPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
