@@ -580,7 +580,7 @@ func testMempoolTransactionsUpdate(t *testing.T) {
 	if 0 == len(mempoolTransactionPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(mempoolTransactionColumns) == len(mempoolTransactionPrimaryKeyColumns) {
+	if len(mempoolTransactionAllColumns) == len(mempoolTransactionPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -621,7 +621,7 @@ func testMempoolTransactionsUpdate(t *testing.T) {
 func testMempoolTransactionsSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(mempoolTransactionColumns) == len(mempoolTransactionPrimaryKeyColumns) {
+	if len(mempoolTransactionAllColumns) == len(mempoolTransactionPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -654,11 +654,11 @@ func testMempoolTransactionsSliceUpdateAll(t *testing.T) {
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(mempoolTransactionColumns, mempoolTransactionPrimaryKeyColumns) {
-		fields = mempoolTransactionColumns
+	if strmangle.StringSliceMatch(mempoolTransactionAllColumns, mempoolTransactionPrimaryKeyColumns) {
+		fields = mempoolTransactionAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			mempoolTransactionColumns,
+			mempoolTransactionAllColumns,
 			mempoolTransactionPrimaryKeyColumns,
 		)
 	}
@@ -688,7 +688,7 @@ func testMempoolTransactionsSliceUpdateAll(t *testing.T) {
 func testMempoolTransactionsUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(mempoolTransactionColumns) == len(mempoolTransactionPrimaryKeyColumns) {
+	if len(mempoolTransactionAllColumns) == len(mempoolTransactionPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 

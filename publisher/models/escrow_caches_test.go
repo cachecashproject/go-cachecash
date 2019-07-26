@@ -496,57 +496,6 @@ func testEscrowCachesInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testEscrowCacheToOneEscrowUsingEscrow(t *testing.T) {
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var local EscrowCache
-	var foreign Escrow
-
-	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, escrowCacheDBTypes, false, escrowCacheColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize EscrowCache struct: %s", err)
-	}
-	if err := randomize.Struct(seed, &foreign, escrowDBTypes, false, escrowColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Escrow struct: %s", err)
-	}
-
-	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	local.EscrowID = foreign.ID
-	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	check, err := local.Escrow().One(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if check.ID != foreign.ID {
-		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
-	}
-
-	slice := EscrowCacheSlice{&local}
-	if err = local.L.LoadEscrow(ctx, tx, false, (*[]*EscrowCache)(&slice), nil); err != nil {
-		t.Fatal(err)
-	}
-	if local.R.Escrow == nil {
-		t.Error("struct should have been eager loaded")
-	}
-
-	local.R.Escrow = nil
-	if err = local.L.LoadEscrow(ctx, tx, true, &local, nil); err != nil {
-		t.Fatal(err)
-	}
-	if local.R.Escrow == nil {
-		t.Error("struct should have been eager loaded")
-	}
-}
-
 func testEscrowCacheToOneCacheUsingCache(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
@@ -598,63 +547,57 @@ func testEscrowCacheToOneCacheUsingCache(t *testing.T) {
 	}
 }
 
-func testEscrowCacheToOneSetOpEscrowUsingEscrow(t *testing.T) {
-	var err error
-
+func testEscrowCacheToOneEscrowUsingEscrow(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a EscrowCache
-	var b, c Escrow
+	var local EscrowCache
+	var foreign Escrow
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, escrowCacheDBTypes, false, strmangle.SetComplement(escrowCachePrimaryKeyColumns, escrowCacheColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
+	if err := randomize.Struct(seed, &local, escrowCacheDBTypes, false, escrowCacheColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize EscrowCache struct: %s", err)
 	}
-	if err = randomize.Struct(seed, &b, escrowDBTypes, false, strmangle.SetComplement(escrowPrimaryKeyColumns, escrowColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &c, escrowDBTypes, false, strmangle.SetComplement(escrowPrimaryKeyColumns, escrowColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
+	if err := randomize.Struct(seed, &foreign, escrowDBTypes, false, escrowColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Escrow struct: %s", err)
 	}
 
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 
-	for i, x := range []*Escrow{&b, &c} {
-		err = a.SetEscrow(ctx, tx, i != 0, x)
-		if err != nil {
-			t.Fatal(err)
-		}
+	local.EscrowID = foreign.ID
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
 
-		if a.R.Escrow != x {
-			t.Error("relationship struct not set to correct value")
-		}
+	check, err := local.Escrow().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		if x.R.EscrowCaches[0] != &a {
-			t.Error("failed to append to foreign relationship struct")
-		}
-		if a.EscrowID != x.ID {
-			t.Error("foreign key was wrong value", a.EscrowID)
-		}
+	if check.ID != foreign.ID {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
 
-		zero := reflect.Zero(reflect.TypeOf(a.EscrowID))
-		reflect.Indirect(reflect.ValueOf(&a.EscrowID)).Set(zero)
+	slice := EscrowCacheSlice{&local}
+	if err = local.L.LoadEscrow(ctx, tx, false, (*[]*EscrowCache)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Escrow == nil {
+		t.Error("struct should have been eager loaded")
+	}
 
-		if err = a.Reload(ctx, tx); err != nil {
-			t.Fatal("failed to reload", err)
-		}
-
-		if a.EscrowID != x.ID {
-			t.Error("foreign key was wrong value", a.EscrowID, x.ID)
-		}
+	local.R.Escrow = nil
+	if err = local.L.LoadEscrow(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Escrow == nil {
+		t.Error("struct should have been eager loaded")
 	}
 }
+
 func testEscrowCacheToOneSetOpCacheUsingCache(t *testing.T) {
 	var err error
 
@@ -709,6 +652,63 @@ func testEscrowCacheToOneSetOpCacheUsingCache(t *testing.T) {
 
 		if a.CacheID != x.ID {
 			t.Error("foreign key was wrong value", a.CacheID, x.ID)
+		}
+	}
+}
+func testEscrowCacheToOneSetOpEscrowUsingEscrow(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a EscrowCache
+	var b, c Escrow
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, escrowCacheDBTypes, false, strmangle.SetComplement(escrowCachePrimaryKeyColumns, escrowCacheColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, escrowDBTypes, false, strmangle.SetComplement(escrowPrimaryKeyColumns, escrowColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, escrowDBTypes, false, strmangle.SetComplement(escrowPrimaryKeyColumns, escrowColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*Escrow{&b, &c} {
+		err = a.SetEscrow(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.Escrow != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.EscrowCaches[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if a.EscrowID != x.ID {
+			t.Error("foreign key was wrong value", a.EscrowID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.EscrowID))
+		reflect.Indirect(reflect.ValueOf(&a.EscrowID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if a.EscrowID != x.ID {
+			t.Error("foreign key was wrong value", a.EscrowID, x.ID)
 		}
 	}
 }
@@ -797,7 +797,7 @@ func testEscrowCachesUpdate(t *testing.T) {
 	if 0 == len(escrowCachePrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(escrowCacheColumns) == len(escrowCachePrimaryKeyColumns) {
+	if len(escrowCacheAllColumns) == len(escrowCachePrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -838,7 +838,7 @@ func testEscrowCachesUpdate(t *testing.T) {
 func testEscrowCachesSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(escrowCacheColumns) == len(escrowCachePrimaryKeyColumns) {
+	if len(escrowCacheAllColumns) == len(escrowCachePrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -871,11 +871,11 @@ func testEscrowCachesSliceUpdateAll(t *testing.T) {
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(escrowCacheColumns, escrowCachePrimaryKeyColumns) {
-		fields = escrowCacheColumns
+	if strmangle.StringSliceMatch(escrowCacheAllColumns, escrowCachePrimaryKeyColumns) {
+		fields = escrowCacheAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			escrowCacheColumns,
+			escrowCacheAllColumns,
 			escrowCachePrimaryKeyColumns,
 		)
 	}
@@ -905,7 +905,7 @@ func testEscrowCachesSliceUpdateAll(t *testing.T) {
 func testEscrowCachesUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(escrowCacheColumns) == len(escrowCachePrimaryKeyColumns) {
+	if len(escrowCacheAllColumns) == len(escrowCachePrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 

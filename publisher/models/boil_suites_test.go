@@ -105,8 +105,8 @@ func TestInsert(t *testing.T) {
 // or deadlocks can occur.
 func TestToOne(t *testing.T) {
 	t.Run("BundleToEscrowUsingEscrow", testBundleToOneEscrowUsingEscrow)
-	t.Run("EscrowCacheToEscrowUsingEscrow", testEscrowCacheToOneEscrowUsingEscrow)
 	t.Run("EscrowCacheToCacheUsingCache", testEscrowCacheToOneCacheUsingCache)
+	t.Run("EscrowCacheToEscrowUsingEscrow", testEscrowCacheToOneEscrowUsingEscrow)
 }
 
 // TestOneToOne tests cannot be run in parallel
@@ -125,8 +125,8 @@ func TestToMany(t *testing.T) {
 // or deadlocks can occur.
 func TestToOneSet(t *testing.T) {
 	t.Run("BundleToEscrowUsingBundles", testBundleToOneSetOpEscrowUsingEscrow)
-	t.Run("EscrowCacheToEscrowUsingEscrowCaches", testEscrowCacheToOneSetOpEscrowUsingEscrow)
 	t.Run("EscrowCacheToCacheUsingEscrowCaches", testEscrowCacheToOneSetOpCacheUsingCache)
+	t.Run("EscrowCacheToEscrowUsingEscrowCaches", testEscrowCacheToOneSetOpEscrowUsingEscrow)
 }
 
 // TestToOneRemove tests cannot be run in parallel

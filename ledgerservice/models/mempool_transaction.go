@@ -44,8 +44,8 @@ var MempoolTransactionWhere = struct {
 	Rowid whereHelperint
 	Raw   whereHelper__byte
 }{
-	Rowid: whereHelperint{field: `rowid`},
-	Raw:   whereHelper__byte{field: `raw`},
+	Rowid: whereHelperint{field: "\"mempool_transaction\".\"rowid\""},
+	Raw:   whereHelper__byte{field: "\"mempool_transaction\".\"raw\""},
 }
 
 // MempoolTransactionRels is where relationship names are stored.
@@ -65,7 +65,7 @@ func (*mempoolTransactionR) NewStruct() *mempoolTransactionR {
 type mempoolTransactionL struct{}
 
 var (
-	mempoolTransactionColumns               = []string{"rowid", "raw"}
+	mempoolTransactionAllColumns            = []string{"rowid", "raw"}
 	mempoolTransactionColumnsWithoutDefault = []string{"raw"}
 	mempoolTransactionColumnsWithDefault    = []string{"rowid"}
 	mempoolTransactionPrimaryKeyColumns     = []string{"rowid"}
@@ -400,7 +400,7 @@ func (o *MempoolTransaction) Insert(ctx context.Context, exec boil.ContextExecut
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			mempoolTransactionColumns,
+			mempoolTransactionAllColumns,
 			mempoolTransactionColumnsWithDefault,
 			mempoolTransactionColumnsWithoutDefault,
 			nzDefaults,
@@ -471,7 +471,7 @@ func (o *MempoolTransaction) Update(ctx context.Context, exec boil.ContextExecut
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			mempoolTransactionColumns,
+			mempoolTransactionAllColumns,
 			mempoolTransactionPrimaryKeyColumns,
 		)
 
@@ -633,13 +633,13 @@ func (o *MempoolTransaction) Upsert(ctx context.Context, exec boil.ContextExecut
 
 	if !cached {
 		insert, ret := insertColumns.InsertColumnSet(
-			mempoolTransactionColumns,
+			mempoolTransactionAllColumns,
 			mempoolTransactionColumnsWithDefault,
 			mempoolTransactionColumnsWithoutDefault,
 			nzDefaults,
 		)
 		update := updateColumns.UpdateColumnSet(
-			mempoolTransactionColumns,
+			mempoolTransactionAllColumns,
 			mempoolTransactionPrimaryKeyColumns,
 		)
 
@@ -758,10 +758,6 @@ func (q mempoolTransactionQuery) DeleteAll(ctx context.Context, exec boil.Contex
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o MempoolTransactionSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no MempoolTransaction slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

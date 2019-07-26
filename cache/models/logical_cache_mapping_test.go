@@ -580,7 +580,7 @@ func testLogicalCacheMappingsUpdate(t *testing.T) {
 	if 0 == len(logicalCacheMappingPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(logicalCacheMappingColumns) == len(logicalCacheMappingPrimaryKeyColumns) {
+	if len(logicalCacheMappingAllColumns) == len(logicalCacheMappingPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -621,7 +621,7 @@ func testLogicalCacheMappingsUpdate(t *testing.T) {
 func testLogicalCacheMappingsSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(logicalCacheMappingColumns) == len(logicalCacheMappingPrimaryKeyColumns) {
+	if len(logicalCacheMappingAllColumns) == len(logicalCacheMappingPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -654,11 +654,11 @@ func testLogicalCacheMappingsSliceUpdateAll(t *testing.T) {
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(logicalCacheMappingColumns, logicalCacheMappingPrimaryKeyColumns) {
-		fields = logicalCacheMappingColumns
+	if strmangle.StringSliceMatch(logicalCacheMappingAllColumns, logicalCacheMappingPrimaryKeyColumns) {
+		fields = logicalCacheMappingAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			logicalCacheMappingColumns,
+			logicalCacheMappingAllColumns,
 			logicalCacheMappingPrimaryKeyColumns,
 		)
 	}

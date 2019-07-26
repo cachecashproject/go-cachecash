@@ -104,11 +104,11 @@ var EscrowWhere = struct {
 	Slots          whereHelperuint64
 	PublisherAddr  whereHelperstring
 }{
-	Txid:           whereHelpercommon_EscrowID{field: `txid`},
-	InnerMasterKey: whereHelper__byte{field: `inner_master_key`},
-	OuterMasterKey: whereHelper__byte{field: `outer_master_key`},
-	Slots:          whereHelperuint64{field: `slots`},
-	PublisherAddr:  whereHelperstring{field: `publisher_addr`},
+	Txid:           whereHelpercommon_EscrowID{field: "\"escrow\".\"txid\""},
+	InnerMasterKey: whereHelper__byte{field: "\"escrow\".\"inner_master_key\""},
+	OuterMasterKey: whereHelper__byte{field: "\"escrow\".\"outer_master_key\""},
+	Slots:          whereHelperuint64{field: "\"escrow\".\"slots\""},
+	PublisherAddr:  whereHelperstring{field: "\"escrow\".\"publisher_addr\""},
 }
 
 // EscrowRels is where relationship names are stored.
@@ -128,7 +128,7 @@ func (*escrowR) NewStruct() *escrowR {
 type escrowL struct{}
 
 var (
-	escrowColumns               = []string{"txid", "inner_master_key", "outer_master_key", "slots", "publisher_addr"}
+	escrowAllColumns            = []string{"txid", "inner_master_key", "outer_master_key", "slots", "publisher_addr"}
 	escrowColumnsWithoutDefault = []string{"txid", "inner_master_key", "outer_master_key", "slots", "publisher_addr"}
 	escrowColumnsWithDefault    = []string{}
 	escrowPrimaryKeyColumns     = []string{"txid"}
@@ -463,7 +463,7 @@ func (o *Escrow) Insert(ctx context.Context, exec boil.ContextExecutor, columns 
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			escrowColumns,
+			escrowAllColumns,
 			escrowColumnsWithDefault,
 			escrowColumnsWithoutDefault,
 			nzDefaults,
@@ -551,7 +551,7 @@ func (o *Escrow) Update(ctx context.Context, exec boil.ContextExecutor, columns 
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			escrowColumns,
+			escrowAllColumns,
 			escrowPrimaryKeyColumns,
 		)
 
@@ -723,10 +723,6 @@ func (q escrowQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o EscrowSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no Escrow slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

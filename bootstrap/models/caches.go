@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"net"
-
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries"
@@ -21,6 +19,7 @@ import (
 	"github.com/volatiletech/sqlboiler/queries/qmhelper"
 	"github.com/volatiletech/sqlboiler/strmangle"
 	"golang.org/x/crypto/ed25519"
+	"net"
 )
 
 // Cache is an object representing the database table.
@@ -160,17 +159,17 @@ var CacheWhere = struct {
 	ContactURL  whereHelperstring
 	LastPing    whereHelpertime_Time
 }{
-	PublicKey:   whereHelpered25519_PublicKey{field: `public_key`},
-	Version:     whereHelperstring{field: `version`},
-	FreeMemory:  whereHelperuint64{field: `free_memory`},
-	TotalMemory: whereHelperuint64{field: `total_memory`},
-	FreeDisk:    whereHelperuint64{field: `free_disk`},
-	TotalDisk:   whereHelperuint64{field: `total_disk`},
-	StartupTime: whereHelpertime_Time{field: `startup_time`},
-	ExternalIP:  whereHelpernet_IP{field: `external_ip`},
-	Port:        whereHelperuint32{field: `port`},
-	ContactURL:  whereHelperstring{field: `contact_url`},
-	LastPing:    whereHelpertime_Time{field: `last_ping`},
+	PublicKey:   whereHelpered25519_PublicKey{field: "\"caches\".\"public_key\""},
+	Version:     whereHelperstring{field: "\"caches\".\"version\""},
+	FreeMemory:  whereHelperuint64{field: "\"caches\".\"free_memory\""},
+	TotalMemory: whereHelperuint64{field: "\"caches\".\"total_memory\""},
+	FreeDisk:    whereHelperuint64{field: "\"caches\".\"free_disk\""},
+	TotalDisk:   whereHelperuint64{field: "\"caches\".\"total_disk\""},
+	StartupTime: whereHelpertime_Time{field: "\"caches\".\"startup_time\""},
+	ExternalIP:  whereHelpernet_IP{field: "\"caches\".\"external_ip\""},
+	Port:        whereHelperuint32{field: "\"caches\".\"port\""},
+	ContactURL:  whereHelperstring{field: "\"caches\".\"contact_url\""},
+	LastPing:    whereHelpertime_Time{field: "\"caches\".\"last_ping\""},
 }
 
 // CacheRels is where relationship names are stored.
@@ -190,7 +189,7 @@ func (*cacheR) NewStruct() *cacheR {
 type cacheL struct{}
 
 var (
-	cacheColumns               = []string{"public_key", "version", "free_memory", "total_memory", "free_disk", "total_disk", "startup_time", "external_ip", "port", "contact_url", "last_ping"}
+	cacheAllColumns            = []string{"public_key", "version", "free_memory", "total_memory", "free_disk", "total_disk", "startup_time", "external_ip", "port", "contact_url", "last_ping"}
 	cacheColumnsWithoutDefault = []string{"public_key", "version", "free_memory", "total_memory", "free_disk", "total_disk", "startup_time", "external_ip", "port", "contact_url", "last_ping"}
 	cacheColumnsWithDefault    = []string{}
 	cachePrimaryKeyColumns     = []string{"public_key"}
@@ -525,7 +524,7 @@ func (o *Cache) Insert(ctx context.Context, exec boil.ContextExecutor, columns b
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			cacheColumns,
+			cacheAllColumns,
 			cacheColumnsWithDefault,
 			cacheColumnsWithoutDefault,
 			nzDefaults,
@@ -613,7 +612,7 @@ func (o *Cache) Update(ctx context.Context, exec boil.ContextExecutor, columns b
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			cacheColumns,
+			cacheAllColumns,
 			cachePrimaryKeyColumns,
 		)
 
@@ -785,10 +784,6 @@ func (q cacheQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (i
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o CacheSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no Cache slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

@@ -98,11 +98,11 @@ var BlockWhere = struct {
 	ParentID whereHelpernull_Bytes
 	Raw      whereHelper__byte
 }{
-	Rowid:    whereHelperint{field: `rowid`},
-	Height:   whereHelperint{field: `height`},
-	BlockID:  whereHelper__byte{field: `block_id`},
-	ParentID: whereHelpernull_Bytes{field: `parent_id`},
-	Raw:      whereHelper__byte{field: `raw`},
+	Rowid:    whereHelperint{field: "\"block\".\"rowid\""},
+	Height:   whereHelperint{field: "\"block\".\"height\""},
+	BlockID:  whereHelper__byte{field: "\"block\".\"block_id\""},
+	ParentID: whereHelpernull_Bytes{field: "\"block\".\"parent_id\""},
+	Raw:      whereHelper__byte{field: "\"block\".\"raw\""},
 }
 
 // BlockRels is where relationship names are stored.
@@ -122,7 +122,7 @@ func (*blockR) NewStruct() *blockR {
 type blockL struct{}
 
 var (
-	blockColumns               = []string{"rowid", "height", "block_id", "parent_id", "raw"}
+	blockAllColumns            = []string{"rowid", "height", "block_id", "parent_id", "raw"}
 	blockColumnsWithoutDefault = []string{"height", "block_id", "parent_id", "raw"}
 	blockColumnsWithDefault    = []string{"rowid"}
 	blockPrimaryKeyColumns     = []string{"rowid"}
@@ -457,7 +457,7 @@ func (o *Block) Insert(ctx context.Context, exec boil.ContextExecutor, columns b
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			blockColumns,
+			blockAllColumns,
 			blockColumnsWithDefault,
 			blockColumnsWithoutDefault,
 			nzDefaults,
@@ -528,7 +528,7 @@ func (o *Block) Update(ctx context.Context, exec boil.ContextExecutor, columns b
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			blockColumns,
+			blockAllColumns,
 			blockPrimaryKeyColumns,
 		)
 
@@ -690,13 +690,13 @@ func (o *Block) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 
 	if !cached {
 		insert, ret := insertColumns.InsertColumnSet(
-			blockColumns,
+			blockAllColumns,
 			blockColumnsWithDefault,
 			blockColumnsWithoutDefault,
 			nzDefaults,
 		)
 		update := updateColumns.UpdateColumnSet(
-			blockColumns,
+			blockAllColumns,
 			blockPrimaryKeyColumns,
 		)
 
@@ -815,10 +815,6 @@ func (q blockQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (i
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o BlockSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no Block slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

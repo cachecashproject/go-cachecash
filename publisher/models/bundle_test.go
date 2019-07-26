@@ -689,7 +689,7 @@ func testBundlesUpdate(t *testing.T) {
 	if 0 == len(bundlePrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(bundleColumns) == len(bundlePrimaryKeyColumns) {
+	if len(bundleAllColumns) == len(bundlePrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -730,7 +730,7 @@ func testBundlesUpdate(t *testing.T) {
 func testBundlesSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(bundleColumns) == len(bundlePrimaryKeyColumns) {
+	if len(bundleAllColumns) == len(bundlePrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -763,11 +763,11 @@ func testBundlesSliceUpdateAll(t *testing.T) {
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(bundleColumns, bundlePrimaryKeyColumns) {
-		fields = bundleColumns
+	if strmangle.StringSliceMatch(bundleAllColumns, bundlePrimaryKeyColumns) {
+		fields = bundleAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			bundleColumns,
+			bundleAllColumns,
 			bundlePrimaryKeyColumns,
 		)
 	}
@@ -797,7 +797,7 @@ func testBundlesSliceUpdateAll(t *testing.T) {
 func testBundlesUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(bundleColumns) == len(bundlePrimaryKeyColumns) {
+	if len(bundleAllColumns) == len(bundlePrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 

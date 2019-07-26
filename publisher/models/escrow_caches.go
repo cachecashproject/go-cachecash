@@ -52,25 +52,25 @@ var EscrowCacheWhere = struct {
 	CacheID        whereHelperint
 	InnerMasterKey whereHelper__byte
 }{
-	ID:             whereHelperint{field: `id`},
-	EscrowID:       whereHelperint{field: `escrow_id`},
-	CacheID:        whereHelperint{field: `cache_id`},
-	InnerMasterKey: whereHelper__byte{field: `inner_master_key`},
+	ID:             whereHelperint{field: "\"escrow_caches\".\"id\""},
+	EscrowID:       whereHelperint{field: "\"escrow_caches\".\"escrow_id\""},
+	CacheID:        whereHelperint{field: "\"escrow_caches\".\"cache_id\""},
+	InnerMasterKey: whereHelper__byte{field: "\"escrow_caches\".\"inner_master_key\""},
 }
 
 // EscrowCacheRels is where relationship names are stored.
 var EscrowCacheRels = struct {
-	Escrow string
 	Cache  string
+	Escrow string
 }{
-	Escrow: "Escrow",
 	Cache:  "Cache",
+	Escrow: "Escrow",
 }
 
 // escrowCacheR is where relationships are stored.
 type escrowCacheR struct {
-	Escrow *Escrow
 	Cache  *Cache
+	Escrow *Escrow
 }
 
 // NewStruct creates a new relationship struct
@@ -82,7 +82,7 @@ func (*escrowCacheR) NewStruct() *escrowCacheR {
 type escrowCacheL struct{}
 
 var (
-	escrowCacheColumns               = []string{"id", "escrow_id", "cache_id", "inner_master_key"}
+	escrowCacheAllColumns            = []string{"id", "escrow_id", "cache_id", "inner_master_key"}
 	escrowCacheColumnsWithoutDefault = []string{"inner_master_key"}
 	escrowCacheColumnsWithDefault    = []string{"id", "escrow_id", "cache_id"}
 	escrowCachePrimaryKeyColumns     = []string{"id"}
@@ -363,20 +363,6 @@ func (q escrowCacheQuery) Exists(ctx context.Context, exec boil.ContextExecutor)
 	return count > 0, nil
 }
 
-// Escrow pointed to by the foreign key.
-func (o *EscrowCache) Escrow(mods ...qm.QueryMod) escrowQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("id=?", o.EscrowID),
-	}
-
-	queryMods = append(queryMods, mods...)
-
-	query := Escrows(queryMods...)
-	queries.SetFrom(query.Query, "\"escrow\"")
-
-	return query
-}
-
 // Cache pointed to by the foreign key.
 func (o *EscrowCache) Cache(mods ...qm.QueryMod) cacheQuery {
 	queryMods := []qm.QueryMod{
@@ -391,105 +377,18 @@ func (o *EscrowCache) Cache(mods ...qm.QueryMod) cacheQuery {
 	return query
 }
 
-// LoadEscrow allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (escrowCacheL) LoadEscrow(ctx context.Context, e boil.ContextExecutor, singular bool, maybeEscrowCache interface{}, mods queries.Applicator) error {
-	var slice []*EscrowCache
-	var object *EscrowCache
-
-	if singular {
-		object = maybeEscrowCache.(*EscrowCache)
-	} else {
-		slice = *maybeEscrowCache.(*[]*EscrowCache)
+// Escrow pointed to by the foreign key.
+func (o *EscrowCache) Escrow(mods ...qm.QueryMod) escrowQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("id=?", o.EscrowID),
 	}
 
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &escrowCacheR{}
-		}
-		args = append(args, object.EscrowID)
+	queryMods = append(queryMods, mods...)
 
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &escrowCacheR{}
-			}
+	query := Escrows(queryMods...)
+	queries.SetFrom(query.Query, "\"escrow\"")
 
-			for _, a := range args {
-				if a == obj.EscrowID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.EscrowID)
-
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(qm.From(`escrow`), qm.WhereIn(`id in ?`, args...))
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load Escrow")
-	}
-
-	var resultSlice []*Escrow
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice Escrow")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for escrow")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for escrow")
-	}
-
-	if len(escrowCacheAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(resultSlice) == 0 {
-		return nil
-	}
-
-	if singular {
-		foreign := resultSlice[0]
-		object.R.Escrow = foreign
-		if foreign.R == nil {
-			foreign.R = &escrowR{}
-		}
-		foreign.R.EscrowCaches = append(foreign.R.EscrowCaches, object)
-		return nil
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.EscrowID == foreign.ID {
-				local.R.Escrow = foreign
-				if foreign.R == nil {
-					foreign.R = &escrowR{}
-				}
-				foreign.R.EscrowCaches = append(foreign.R.EscrowCaches, local)
-				break
-			}
-		}
-	}
-
-	return nil
+	return query
 }
 
 // LoadCache allows an eager lookup of values, cached into the
@@ -593,48 +492,102 @@ func (escrowCacheL) LoadCache(ctx context.Context, e boil.ContextExecutor, singu
 	return nil
 }
 
-// SetEscrow of the escrowCache to the related item.
-// Sets o.R.Escrow to related.
-// Adds o to related.R.EscrowCaches.
-func (o *EscrowCache) SetEscrow(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Escrow) error {
-	var err error
-	if insert {
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
-		}
-	}
+// LoadEscrow allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (escrowCacheL) LoadEscrow(ctx context.Context, e boil.ContextExecutor, singular bool, maybeEscrowCache interface{}, mods queries.Applicator) error {
+	var slice []*EscrowCache
+	var object *EscrowCache
 
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"escrow_caches\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"escrow_id"}),
-		strmangle.WhereClause("\"", "\"", 2, escrowCachePrimaryKeyColumns),
-	)
-	values := []interface{}{related.ID, o.ID}
-
-	if boil.DebugMode {
-		fmt.Fprintln(boil.DebugWriter, updateQuery)
-		fmt.Fprintln(boil.DebugWriter, values)
-	}
-
-	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
-	}
-
-	o.EscrowID = related.ID
-	if o.R == nil {
-		o.R = &escrowCacheR{
-			Escrow: related,
-		}
+	if singular {
+		object = maybeEscrowCache.(*EscrowCache)
 	} else {
-		o.R.Escrow = related
+		slice = *maybeEscrowCache.(*[]*EscrowCache)
 	}
 
-	if related.R == nil {
-		related.R = &escrowR{
-			EscrowCaches: EscrowCacheSlice{o},
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &escrowCacheR{}
 		}
+		args = append(args, object.EscrowID)
+
 	} else {
-		related.R.EscrowCaches = append(related.R.EscrowCaches, o)
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &escrowCacheR{}
+			}
+
+			for _, a := range args {
+				if a == obj.EscrowID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.EscrowID)
+
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(qm.From(`escrow`), qm.WhereIn(`id in ?`, args...))
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load Escrow")
+	}
+
+	var resultSlice []*Escrow
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice Escrow")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for escrow")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for escrow")
+	}
+
+	if len(escrowCacheAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.Escrow = foreign
+		if foreign.R == nil {
+			foreign.R = &escrowR{}
+		}
+		foreign.R.EscrowCaches = append(foreign.R.EscrowCaches, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if local.EscrowID == foreign.ID {
+				local.R.Escrow = foreign
+				if foreign.R == nil {
+					foreign.R = &escrowR{}
+				}
+				foreign.R.EscrowCaches = append(foreign.R.EscrowCaches, local)
+				break
+			}
+		}
 	}
 
 	return nil
@@ -678,6 +631,53 @@ func (o *EscrowCache) SetCache(ctx context.Context, exec boil.ContextExecutor, i
 
 	if related.R == nil {
 		related.R = &cacheR{
+			EscrowCaches: EscrowCacheSlice{o},
+		}
+	} else {
+		related.R.EscrowCaches = append(related.R.EscrowCaches, o)
+	}
+
+	return nil
+}
+
+// SetEscrow of the escrowCache to the related item.
+// Sets o.R.Escrow to related.
+// Adds o to related.R.EscrowCaches.
+func (o *EscrowCache) SetEscrow(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Escrow) error {
+	var err error
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	}
+
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"escrow_caches\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"escrow_id"}),
+		strmangle.WhereClause("\"", "\"", 2, escrowCachePrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
+
+	if boil.DebugMode {
+		fmt.Fprintln(boil.DebugWriter, updateQuery)
+		fmt.Fprintln(boil.DebugWriter, values)
+	}
+
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	o.EscrowID = related.ID
+	if o.R == nil {
+		o.R = &escrowCacheR{
+			Escrow: related,
+		}
+	} else {
+		o.R.Escrow = related
+	}
+
+	if related.R == nil {
+		related.R = &escrowR{
 			EscrowCaches: EscrowCacheSlice{o},
 		}
 	} else {
@@ -741,7 +741,7 @@ func (o *EscrowCache) Insert(ctx context.Context, exec boil.ContextExecutor, col
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			escrowCacheColumns,
+			escrowCacheAllColumns,
 			escrowCacheColumnsWithDefault,
 			escrowCacheColumnsWithoutDefault,
 			nzDefaults,
@@ -812,7 +812,7 @@ func (o *EscrowCache) Update(ctx context.Context, exec boil.ContextExecutor, col
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			escrowCacheColumns,
+			escrowCacheAllColumns,
 			escrowCachePrimaryKeyColumns,
 		)
 
@@ -974,13 +974,13 @@ func (o *EscrowCache) Upsert(ctx context.Context, exec boil.ContextExecutor, upd
 
 	if !cached {
 		insert, ret := insertColumns.InsertColumnSet(
-			escrowCacheColumns,
+			escrowCacheAllColumns,
 			escrowCacheColumnsWithDefault,
 			escrowCacheColumnsWithoutDefault,
 			nzDefaults,
 		)
 		update := updateColumns.UpdateColumnSet(
-			escrowCacheColumns,
+			escrowCacheAllColumns,
 			escrowCachePrimaryKeyColumns,
 		)
 
@@ -1099,10 +1099,6 @@ func (q escrowCacheQuery) DeleteAll(ctx context.Context, exec boil.ContextExecut
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o EscrowCacheSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no EscrowCache slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

@@ -73,10 +73,10 @@ var LogicalCacheMappingWhere = struct {
 	BlockEscrowID whereHelperstring
 	ChunkID       whereHelpercommon_ChunkID
 }{
-	Txid:          whereHelpercommon_EscrowID{field: `txid`},
-	SlotIdx:       whereHelperuint64{field: `slot_idx`},
-	BlockEscrowID: whereHelperstring{field: `block_escrow_id`},
-	ChunkID:       whereHelpercommon_ChunkID{field: `chunk_id`},
+	Txid:          whereHelpercommon_EscrowID{field: "\"logical_cache_mapping\".\"txid\""},
+	SlotIdx:       whereHelperuint64{field: "\"logical_cache_mapping\".\"slot_idx\""},
+	BlockEscrowID: whereHelperstring{field: "\"logical_cache_mapping\".\"block_escrow_id\""},
+	ChunkID:       whereHelpercommon_ChunkID{field: "\"logical_cache_mapping\".\"chunk_id\""},
 }
 
 // LogicalCacheMappingRels is where relationship names are stored.
@@ -96,7 +96,7 @@ func (*logicalCacheMappingR) NewStruct() *logicalCacheMappingR {
 type logicalCacheMappingL struct{}
 
 var (
-	logicalCacheMappingColumns               = []string{"txid", "slot_idx", "block_escrow_id", "chunk_id"}
+	logicalCacheMappingAllColumns            = []string{"txid", "slot_idx", "block_escrow_id", "chunk_id"}
 	logicalCacheMappingColumnsWithoutDefault = []string{"txid", "slot_idx", "block_escrow_id", "chunk_id"}
 	logicalCacheMappingColumnsWithDefault    = []string{}
 	logicalCacheMappingPrimaryKeyColumns     = []string{"txid", "slot_idx"}
@@ -431,7 +431,7 @@ func (o *LogicalCacheMapping) Insert(ctx context.Context, exec boil.ContextExecu
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			logicalCacheMappingColumns,
+			logicalCacheMappingAllColumns,
 			logicalCacheMappingColumnsWithDefault,
 			logicalCacheMappingColumnsWithoutDefault,
 			nzDefaults,
@@ -520,7 +520,7 @@ func (o *LogicalCacheMapping) Update(ctx context.Context, exec boil.ContextExecu
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			logicalCacheMappingColumns,
+			logicalCacheMappingAllColumns,
 			logicalCacheMappingPrimaryKeyColumns,
 		)
 
@@ -692,10 +692,6 @@ func (q logicalCacheMappingQuery) DeleteAll(ctx context.Context, exec boil.Conte
 
 // DeleteAll deletes all rows in the slice, using an executor.
 func (o LogicalCacheMappingSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
-	if o == nil {
-		return 0, errors.New("models: no LogicalCacheMapping slice provided for delete all")
-	}
-
 	if len(o) == 0 {
 		return 0, nil
 	}

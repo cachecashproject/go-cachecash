@@ -580,7 +580,7 @@ func testTransactionAuditlogsUpdate(t *testing.T) {
 	if 0 == len(transactionAuditlogPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(transactionAuditlogColumns) == len(transactionAuditlogPrimaryKeyColumns) {
+	if len(transactionAuditlogAllColumns) == len(transactionAuditlogPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -621,7 +621,7 @@ func testTransactionAuditlogsUpdate(t *testing.T) {
 func testTransactionAuditlogsSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(transactionAuditlogColumns) == len(transactionAuditlogPrimaryKeyColumns) {
+	if len(transactionAuditlogAllColumns) == len(transactionAuditlogPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -654,11 +654,11 @@ func testTransactionAuditlogsSliceUpdateAll(t *testing.T) {
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(transactionAuditlogColumns, transactionAuditlogPrimaryKeyColumns) {
-		fields = transactionAuditlogColumns
+	if strmangle.StringSliceMatch(transactionAuditlogAllColumns, transactionAuditlogPrimaryKeyColumns) {
+		fields = transactionAuditlogAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			transactionAuditlogColumns,
+			transactionAuditlogAllColumns,
 			transactionAuditlogPrimaryKeyColumns,
 		)
 	}
@@ -688,7 +688,7 @@ func testTransactionAuditlogsSliceUpdateAll(t *testing.T) {
 func testTransactionAuditlogsUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(transactionAuditlogColumns) == len(transactionAuditlogPrimaryKeyColumns) {
+	if len(transactionAuditlogAllColumns) == len(transactionAuditlogPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 

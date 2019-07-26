@@ -580,7 +580,7 @@ func testCachesUpdate(t *testing.T) {
 	if 0 == len(cachePrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(cacheColumns) == len(cachePrimaryKeyColumns) {
+	if len(cacheAllColumns) == len(cachePrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -621,7 +621,7 @@ func testCachesUpdate(t *testing.T) {
 func testCachesSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(cacheColumns) == len(cachePrimaryKeyColumns) {
+	if len(cacheAllColumns) == len(cachePrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -654,11 +654,11 @@ func testCachesSliceUpdateAll(t *testing.T) {
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(cacheColumns, cachePrimaryKeyColumns) {
-		fields = cacheColumns
+	if strmangle.StringSliceMatch(cacheAllColumns, cachePrimaryKeyColumns) {
+		fields = cacheAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			cacheColumns,
+			cacheAllColumns,
 			cachePrimaryKeyColumns,
 		)
 	}

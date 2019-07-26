@@ -887,7 +887,7 @@ func testEscrowsUpdate(t *testing.T) {
 	if 0 == len(escrowPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(escrowColumns) == len(escrowPrimaryKeyColumns) {
+	if len(escrowAllColumns) == len(escrowPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -928,7 +928,7 @@ func testEscrowsUpdate(t *testing.T) {
 func testEscrowsSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(escrowColumns) == len(escrowPrimaryKeyColumns) {
+	if len(escrowAllColumns) == len(escrowPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
@@ -961,11 +961,11 @@ func testEscrowsSliceUpdateAll(t *testing.T) {
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(escrowColumns, escrowPrimaryKeyColumns) {
-		fields = escrowColumns
+	if strmangle.StringSliceMatch(escrowAllColumns, escrowPrimaryKeyColumns) {
+		fields = escrowAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			escrowColumns,
+			escrowAllColumns,
 			escrowPrimaryKeyColumns,
 		)
 	}
@@ -995,7 +995,7 @@ func testEscrowsSliceUpdateAll(t *testing.T) {
 func testEscrowsUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(escrowColumns) == len(escrowPrimaryKeyColumns) {
+	if len(escrowAllColumns) == len(escrowPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
