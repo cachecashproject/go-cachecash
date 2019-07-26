@@ -344,6 +344,15 @@ type Outpoint struct {
 	Index      uint8  // (of output in PreviousTx) // TODO: type
 }
 
+type OutpointKey [33]byte
+
+func (o *Outpoint) Key() OutpointKey {
+	var k OutpointKey
+	copy(k[:], o.PreviousTx[:])
+	k[32] = o.Index
+	return k
+}
+
 type TransactionInput struct {
 	Outpoint
 	ScriptSig  []byte // (first half of script) // TODO: type

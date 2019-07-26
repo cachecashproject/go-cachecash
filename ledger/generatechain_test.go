@@ -142,7 +142,16 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 	_ = block1
 
 	// Validate & compute UTXO set
-	// TODO:
+	// TODO: Validate.
+	us := NewUTXOSet()
+	for _, blk := range []*Block{block0, block1} {
+		for _, tx := range blk.Transactions {
+			if err := us.Update(tx); err != nil {
+				t.Fatalf("failed to update UTXO set: %v", err)
+			}
+		}
+	}
+	assert.Equal(t, 4, len(us.utxos))
 
 	// Done.
 	_ = privA
