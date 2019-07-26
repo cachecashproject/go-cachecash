@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"flag"
-	"os"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
@@ -19,12 +18,7 @@ var (
 )
 
 func main() {
-	if err := mainC(); err != nil {
-		if _, err := os.Stderr.WriteString(err.Error() + "\n"); err != nil {
-			panic(err)
-		}
-		os.Exit(1)
-	}
+	common.Main(mainC)
 }
 
 func mainC() error {

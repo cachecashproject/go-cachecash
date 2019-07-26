@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"math/rand"
-	"os"
 	"strings"
 	"time"
 
@@ -33,12 +32,7 @@ func generateMessage() string {
 }
 
 func main() {
-	if err := mainC(); err != nil {
-		if _, err := os.Stderr.WriteString(err.Error() + "\n"); err != nil {
-			panic(err)
-		}
-		os.Exit(1)
-	}
+	common.Main(mainC)
 }
 
 func mainC() error {
