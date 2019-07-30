@@ -496,6 +496,160 @@ func testBlocksInsertWhitelist(t *testing.T) {
 	}
 }
 
+func testBlockToManyUtxos(t *testing.T) {
+	var err error
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Block
+	var b, c Utxo
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, blockDBTypes, true, blockColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Block struct: %s", err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = randomize.Struct(seed, &b, utxoDBTypes, false, utxoColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, utxoDBTypes, false, utxoColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+
+	b.BlockID = a.Rowid
+	c.BlockID = a.Rowid
+
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := a.Utxos().All(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bFound, cFound := false, false
+	for _, v := range check {
+		if v.BlockID == b.BlockID {
+			bFound = true
+		}
+		if v.BlockID == c.BlockID {
+			cFound = true
+		}
+	}
+
+	if !bFound {
+		t.Error("expected to find b")
+	}
+	if !cFound {
+		t.Error("expected to find c")
+	}
+
+	slice := BlockSlice{&a}
+	if err = a.L.LoadUtxos(ctx, tx, false, (*[]*Block)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.Utxos); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	a.R.Utxos = nil
+	if err = a.L.LoadUtxos(ctx, tx, true, &a, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.Utxos); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	if t.Failed() {
+		t.Logf("%#v", check)
+	}
+}
+
+func testBlockToManyAddOpUtxos(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Block
+	var b, c, d, e Utxo
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, blockDBTypes, false, strmangle.SetComplement(blockPrimaryKeyColumns, blockColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*Utxo{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, utxoDBTypes, false, strmangle.SetComplement(utxoPrimaryKeyColumns, utxoColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	foreignersSplitByInsertion := [][]*Utxo{
+		{&b, &c},
+		{&d, &e},
+	}
+
+	for i, x := range foreignersSplitByInsertion {
+		err = a.AddUtxos(ctx, tx, i != 0, x...)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		first := x[0]
+		second := x[1]
+
+		if a.Rowid != first.BlockID {
+			t.Error("foreign key was wrong value", a.Rowid, first.BlockID)
+		}
+		if a.Rowid != second.BlockID {
+			t.Error("foreign key was wrong value", a.Rowid, second.BlockID)
+		}
+
+		if first.R.Block != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+		if second.R.Block != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+
+		if a.R.Utxos[i*2] != first {
+			t.Error("relationship struct slice not set to correct value")
+		}
+		if a.R.Utxos[i*2+1] != second {
+			t.Error("relationship struct slice not set to correct value")
+		}
+
+		count, err := a.Utxos().Count(ctx, tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := int64((i + 1) * 2); count != want {
+			t.Error("want", want, "got", count)
+		}
+	}
+}
+
 func testBlocksReload(t *testing.T) {
 	t.Parallel()
 

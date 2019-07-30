@@ -7,8 +7,10 @@ var TableNames = struct {
 	Block               string
 	MempoolTransaction  string
 	TransactionAuditlog string
+	Utxo                string
 }{
 	Block:               "block",
 	MempoolTransaction:  "mempool_transaction",
 	TransactionAuditlog: "transaction_auditlog",
+	Utxo:                "utxo",
 }

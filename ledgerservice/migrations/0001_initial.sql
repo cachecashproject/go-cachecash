@@ -22,11 +22,23 @@ CREATE TABLE transaction_auditlog (
     status transaction_status NOT NULL
 );
 
+CREATE TABLE utxo (
+    rowid SERIAL PRIMARY KEY,
+    txid BYTEA NOT NULL,
+    output_idx INT NOT NULL,
+	value INT NOT NULL,
+	script_pubkey BYTEA NOT NULL,
+
+    -- we don't really need this field
+    block_id INT NOT NULL REFERENCES block(rowid)
+);
+
 -- @KK: Eventually, we probably want a table that indexes mined transactions by ID.  We'll still need to store the raw
 --      (serialized) blocks, though.  Also, this gets a little bit tricky, because shallow forks may cause the same
 --      transaction to be part of multiple blocks at similar heights.
 
 -- +migrate Down
+DROP TABLE utxo;
 DROP TABLE mempool_transaction;
 DROP TABLE block;
 DROP TABLE transaction_auditlog;

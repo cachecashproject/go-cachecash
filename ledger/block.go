@@ -49,6 +49,66 @@ func NewBlock(sigKey ed25519.PrivateKey, previousBlock BlockID, txs []*Transacti
 	return b, nil
 }
 
+func (block *Block) Marshal() ([]byte, error) {
+	s, err := block.Size()
+	if err != nil {
+		return nil, err
+	}
+	data := make([]byte, s)
+	n, err := block.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	if n != len(data) {
+		return nil, errors.New("unexpected data length in Block.Marshal()")
+	}
+	return data, nil
+}
+
+func (block *Block) Size() (int, error) {
+	var n int
+
+	n += 4
+	n += len(block.Header.PreviousBlock)
+	n += len(block.Header.MerkleRoot)
+	n += 4
+
+	for _, tx := range block.Transactions {
+		txBytes, err := tx.Marshal()
+		if err != nil {
+			return 0, err
+		}
+		n += 4 + len(txBytes)
+	}
+
+	return n, nil
+}
+
+func (block *Block) MarshalTo(data []byte) (int, error) {
+	var n int
+
+	binary.LittleEndian.PutUint32(data[n:], block.Header.Version)
+	n += 4
+
+	n += copy(data[n:], block.Header.PreviousBlock[:])
+	n += copy(data[n:], block.Header.MerkleRoot)
+
+	binary.LittleEndian.PutUint32(data[n:], block.Header.Timestamp)
+	n += 4
+
+	for _, tx := range block.Transactions {
+		txBytes, err := tx.Marshal()
+		if err != nil {
+			return 0, err
+		}
+		binary.LittleEndian.PutUint32(data[n:], uint32(len(txBytes)))
+		n += 4
+		n += copy(txBytes, data[n:])
+	}
+
+	return n, nil
+}
+
 func (block *Block) BlockID() BlockID {
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, block.Header.Version)
@@ -61,6 +121,21 @@ func (block *Block) BlockID() BlockID {
 	d := sha256.Sum256(buf)
 	d = sha256.Sum256(d[:])
 	return BlockID(d)
+}
+
+func (block *Block) CanonicalDigest() []byte {
+	var n int
+	buf := make([]byte, 4+len(block.Header.PreviousBlock)+len(block.Header.MerkleRoot)+4)
+
+	binary.LittleEndian.PutUint32(buf[n:], block.Header.Version)
+	n += 4
+	n += copy(buf[n:], block.Header.PreviousBlock[:])
+	n += copy(buf[n:], block.Header.MerkleRoot)
+	binary.LittleEndian.PutUint32(buf[n:], block.Header.Timestamp)
+
+	d := sha256.Sum256(buf)
+	d = sha256.Sum256(d[:])
+	return d[:]
 }
 
 func (block *Block) MerkleRoot() ([]byte, error) {

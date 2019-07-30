@@ -107,10 +107,14 @@ var BlockWhere = struct {
 
 // BlockRels is where relationship names are stored.
 var BlockRels = struct {
-}{}
+	Utxos string
+}{
+	Utxos: "Utxos",
+}
 
 // blockR is where relationships are stored.
 type blockR struct {
+	Utxos UtxoSlice
 }
 
 // NewStruct creates a new relationship struct
@@ -401,6 +405,175 @@ func (q blockQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool
 	}
 
 	return count > 0, nil
+}
+
+// Utxos retrieves all the utxo's Utxos with an executor.
+func (o *Block) Utxos(mods ...qm.QueryMod) utxoQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"utxo\".\"block_id\"=?", o.Rowid),
+	)
+
+	query := Utxos(queryMods...)
+	queries.SetFrom(query.Query, "\"utxo\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"utxo\".*"})
+	}
+
+	return query
+}
+
+// LoadUtxos allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (blockL) LoadUtxos(ctx context.Context, e boil.ContextExecutor, singular bool, maybeBlock interface{}, mods queries.Applicator) error {
+	var slice []*Block
+	var object *Block
+
+	if singular {
+		object = maybeBlock.(*Block)
+	} else {
+		slice = *maybeBlock.(*[]*Block)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &blockR{}
+		}
+		args = append(args, object.Rowid)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &blockR{}
+			}
+
+			for _, a := range args {
+				if a == obj.Rowid {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.Rowid)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(qm.From(`utxo`), qm.WhereIn(`block_id in ?`, args...))
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load utxo")
+	}
+
+	var resultSlice []*Utxo
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice utxo")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on utxo")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for utxo")
+	}
+
+	if len(utxoAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.Utxos = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &utxoR{}
+			}
+			foreign.R.Block = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.Rowid == foreign.BlockID {
+				local.R.Utxos = append(local.R.Utxos, foreign)
+				if foreign.R == nil {
+					foreign.R = &utxoR{}
+				}
+				foreign.R.Block = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// AddUtxos adds the given related objects to the existing relationships
+// of the block, optionally inserting them as new records.
+// Appends related to o.R.Utxos.
+// Sets related.R.Block appropriately.
+func (o *Block) AddUtxos(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Utxo) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.BlockID = o.Rowid
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"utxo\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"block_id"}),
+				strmangle.WhereClause("\"", "\"", 2, utxoPrimaryKeyColumns),
+			)
+			values := []interface{}{o.Rowid, rel.Rowid}
+
+			if boil.DebugMode {
+				fmt.Fprintln(boil.DebugWriter, updateQuery)
+				fmt.Fprintln(boil.DebugWriter, values)
+			}
+
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.BlockID = o.Rowid
+		}
+	}
+
+	if o.R == nil {
+		o.R = &blockR{
+			Utxos: related,
+		}
+	} else {
+		o.R.Utxos = append(o.R.Utxos, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &utxoR{
+				Block: o,
+			}
+		} else {
+			rel.R.Block = o
+		}
+	}
+	return nil
 }
 
 // Blocks retrieves all the records using an executor.

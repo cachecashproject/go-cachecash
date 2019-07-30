@@ -1,6 +1,13 @@
 package ledger
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+const (
+	BLOCK_SIZE_LIMIT = 1000 // XXX: this is an arbitrary value
+)
 
 type UTXOSet struct {
 	utxos map[OutpointKey]struct{}
@@ -27,4 +34,62 @@ func (us *UTXOSet) Update(tx *Transaction) error {
 	}
 
 	return nil
+}
+
+type SpendingState struct {
+	spent map[OutpointKey]struct{}
+	txs   []*Transaction
+	size  int
+}
+
+func NewSpendingState() *SpendingState {
+	return &SpendingState{
+		spent: map[OutpointKey]struct{}{},
+		txs:   []*Transaction{},
+		size:  0,
+	}
+}
+
+func (s *SpendingState) AddTx(tx *Transaction) error {
+	// check if we can still fit this tx in the block
+	if s.Size()+tx.Size() > BLOCK_SIZE_LIMIT {
+		return errors.New("not enough remaining space in block")
+	}
+
+	// validate inpoints aren't spent twice in this block
+	for _, ip := range tx.Inpoints() {
+		ipk := ip.Key()
+		_, alreadySpent := s.spent[ipk]
+		if alreadySpent {
+			return errors.New("input has been spent already")
+		}
+	}
+
+	// validation was successful, mark inpoints as spent
+	for _, ip := range tx.Inpoints() {
+		ipk := ip.Key()
+		s.spent[ipk] = struct{}{}
+	}
+
+	// add tx to backlog
+	s.txs = append(s.txs, tx)
+	s.size += tx.Size()
+
+	return nil
+}
+
+func (s *SpendingState) AcceptedTransactions() []*Transaction {
+	return s.txs
+}
+
+func (s *SpendingState) SpentUtxos() []OutpointKey {
+	spent := make([]OutpointKey, 0, len(s.spent))
+	for k := range s.spent {
+		spent = append(spent, k)
+	}
+	return spent
+}
+
+func (s *SpendingState) Size() int {
+	return s.size
 }
