@@ -76,7 +76,7 @@ func (block *Block) MerkleRoot() ([]byte, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to compute TXID")
 		}
-		dd[i] = d
+		dd[i] = d[:]
 	}
 
 	for len(dd) > 1 {

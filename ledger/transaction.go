@@ -123,15 +123,15 @@ func (tx *Transaction) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (tx *Transaction) TXID() ([]byte, error) {
+func (tx *Transaction) TXID() (TXID, error) {
 	data, err := tx.Marshal()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal transaction")
+		return TXID{}, errors.Wrap(err, "failed to marshal transaction")
 	}
 
 	d := sha256.Sum256(data)
 	d = sha256.Sum256(d[:])
-	return d[:], nil
+	return d, nil
 }
 
 func (tx *Transaction) Inpoints() []Outpoint {
@@ -340,8 +340,8 @@ func (tx *EscrowOpenTransaction) OutputCount() uint8 {
 
 // XXX: This is a bad name, because we use this struct to describe both inpoints and outpoints.
 type Outpoint struct {
-	PreviousTx []byte // TODO: type
-	Index      uint8  // (of output in PreviousTx) // TODO: type
+	PreviousTx TXID
+	Index      uint8 // (of output in PreviousTx) // TODO: type
 }
 
 type OutpointKey [33]byte
@@ -368,7 +368,7 @@ func (ti *TransactionInput) MarshalTo(data []byte) (int, error) {
 	if len(ti.PreviousTx) != TransactionIDSize {
 		return 0, errors.New("bad size for previous transaction ID")
 	}
-	n := copy(data, ti.PreviousTx)
+	n := copy(data, ti.PreviousTx[:])
 
 	data[n] = (byte)(ti.Index)
 	n += 1
@@ -385,8 +385,7 @@ func (ti *TransactionInput) MarshalTo(data []byte) (int, error) {
 func (ti *TransactionInput) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
-	ti.PreviousTx = data[n : n+TransactionIDSize]
-	n += TransactionIDSize
+	n += copy(ti.PreviousTx[:], data[n:n+TransactionIDSize])
 
 	ti.Index = uint8(data[n])
 	n += 1
