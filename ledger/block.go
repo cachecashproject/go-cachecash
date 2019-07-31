@@ -50,10 +50,7 @@ func NewBlock(sigKey ed25519.PrivateKey, previousBlock BlockID, txs []*Transacti
 }
 
 func (block *Block) Marshal() ([]byte, error) {
-	s, err := block.Size()
-	if err != nil {
-		return nil, err
-	}
+	s := block.Size()
 	data := make([]byte, s)
 	n, err := block.MarshalTo(data)
 	if err != nil {
@@ -65,7 +62,7 @@ func (block *Block) Marshal() ([]byte, error) {
 	return data, nil
 }
 
-func (block *Block) Size() (int, error) {
+func (block *Block) Size() int {
 	var n int
 
 	n += 4
@@ -74,14 +71,10 @@ func (block *Block) Size() (int, error) {
 	n += 4
 
 	for _, tx := range block.Transactions {
-		txBytes, err := tx.Marshal()
-		if err != nil {
-			return 0, err
-		}
-		n += 4 + len(txBytes)
+		n += 4 + tx.Size()
 	}
 
-	return n, nil
+	return n
 }
 
 func (block *Block) MarshalTo(data []byte) (int, error) {

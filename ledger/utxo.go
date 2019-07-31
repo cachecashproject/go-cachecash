@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	BLOCK_SIZE_LIMIT = 1000 // XXX: this is an arbitrary value
+	BlockSizeLimit = 1000 // XXX: this is an arbitrary value
 )
 
 type UTXOSet struct {
@@ -36,6 +36,10 @@ func (us *UTXOSet) Update(tx *Transaction) error {
 	return nil
 }
 
+// SpendingState is a temporary state when crafting a new TransferTransaction
+// Transaction in the mempool may conflict with each other, like spending the
+// same UTXO twice. Transactions added to the SpendingState are guaranteed to
+// be conflict free.
 type SpendingState struct {
 	spent map[OutpointKey]struct{}
 	txs   []*Transaction
@@ -52,7 +56,7 @@ func NewSpendingState() *SpendingState {
 
 func (s *SpendingState) AddTx(tx *Transaction) error {
 	// check if we can still fit this tx in the block
-	if s.Size()+tx.Size() > BLOCK_SIZE_LIMIT {
+	if s.Size()+tx.Size() > BlockSizeLimit {
 		return errors.New("not enough remaining space in block")
 	}
 
@@ -82,7 +86,7 @@ func (s *SpendingState) AcceptedTransactions() []*Transaction {
 	return s.txs
 }
 
-func (s *SpendingState) SpentUtxos() []OutpointKey {
+func (s *SpendingState) SpentUTXOs() []OutpointKey {
 	spent := make([]OutpointKey, 0, len(s.spent))
 	for k := range s.spent {
 		spent = append(spent, k)

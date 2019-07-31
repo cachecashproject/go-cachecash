@@ -112,7 +112,7 @@ func (s *LedgerService) BuildBlock(ctx context.Context) error {
 		return errors.Wrap(err, "Failed to create block")
 	}
 
-	return s.ApplyBlock(ctx, block, state.SpentUtxos())
+	return s.ApplyBlock(ctx, block, state.SpentUTXOs())
 }
 
 func (s *LedgerService) ApplyBlock(ctx context.Context, block *ledger.Block, spentUtxos []ledger.OutpointKey) error {
