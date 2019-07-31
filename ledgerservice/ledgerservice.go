@@ -3,13 +3,16 @@ package ledgerservice
 import (
 	"context"
 	"database/sql"
+	"math"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledger"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
@@ -21,15 +24,42 @@ type LedgerService struct {
 
 	l  *logrus.Logger
 	db *sql.DB
+	kp *keypair.KeyPair
+
+	CurrentBlock *models.Block
 }
 
-func NewLedgerService(l *logrus.Logger, db *sql.DB) (*LedgerService, error) {
+func NewLedgerService(l *logrus.Logger, db *sql.DB, kp *keypair.KeyPair) (*LedgerService, error) {
 	p := &LedgerService{
 		l:  l,
 		db: db,
+		kp: kp,
 	}
 
 	return p, nil
+}
+
+func (s *LedgerService) InitGenesisBlock(totalCoins uint32) error {
+	// the genesis block mints totalCoins to s.kp.PublicKey
+	block := &ledger.Block{
+		Header: &ledger.BlockHeader{},
+		Transactions: []*ledger.Transaction{
+			{
+				Version: 1,
+				Flags:   0,
+				Body: &ledger.GenesisTransaction{
+					Outputs: []ledger.TransactionOutput{
+						{
+							Value:        totalCoins,
+							ScriptPubKey: s.kp.PublicKey,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return s.ApplyBlock(context.TODO(), block, []ledger.OutpointKey{})
 }
 
 func (s *LedgerService) BuildBlock(ctx context.Context) error {
@@ -53,10 +83,10 @@ func (s *LedgerService) BuildBlock(ctx context.Context) error {
 		for _, inpoint := range tx.Inpoints() {
 			utxo, err := s.GetUtxo(ctx, inpoint.Key())
 			if err != nil {
-				return errors.Wrap(err, "failed to get utxo")
+				return errors.Wrap(err, "failed to get utxo, input probably already spent")
 			}
+			// input sum and output sum is already verified at this point
 			_ = utxo
-			// inputSum += utxo.Amount
 		}
 
 		// try to add tx into block
@@ -81,45 +111,55 @@ func (s *LedgerService) BuildBlock(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "Failed to create block")
 	}
+
+	return s.ApplyBlock(ctx, block, state.SpentUtxos())
+}
+
+func (s *LedgerService) ApplyBlock(ctx context.Context, block *ledger.Block, spentUtxos []ledger.OutpointKey) error {
+	// TODO: use a transaction, if something in here fails, revert
 	blockBytes, err := block.Marshal()
 	if err != nil {
 		return errors.Wrap(err, "Failed to marshal block")
 	}
 
-	blockModel := models.Block{
-		/*
-			Height   int
-			BlockID  []byte
-			ParentID null.Bytes
-			Raw      []byte
-		*/
-		Raw: blockBytes,
+	blockModel := &models.Block{
+		BlockID: block.CanonicalDigest(),
+		Raw:     blockBytes,
 	}
+
+	if s.CurrentBlock == nil {
+		blockModel.Height = 0
+		blockModel.ParentID = null.BytesFrom([]byte{}) // TODO: this should be 0000..000 instead
+	} else {
+		blockModel.Height = s.CurrentBlock.Height + 1
+		blockModel.ParentID = null.BytesFrom(s.CurrentBlock.BlockID)
+	}
+
 	err = blockModel.Insert(ctx, s.db, boil.Infer())
 	if err != nil {
 		return errors.Wrap(err, "Failed to insert new block to database")
 	}
 
 	// mark utxos as spent
-	_, err = models.Utxos(qm.WhereIn("txid in ?", state.SpentUtxos())).DeleteAll(ctx, s.db)
+	_, err = models.Utxos(qm.WhereIn("txid in ?", spentUtxos)).DeleteAll(ctx, s.db)
 	if err != nil {
 		return errors.Wrap(err, "Failed to remove spent UTXOs")
 	}
 
 	// delete transactions from mempool
-	_, err = models.MempoolTransactions(qm.WhereIn("txid in ?", txs)).DeleteAll(ctx, s.db)
+	_, err = models.MempoolTransactions(qm.WhereIn("txid in ?", block.Transactions)).DeleteAll(ctx, s.db)
 	if err != nil {
 		return errors.Wrap(err, "Failed to remove executed TXs")
 	}
 
 	// update auditlog
-	_, err = models.TransactionAuditlogs(qm.WhereIn("txid in ?", txs)).UpdateAll(ctx, s.db, models.M{"status": models.TransactionStatusMined})
+	_, err = models.TransactionAuditlogs(qm.WhereIn("txid in ?", block.Transactions)).UpdateAll(ctx, s.db, models.M{"status": models.TransactionStatusMined})
 	if err != nil {
 		return errors.Wrap(err, "Failed to update transaction status in audit log")
 	}
 
 	// add new UTXOs
-	for _, tx := range txs {
+	for _, tx := range block.Transactions {
 		txid, err := tx.TXID()
 		if err != nil {
 			return errors.Wrap(err, "failed to get txid from transaction")
@@ -139,6 +179,9 @@ func (s *LedgerService) BuildBlock(ctx context.Context) error {
 		}
 	}
 
+	// transaction completed, uptdating our struct
+	s.CurrentBlock = blockModel
+
 	return nil
 }
 
@@ -149,12 +192,6 @@ func (s *LedgerService) AddOutputsToDatabase(ctx context.Context, txid ledger.TX
 			OutputIdx:    idx,
 			Value:        int(output.Value), // TODO: review and/or fix type
 			ScriptPubkey: output.ScriptPubKey,
-			/*
-				Txid         []byte `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
-				OutputIdx    int    `boil:"output_idx" json:"output_idx" toml:"output_idx" yaml:"output_idx"`
-				Value        int    `boil:"value" json:"value" toml:"value" yaml:"value"`
-				ScriptPubkey []byte `boil:"script_pubkey" json:"script_pubkey" toml:"script_pubkey" yaml:"script_pubkey"`
-			*/
 		}
 		err := utxo.Insert(ctx, s.db, boil.Infer())
 		if err != nil {
@@ -177,26 +214,35 @@ func (s *LedgerService) GetUtxo(ctx context.Context, outpoint ledger.OutpointKey
 	return utxo, nil
 }
 
+func safeAddU32(base, next uint32) (uint32, error) {
+	if base > math.MaxUint32-next {
+		return 0, errors.New("transactions would overflow")
+	}
+	return base + next, nil
+}
+
 // XXX: transactions that depend on outputs of transactions we haven't mined are rejected
 // TODO: if height is 0, accept genesis blocks with arbitrary outpus, else reject all genesis blocks
 func (s *LedgerService) validateInputOutputSums(ctx context.Context, tx ledger.Transaction) error {
-	inputSum := 0
-	outputSum := 0
+	inputSum := uint32(0)
+	outputSum := uint32(0)
 
 	switch v := tx.Body.(type) {
 	case *ledger.TransferTransaction:
-		// TODO: make sure our addition is overflow safe
-
 		for _, input := range v.Inputs {
 			utxo, err := s.GetUtxo(ctx, input.Key())
 			if err != nil {
 				return errors.New("could not find utxo")
 			}
-			inputSum += utxo.Value
+			inputSum += uint32(utxo.Value)
 		}
 
 		for _, output := range v.Outputs {
-			outputSum += int(output.Value)
+			var err error
+			outputSum, err = safeAddU32(outputSum, output.Value)
+			if err != nil {
+				return err
+			}
 		}
 
 		// XXX: there are no fees yet
@@ -204,7 +250,9 @@ func (s *LedgerService) validateInputOutputSums(ctx context.Context, tx ledger.T
 			return errors.New("output sum and input sum doesn't match")
 		}
 	case *ledger.GenesisTransaction:
-		return errors.New("only the first block can be a genesis block")
+		if s.CurrentBlock != nil {
+			return errors.New("only the first block can be a genesis block")
+		}
 	}
 
 	return nil

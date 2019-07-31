@@ -8,6 +8,7 @@ import (
 
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledgerservice"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/migrations"
 	"github.com/cachecashproject/go-cachecash/log"
@@ -17,9 +18,9 @@ import (
 )
 
 var (
-	configPath = flag.String("config", "ledger.config.json", "Path to configuration file")
-	// keypairPath = flag.String("keypair", "ledger.keypair.json", "Path to keypair file") // XXX: Not used yet.
-	traceAPI = flag.String("trace", "", "Jaeger API for tracing")
+	configPath  = flag.String("config", "ledger.config.json", "Path to configuration file")
+	keypairPath = flag.String("keypair", "ledger.keypair.json", "Path to keypair file")
+	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
 )
 
 func loadConfigFile(l *logrus.Logger, path string) (*ledgerservice.ConfigFile, error) {
@@ -61,6 +62,11 @@ func mainC() error {
 
 	defer common.SetupTracing(*traceAPI, "cachecash-ledgerd", &l.Logger).Flush()
 
+	kp, err := keypair.LoadOrGenerate(&l.Logger, *keypairPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to get keypair")
+	}
+
 	db, err := sql.Open("postgres", cf.Database)
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to database")
@@ -92,9 +98,16 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	ls, err := ledgerservice.NewLedgerService(&l.Logger, db)
+	ls, err := ledgerservice.NewLedgerService(&l.Logger, db, kp)
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher")
+	}
+
+	if ls.CurrentBlock == nil {
+		err = ls.InitGenesisBlock(4200000000)
+		if err != nil {
+			return errors.Wrap(err, "failed to create genesis block")
+		}
 	}
 
 	app, err := ledgerservice.NewApplication(&l.Logger, ls, cf)
