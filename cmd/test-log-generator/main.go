@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -11,12 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cachecashproject/go-cachecash/common"
-)
-
-var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile     = flag.String("logFile", "", "Path where file should be logged")
 )
 
 func generateMessage() string {
@@ -36,16 +29,10 @@ func main() {
 }
 
 func mainC() error {
+	l := common.NewCLILogger(common.LogOpt{JSON: true})
 	flag.Parse()
-	log.SetFlags(0)
 
-	l := logrus.New()
-	if err := common.ConfigureLogger(l, &common.LoggerConfig{
-		LogLevelStr: *logLevelStr,
-		LogCaller:   *logCaller,
-		LogFile:     *logFile,
-		Json:        true,
-	}); err != nil {
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("ready to spew test log messages")

@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"os/signal"
@@ -13,7 +12,6 @@ import (
 	"github.com/cachecashproject/go-cachecash/client"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 
 	"go.opencensus.io/trace"
 )
@@ -21,11 +19,8 @@ import (
 // `cachecash-curl` is a simple command-line utility that retrieves a file being served via CacheCash.
 
 var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile     = flag.String("logFile", "", "Path where file should be logged")
-	outputPath  = flag.String("o", "", "Path where retrieved file will be written")
-	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
+	outputPath = flag.String("o", "", "Path where retrieved file will be written")
+	traceAPI   = flag.String("trace", "", "Jaeger API for tracing")
 )
 
 func main() {
@@ -33,19 +28,14 @@ func main() {
 }
 
 func mainC() error {
+	l := common.NewCLILogger()
 	flag.Parse()
-	log.SetFlags(0)
 
-	l := logrus.New()
-	if err := common.ConfigureLogger(l, &common.LoggerConfig{
-		LogLevelStr: *logLevelStr,
-		LogCaller:   *logCaller,
-		LogFile:     *logFile,
-	}); err != nil {
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 
-	defer common.SetupTracing(*traceAPI, "cachecash-curl", l).Flush()
+	defer common.SetupTracing(*traceAPI, "cachecash-curl", &l.Logger).Flush()
 	// As a rarely used CLI tool, trace always.
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
@@ -84,7 +74,7 @@ func mainC() error {
 		}
 	}()
 
-	cl, err := client.New(l, publisherAddr) // e.g. "localhost:7070"
+	cl, err := client.New(&l.Logger, publisherAddr) // e.g. "localhost:7070"
 	if err != nil {
 		return errors.Wrap(err, "failed to create client")
 	}

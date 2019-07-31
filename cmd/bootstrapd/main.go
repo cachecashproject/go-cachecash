@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"flag"
-	"log"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/bootstrap"
@@ -16,11 +15,8 @@ import (
 )
 
 var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile     = flag.String("logFile", "", "Path where file should be logged")
-	configPath  = flag.String("config", "bootstrapd.config.json", "Path to configuration file")
-	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
+	configPath = flag.String("config", "bootstrapd.config.json", "Path to configuration file")
+	traceAPI   = flag.String("trace", "", "Jaeger API for tracing")
 )
 
 func loadConfigFile(l *logrus.Logger, path string) (*bootstrap.ConfigFile, error) {
@@ -43,23 +39,17 @@ func main() {
 }
 
 func mainC() error {
+	l := common.NewCLILogger(common.LogOpt{JSON: true})
 	flag.Parse()
-	log.SetFlags(0)
 
-	l := logrus.New()
-	if err := common.ConfigureLogger(l, &common.LoggerConfig{
-		LogLevelStr: *logLevelStr,
-		LogCaller:   *logCaller,
-		LogFile:     *logFile,
-		Json:        true,
-	}); err != nil {
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash bootstrapd ", cachecash.CurrentVersion)
 
-	defer common.SetupTracing(*traceAPI, "cachecash-bootstrapd", l).Flush()
+	defer common.SetupTracing(*traceAPI, "cachecash-bootstrapd", &l.Logger).Flush()
 
-	cf, err := loadConfigFile(l, *configPath)
+	cf, err := loadConfigFile(&l.Logger, *configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
@@ -76,17 +66,17 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	b, err := bootstrap.NewBootstrapd(l, db)
+	b, err := bootstrap.NewBootstrapd(&l.Logger, db)
 	if err != nil {
 		return nil
 	}
 
-	app, err := bootstrap.NewApplication(l, b, cf)
+	app, err := bootstrap.NewApplication(&l.Logger, b, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create bootstrap application")
 	}
 
-	if err := common.RunStarterShutdowner(l, app); err != nil {
+	if err := common.RunStarterShutdowner(&l.Logger, app); err != nil {
 		return err
 	}
 	return nil

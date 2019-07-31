@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"log"
 	_ "net/http/pprof"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
@@ -19,9 +18,6 @@ import (
 )
 
 var (
-	logLevelStr = flag.String("logLevel", "info", "Verbosity of log output")
-	logCaller   = flag.Bool("logCaller", false, "Enable method name logging")
-	logFile     = flag.String("logFile", "", "Path where file should be logged")
 	configPath  = flag.String("config", "cache.config.json", "Path to configuration file")
 	keypairPath = flag.String("keypair", "cache.keypair.json", "Path to keypair file")
 	traceAPI    = flag.String("trace", "", "Jaeger API for tracing")
@@ -52,27 +48,21 @@ func main() {
 }
 
 func mainC() error {
+	l := common.NewCLILogger(common.LogOpt{JSON: true})
 	flag.Parse()
-	log.SetFlags(0)
 
-	l := logrus.New()
-	if err := common.ConfigureLogger(l, &common.LoggerConfig{
-		LogLevelStr: *logLevelStr,
-		LogCaller:   *logCaller,
-		LogFile:     *logFile,
-		Json:        true,
-	}); err != nil {
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash cached ", cachecash.CurrentVersion)
 
-	defer common.SetupTracing(*traceAPI, "cachecash-cached", l).Flush()
+	defer common.SetupTracing(*traceAPI, "cachecash-cached", &l.Logger).Flush()
 
-	cf, err := loadConfigFile(l, *configPath)
+	cf, err := loadConfigFile(&l.Logger, *configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
-	kp, err := keypair.LoadOrGenerate(l, *keypairPath)
+	kp, err := keypair.LoadOrGenerate(&l.Logger, *keypairPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to get keypair")
 	}
@@ -89,7 +79,7 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	c, err := cache.NewCache(l, db, cf, kp)
+	c, err := cache.NewCache(&l.Logger, db, cf, kp)
 	if err != nil {
 		return err
 	}
@@ -103,12 +93,12 @@ func mainC() error {
 		"len(escrows)": num,
 	}).Info("loaded escrows from database")
 
-	app, err := cache.NewApplication(l, c, cf)
+	app, err := cache.NewApplication(&l.Logger, c, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}
 
-	if err := common.RunStarterShutdowner(l, app); err != nil {
+	if err := common.RunStarterShutdowner(&l.Logger, app); err != nil {
 		return err
 	}
 	return nil
