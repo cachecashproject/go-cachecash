@@ -69,7 +69,7 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 
 	// Block 0
 
-	txs := []Transaction{
+	txs := []*Transaction{
 		{
 			Version: 0x01,
 			Flags:   0x0000,
@@ -92,7 +92,10 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 		},
 	}
 
-	block0, err := NewBlock(privCLA, make([]byte, 32), txs)
+	// bidparent := BlockID{}
+	// assert.True(t, bidparent.Zero())
+
+	block0, err := NewBlock(privCLA, BlockID{}, txs)
 	assert.Nil(t, err, "failed to create genesis block")
 	_ = block0
 
@@ -103,7 +106,7 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 		t.Fatalf("failed to get previous transaction ID: %v", err)
 	}
 
-	txs = []Transaction{
+	txs = []*Transaction{
 		{
 			Version: 0x01,
 			Flags:   0x0000,
@@ -137,7 +140,7 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 		},
 	}
 
-	block1, err := NewBlock(privCLA, block0.CanonicalDigest(), txs)
+	block1, err := NewBlock(privCLA, block0.BlockID(), txs)
 	assert.Nil(t, err, "failed to create genesis block")
 	_ = block1
 
@@ -153,7 +156,56 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 	}
 	assert.Equal(t, 4, len(us.utxos))
 
+	// XXX: This should be moved to separate unit tests.
+	suite.testChainDatabase([]*Block{block0, block1})
+
 	// Done.
 	_ = privA
 	_ = privB
+}
+
+func (suite *GenerateChainTestSuite) testChainDatabase(blocks []*Block) {
+	t := suite.T()
+
+	// Build chain database.
+	cdb, err := NewSimpleChainDatabase(blocks[0])
+	if !assert.Nil(t, err) {
+		return
+	}
+	for i := 1; i < len(blocks); i++ {
+		if !assert.Nil(t, cdb.AddBlock(blocks[i])) {
+			return
+		}
+	}
+
+	tx := blocks[1].Transactions[0]
+	txid, err := tx.TXID()
+	if !assert.Nil(t, err) {
+		return
+	}
+
+	ccEnd := &ChainContext{BlockID: blocks[1].BlockID(), TxIndex: 1}
+
+	// The input to this transaction should be unspent when we give the correct ChainContext.
+	unspent, err := cdb.Unspent(&ChainContext{BlockID: blocks[1].BlockID(), TxIndex: 0}, tx.Inpoints()[0])
+	assert.Nil(t, err)
+	assert.True(t, unspent)
+
+	// ... but if we start one transaction later (as though we were examining a second transaction spending the same
+	// input), we should find that the output has already been spent.
+	unspent, err = cdb.Unspent(ccEnd, tx.Inpoints()[0])
+	assert.Nil(t, err)
+	assert.False(t, unspent)
+
+	// Test that GetTransaction fetches transactions correctly.
+	result, err := cdb.GetTransaction(ccEnd, txid)
+	assert.Nil(t, err)
+	assert.NotNil(t, result)
+
+	// Test what happens when GetTransaction does not find the transaction.
+	result, err = cdb.GetTransaction(ccEnd, mustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"))
+	assert.Nil(t, err)
+	assert.Nil(t, result)
+
+	_ = cdb
 }

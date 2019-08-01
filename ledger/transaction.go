@@ -346,6 +346,10 @@ type Outpoint struct {
 
 type OutpointKey [33]byte
 
+func (a Outpoint) Equal(b Outpoint) bool {
+	return a.PreviousTx.Equal(b.PreviousTx) && a.Index == b.Index
+}
+
 func (o *Outpoint) Key() OutpointKey {
 	var k OutpointKey
 	copy(k[:], o.PreviousTx[:])

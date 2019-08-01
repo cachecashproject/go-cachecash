@@ -10,7 +10,7 @@ func NewUTXOSet() *UTXOSet {
 	return &UTXOSet{utxos: make(map[OutpointKey]struct{})}
 }
 
-func (us *UTXOSet) Update(tx Transaction) error {
+func (us *UTXOSet) Update(tx *Transaction) error {
 	// Mark inpoints as spent.
 	for _, ip := range tx.Inpoints() {
 		ipk := ip.Key()

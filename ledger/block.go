@@ -11,8 +11,8 @@ import (
 
 type BlockHeader struct {
 	Version       uint32
-	PreviousBlock []byte // CanonicalDigest of previous block (32 bytes)
-	MerkleRoot    []byte // 32 bytes
+	PreviousBlock BlockID // CanonicalDigest of previous block (32 bytes)
+	MerkleRoot    []byte  // 32 bytes
 	Timestamp     uint32
 	// Bits          uint32
 	// Nonce         uint32
@@ -24,10 +24,10 @@ type BlockHeader struct {
 
 type Block struct {
 	Header       *BlockHeader
-	Transactions []Transaction
+	Transactions []*Transaction
 }
 
-func NewBlock(sigKey ed25519.PrivateKey, previousBlock []byte, txs []Transaction) (*Block, error) {
+func NewBlock(sigKey ed25519.PrivateKey, previousBlock BlockID, txs []*Transaction) (*Block, error) {
 	b := &Block{
 		Header: &BlockHeader{
 			Version:       0,
@@ -43,16 +43,16 @@ func NewBlock(sigKey ed25519.PrivateKey, previousBlock []byte, txs []Transaction
 		return nil, errors.Wrap(err, "failed to compute merkle root")
 	}
 
-	cd := b.CanonicalDigest()
-	b.Header.Signature = ed25519.Sign(sigKey, cd)
+	bid := b.BlockID()
+	b.Header.Signature = ed25519.Sign(sigKey, bid[:])
 
 	return b, nil
 }
 
-func (block *Block) CanonicalDigest() []byte {
+func (block *Block) BlockID() BlockID {
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, block.Header.Version)
-	buf = append(buf, block.Header.PreviousBlock...)
+	buf = append(buf, block.Header.PreviousBlock[:]...)
 	buf = append(buf, block.Header.MerkleRoot...)
 	a := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, block.Header.Timestamp)
@@ -60,7 +60,7 @@ func (block *Block) CanonicalDigest() []byte {
 
 	d := sha256.Sum256(buf)
 	d = sha256.Sum256(d[:])
-	return d[:]
+	return BlockID(d)
 }
 
 func (block *Block) MerkleRoot() ([]byte, error) {
