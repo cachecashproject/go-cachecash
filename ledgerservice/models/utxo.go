@@ -19,16 +19,16 @@ import (
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"github.com/volatiletech/sqlboiler/queries/qmhelper"
 	"github.com/volatiletech/sqlboiler/strmangle"
+	"github.com/volatiletech/sqlboiler/types"
 )
 
 // Utxo is an object representing the database table.
 type Utxo struct {
-	Rowid        int    `boil:"rowid" json:"rowid" toml:"rowid" yaml:"rowid"`
-	Txid         []byte `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
-	OutputIdx    int    `boil:"output_idx" json:"output_idx" toml:"output_idx" yaml:"output_idx"`
-	Value        int    `boil:"value" json:"value" toml:"value" yaml:"value"`
-	ScriptPubkey []byte `boil:"script_pubkey" json:"script_pubkey" toml:"script_pubkey" yaml:"script_pubkey"`
-	BlockID      int    `boil:"block_id" json:"block_id" toml:"block_id" yaml:"block_id"`
+	Rowid        int              `boil:"rowid" json:"rowid" toml:"rowid" yaml:"rowid"`
+	Txid         types.BytesArray `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
+	OutputIdx    int              `boil:"output_idx" json:"output_idx" toml:"output_idx" yaml:"output_idx"`
+	Value        int              `boil:"value" json:"value" toml:"value" yaml:"value"`
+	ScriptPubkey []byte           `boil:"script_pubkey" json:"script_pubkey" toml:"script_pubkey" yaml:"script_pubkey"`
 
 	R *utxoR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L utxoL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -40,44 +40,36 @@ var UtxoColumns = struct {
 	OutputIdx    string
 	Value        string
 	ScriptPubkey string
-	BlockID      string
 }{
 	Rowid:        "rowid",
 	Txid:         "txid",
 	OutputIdx:    "output_idx",
 	Value:        "value",
 	ScriptPubkey: "script_pubkey",
-	BlockID:      "block_id",
 }
 
 // Generated where
 
 var UtxoWhere = struct {
 	Rowid        whereHelperint
-	Txid         whereHelper__byte
+	Txid         whereHelpertypes_BytesArray
 	OutputIdx    whereHelperint
 	Value        whereHelperint
 	ScriptPubkey whereHelper__byte
-	BlockID      whereHelperint
 }{
 	Rowid:        whereHelperint{field: "\"utxo\".\"rowid\""},
-	Txid:         whereHelper__byte{field: "\"utxo\".\"txid\""},
+	Txid:         whereHelpertypes_BytesArray{field: "\"utxo\".\"txid\""},
 	OutputIdx:    whereHelperint{field: "\"utxo\".\"output_idx\""},
 	Value:        whereHelperint{field: "\"utxo\".\"value\""},
 	ScriptPubkey: whereHelper__byte{field: "\"utxo\".\"script_pubkey\""},
-	BlockID:      whereHelperint{field: "\"utxo\".\"block_id\""},
 }
 
 // UtxoRels is where relationship names are stored.
 var UtxoRels = struct {
-	Block string
-}{
-	Block: "Block",
-}
+}{}
 
 // utxoR is where relationships are stored.
 type utxoR struct {
-	Block *Block
 }
 
 // NewStruct creates a new relationship struct
@@ -89,8 +81,8 @@ func (*utxoR) NewStruct() *utxoR {
 type utxoL struct{}
 
 var (
-	utxoAllColumns            = []string{"rowid", "txid", "output_idx", "value", "script_pubkey", "block_id"}
-	utxoColumnsWithoutDefault = []string{"txid", "output_idx", "value", "script_pubkey", "block_id"}
+	utxoAllColumns            = []string{"rowid", "txid", "output_idx", "value", "script_pubkey"}
+	utxoColumnsWithoutDefault = []string{"txid", "output_idx", "value", "script_pubkey"}
 	utxoColumnsWithDefault    = []string{"rowid"}
 	utxoPrimaryKeyColumns     = []string{"rowid"}
 )
@@ -368,168 +360,6 @@ func (q utxoQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool,
 	}
 
 	return count > 0, nil
-}
-
-// Block pointed to by the foreign key.
-func (o *Utxo) Block(mods ...qm.QueryMod) blockQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("rowid=?", o.BlockID),
-	}
-
-	queryMods = append(queryMods, mods...)
-
-	query := Blocks(queryMods...)
-	queries.SetFrom(query.Query, "\"block\"")
-
-	return query
-}
-
-// LoadBlock allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (utxoL) LoadBlock(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUtxo interface{}, mods queries.Applicator) error {
-	var slice []*Utxo
-	var object *Utxo
-
-	if singular {
-		object = maybeUtxo.(*Utxo)
-	} else {
-		slice = *maybeUtxo.(*[]*Utxo)
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &utxoR{}
-		}
-		args = append(args, object.BlockID)
-
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &utxoR{}
-			}
-
-			for _, a := range args {
-				if a == obj.BlockID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.BlockID)
-
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(qm.From(`block`), qm.WhereIn(`rowid in ?`, args...))
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load Block")
-	}
-
-	var resultSlice []*Block
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice Block")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for block")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for block")
-	}
-
-	if len(utxoAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(resultSlice) == 0 {
-		return nil
-	}
-
-	if singular {
-		foreign := resultSlice[0]
-		object.R.Block = foreign
-		if foreign.R == nil {
-			foreign.R = &blockR{}
-		}
-		foreign.R.Utxos = append(foreign.R.Utxos, object)
-		return nil
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.BlockID == foreign.Rowid {
-				local.R.Block = foreign
-				if foreign.R == nil {
-					foreign.R = &blockR{}
-				}
-				foreign.R.Utxos = append(foreign.R.Utxos, local)
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-// SetBlock of the utxo to the related item.
-// Sets o.R.Block to related.
-// Adds o to related.R.Utxos.
-func (o *Utxo) SetBlock(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Block) error {
-	var err error
-	if insert {
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
-		}
-	}
-
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"utxo\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"block_id"}),
-		strmangle.WhereClause("\"", "\"", 2, utxoPrimaryKeyColumns),
-	)
-	values := []interface{}{related.Rowid, o.Rowid}
-
-	if boil.DebugMode {
-		fmt.Fprintln(boil.DebugWriter, updateQuery)
-		fmt.Fprintln(boil.DebugWriter, values)
-	}
-
-	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
-	}
-
-	o.BlockID = related.Rowid
-	if o.R == nil {
-		o.R = &utxoR{
-			Block: related,
-		}
-	} else {
-		o.R.Block = related
-	}
-
-	if related.R == nil {
-		related.R = &blockR{
-			Utxos: UtxoSlice{o},
-		}
-	} else {
-		related.R.Utxos = append(related.R.Utxos, o)
-	}
-
-	return nil
 }
 
 // Utxos retrieves all the records using an executor.

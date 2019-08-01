@@ -19,12 +19,14 @@ import (
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"github.com/volatiletech/sqlboiler/queries/qmhelper"
 	"github.com/volatiletech/sqlboiler/strmangle"
+	"github.com/volatiletech/sqlboiler/types"
 )
 
 // MempoolTransaction is an object representing the database table.
 type MempoolTransaction struct {
-	Rowid int    `boil:"rowid" json:"rowid" toml:"rowid" yaml:"rowid"`
-	Raw   []byte `boil:"raw" json:"raw" toml:"raw" yaml:"raw"`
+	Rowid int              `boil:"rowid" json:"rowid" toml:"rowid" yaml:"rowid"`
+	Txid  types.BytesArray `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
+	Raw   []byte           `boil:"raw" json:"raw" toml:"raw" yaml:"raw"`
 
 	R *mempoolTransactionR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L mempoolTransactionL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -32,19 +34,44 @@ type MempoolTransaction struct {
 
 var MempoolTransactionColumns = struct {
 	Rowid string
+	Txid  string
 	Raw   string
 }{
 	Rowid: "rowid",
+	Txid:  "txid",
 	Raw:   "raw",
 }
 
 // Generated where
 
+type whereHelpertypes_BytesArray struct{ field string }
+
+func (w whereHelpertypes_BytesArray) EQ(x types.BytesArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.EQ, x)
+}
+func (w whereHelpertypes_BytesArray) NEQ(x types.BytesArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.NEQ, x)
+}
+func (w whereHelpertypes_BytesArray) LT(x types.BytesArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpertypes_BytesArray) LTE(x types.BytesArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpertypes_BytesArray) GT(x types.BytesArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpertypes_BytesArray) GTE(x types.BytesArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
 var MempoolTransactionWhere = struct {
 	Rowid whereHelperint
+	Txid  whereHelpertypes_BytesArray
 	Raw   whereHelper__byte
 }{
 	Rowid: whereHelperint{field: "\"mempool_transaction\".\"rowid\""},
+	Txid:  whereHelpertypes_BytesArray{field: "\"mempool_transaction\".\"txid\""},
 	Raw:   whereHelper__byte{field: "\"mempool_transaction\".\"raw\""},
 }
 
@@ -65,8 +92,8 @@ func (*mempoolTransactionR) NewStruct() *mempoolTransactionR {
 type mempoolTransactionL struct{}
 
 var (
-	mempoolTransactionAllColumns            = []string{"rowid", "raw"}
-	mempoolTransactionColumnsWithoutDefault = []string{"raw"}
+	mempoolTransactionAllColumns            = []string{"rowid", "txid", "raw"}
+	mempoolTransactionColumnsWithoutDefault = []string{"txid", "raw"}
 	mempoolTransactionColumnsWithDefault    = []string{"rowid"}
 	mempoolTransactionPrimaryKeyColumns     = []string{"rowid"}
 )

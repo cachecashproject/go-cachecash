@@ -496,115 +496,6 @@ func testUtxosInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testUtxoToOneBlockUsingBlock(t *testing.T) {
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var local Utxo
-	var foreign Block
-
-	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, utxoDBTypes, false, utxoColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Utxo struct: %s", err)
-	}
-	if err := randomize.Struct(seed, &foreign, blockDBTypes, false, blockColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Block struct: %s", err)
-	}
-
-	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	local.BlockID = foreign.Rowid
-	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	check, err := local.Block().One(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if check.Rowid != foreign.Rowid {
-		t.Errorf("want: %v, got %v", foreign.Rowid, check.Rowid)
-	}
-
-	slice := UtxoSlice{&local}
-	if err = local.L.LoadBlock(ctx, tx, false, (*[]*Utxo)(&slice), nil); err != nil {
-		t.Fatal(err)
-	}
-	if local.R.Block == nil {
-		t.Error("struct should have been eager loaded")
-	}
-
-	local.R.Block = nil
-	if err = local.L.LoadBlock(ctx, tx, true, &local, nil); err != nil {
-		t.Fatal(err)
-	}
-	if local.R.Block == nil {
-		t.Error("struct should have been eager loaded")
-	}
-}
-
-func testUtxoToOneSetOpBlockUsingBlock(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Utxo
-	var b, c Block
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, utxoDBTypes, false, strmangle.SetComplement(utxoPrimaryKeyColumns, utxoColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &b, blockDBTypes, false, strmangle.SetComplement(blockPrimaryKeyColumns, blockColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &c, blockDBTypes, false, strmangle.SetComplement(blockPrimaryKeyColumns, blockColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	for i, x := range []*Block{&b, &c} {
-		err = a.SetBlock(ctx, tx, i != 0, x)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if a.R.Block != x {
-			t.Error("relationship struct not set to correct value")
-		}
-
-		if x.R.Utxos[0] != &a {
-			t.Error("failed to append to foreign relationship struct")
-		}
-		if a.BlockID != x.Rowid {
-			t.Error("foreign key was wrong value", a.BlockID)
-		}
-
-		zero := reflect.Zero(reflect.TypeOf(a.BlockID))
-		reflect.Indirect(reflect.ValueOf(&a.BlockID)).Set(zero)
-
-		if err = a.Reload(ctx, tx); err != nil {
-			t.Fatal("failed to reload", err)
-		}
-
-		if a.BlockID != x.Rowid {
-			t.Error("foreign key was wrong value", a.BlockID, x.Rowid)
-		}
-	}
-}
-
 func testUtxosReload(t *testing.T) {
 	t.Parallel()
 
@@ -679,7 +570,7 @@ func testUtxosSelect(t *testing.T) {
 }
 
 var (
-	utxoDBTypes = map[string]string{`Rowid`: `integer`, `Txid`: `bytea`, `OutputIdx`: `integer`, `Value`: `integer`, `ScriptPubkey`: `bytea`, `BlockID`: `integer`}
+	utxoDBTypes = map[string]string{`Rowid`: `integer`, `Txid`: `bytea`, `OutputIdx`: `integer`, `Value`: `integer`, `ScriptPubkey`: `bytea`}
 	_           = bytes.MinRead
 )
 

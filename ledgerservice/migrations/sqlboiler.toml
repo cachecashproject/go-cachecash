@@ -5,3 +5,19 @@
   dbname = "ledger"
   sslmode = "disable"
   blacklist = ["migrations"]
+
+#[[types]]
+#  [types.match]
+#    name = "txid"
+#  [types.replace]
+#    type = "ledger.TXID"
+#  [types.imports]
+#    third_party = ['"github.com/cachecashproject/go-cachecash/ledger"']
+
+[[types]]
+  [types.match]
+    name = "txid"
+  [types.replace]
+    type = "types.BytesArray"
+  [types.imports]
+    third_party = ['"github.com/volatiletech/sqlboiler/types"']

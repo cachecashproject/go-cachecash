@@ -104,7 +104,7 @@ func mainC() error {
 	}
 
 	if ls.CurrentBlock == nil {
-		err = ls.InitGenesisBlock(4200000000)
+		err = ls.InitGenesisBlock(420000000)
 		if err != nil {
 			return errors.Wrap(err, "failed to create genesis block")
 		}

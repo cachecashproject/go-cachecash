@@ -570,7 +570,7 @@ func testTransactionAuditlogsSelect(t *testing.T) {
 }
 
 var (
-	transactionAuditlogDBTypes = map[string]string{`Rowid`: `integer`, `Raw`: `bytea`, `Status`: `enum.transaction_status('pending','mined','rejected')`}
+	transactionAuditlogDBTypes = map[string]string{`Rowid`: `integer`, `Txid`: `bytea`, `Raw`: `bytea`, `Status`: `enum.transaction_status('pending','mined','rejected')`}
 	_                          = bytes.MinRead
 )
 

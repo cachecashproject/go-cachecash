@@ -15,6 +15,7 @@ import (
 	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
+	"github.com/volatiletech/sqlboiler/types"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -141,30 +142,36 @@ func (s *LedgerService) ApplyBlock(ctx context.Context, block *ledger.Block, spe
 	}
 
 	// mark utxos as spent
-	_, err = models.Utxos(qm.WhereIn("txid in ?", spentUtxos)).DeleteAll(ctx, s.db)
-	if err != nil {
-		return errors.Wrap(err, "Failed to remove spent UTXOs")
+	for _, outpoint := range spentUtxos {
+		txid := types.BytesArray{0: outpoint[:32]}
+		outputIdx := outpoint[32]
+
+		_, err = models.Utxos(qm.Where("txid=? and output_idx=?", txid, outputIdx)).DeleteAll(ctx, s.db)
+		if err != nil {
+			return errors.Wrap(err, "Failed to remove spent UTXOs")
+		}
 	}
 
-	// delete transactions from mempool
-	_, err = models.MempoolTransactions(qm.WhereIn("txid in ?", block.Transactions)).DeleteAll(ctx, s.db)
-	if err != nil {
-		return errors.Wrap(err, "Failed to remove executed TXs")
-	}
-
-	// update auditlog
-	_, err = models.TransactionAuditlogs(qm.WhereIn("txid in ?", block.Transactions)).UpdateAll(ctx, s.db, models.M{"status": models.TransactionStatusMined})
-	if err != nil {
-		return errors.Wrap(err, "Failed to update transaction status in audit log")
-	}
-
-	// add new UTXOs
 	for _, tx := range block.Transactions {
 		txid, err := tx.TXID()
 		if err != nil {
 			return errors.Wrap(err, "failed to get txid from transaction")
 		}
+		dbTxID := types.BytesArray{0: txid[:]}
 
+		// delete transactions from mempool
+		_, err = models.MempoolTransactions(qm.Where("txid=?", dbTxID)).DeleteAll(ctx, s.db)
+		if err != nil {
+			return errors.Wrap(err, "Failed to remove executed TXs")
+		}
+
+		// update auditlog
+		_, err = models.TransactionAuditlogs(qm.Where("txid=?", dbTxID)).UpdateAll(ctx, s.db, models.M{"status": models.TransactionStatusMined})
+		if err != nil {
+			return errors.Wrap(err, "Failed to update transaction status in audit log")
+		}
+
+		// add new UTXOs
 		switch v := tx.Body.(type) {
 		case *ledger.TransferTransaction:
 			err = s.AddOutputsToDatabase(ctx, txid, v.Outputs)
@@ -187,8 +194,10 @@ func (s *LedgerService) ApplyBlock(ctx context.Context, block *ledger.Block, spe
 
 func (s *LedgerService) AddOutputsToDatabase(ctx context.Context, txid ledger.TXID, outputs []ledger.TransactionOutput) error {
 	for idx, output := range outputs {
+		dbTxID := types.BytesArray{0: txid[:]}
+
 		utxo := models.Utxo{
-			Txid:         txid[:],
+			Txid:         dbTxID,
 			OutputIdx:    idx,
 			Value:        int(output.Value), // TODO: review and/or fix type
 			ScriptPubkey: output.ScriptPubKey,
