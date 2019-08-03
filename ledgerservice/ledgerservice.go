@@ -41,22 +41,30 @@ func NewLedgerService(l *logrus.Logger, db *sql.DB, kp *keypair.KeyPair) (*Ledge
 }
 
 func (s *LedgerService) InitGenesisBlock(totalCoins uint32) error {
+	tx := ledger.Transaction{
+		Version: 1,
+		Flags:   0,
+		Body: &ledger.GenesisTransaction{
+			Outputs: []ledger.TransactionOutput{
+				{
+					Value:        totalCoins,
+					ScriptPubKey: s.kp.PublicKey,
+				},
+			},
+		},
+	}
+
+	txid, err := tx.TXID()
+	if err != nil {
+		return err
+	}
+	s.l.Info("adding genesis transaction: ", txid)
+
 	// the genesis block mints totalCoins to s.kp.PublicKey
 	block := &ledger.Block{
 		Header: &ledger.BlockHeader{},
 		Transactions: []*ledger.Transaction{
-			{
-				Version: 1,
-				Flags:   0,
-				Body: &ledger.GenesisTransaction{
-					Outputs: []ledger.TransactionOutput{
-						{
-							Value:        totalCoins,
-							ScriptPubKey: s.kp.PublicKey,
-						},
-					},
-				},
-			},
+			&tx,
 		},
 	}
 
@@ -215,7 +223,8 @@ func (s *LedgerService) GetUtxo(ctx context.Context, outpoint ledger.OutpointKey
 	txid := outpoint[:32]
 	output_idx := outpoint[32]
 
-	utxo, err := models.Utxos(qm.Where("txid=? and output_idx=?", txid, output_idx)).One(ctx, s.db)
+	s.l.Debugf("fetching utxo from database, txid: %v, output_idx: %v", txid, output_idx)
+	utxo, err := models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid}, output_idx)).One(ctx, s.db)
 	if err != nil {
 		return nil, err
 	}
@@ -223,8 +232,8 @@ func (s *LedgerService) GetUtxo(ctx context.Context, outpoint ledger.OutpointKey
 	return utxo, nil
 }
 
-func safeAddU32(base, next uint32) (uint32, error) {
-	if base > math.MaxUint32-next {
+func safeAddU64(base, next uint64) (uint64, error) {
+	if base > math.MaxUint64-next {
 		return 0, errors.New("transactions would overflow")
 	}
 	return base + next, nil
@@ -233,22 +242,23 @@ func safeAddU32(base, next uint32) (uint32, error) {
 // XXX: transactions that depend on outputs of transactions we haven't mined are rejected
 // TODO: if height is 0, accept genesis blocks with arbitrary outpus, else reject all genesis blocks
 func (s *LedgerService) validateInputOutputSums(ctx context.Context, tx ledger.Transaction) error {
-	inputSum := uint32(0)
-	outputSum := uint32(0)
+	inputSum := uint64(0)
+	outputSum := uint64(0)
 
 	switch v := tx.Body.(type) {
 	case *ledger.TransferTransaction:
 		for _, input := range v.Inputs {
+			s.l.Info("verifying utxo: ", input.Key())
 			utxo, err := s.GetUtxo(ctx, input.Key())
 			if err != nil {
-				return errors.New("could not find utxo")
+				return errors.Wrap(err, "could not find utxo")
 			}
-			inputSum += uint32(utxo.Value)
+			inputSum += uint64(utxo.Value)
 		}
 
 		for _, output := range v.Outputs {
 			var err error
-			outputSum, err = safeAddU32(outputSum, output.Value)
+			outputSum, err = safeAddU64(outputSum, uint64(output.Value))
 			if err != nil {
 				return err
 			}
@@ -287,12 +297,22 @@ func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTran
 		return nil, errors.Wrap(err, "failed to marshal tx into bytes")
 	}
 
-	mpTx := models.MempoolTransaction{Raw: txBytes}
+	txid, err := req.Tx.TXID()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get txid")
+	}
+	txidBytes := types.BytesArray{0: txid[:]}
+
+	mpTx := models.MempoolTransaction{
+		Txid: txidBytes,
+		Raw:  txBytes,
+	}
 	if err := mpTx.Insert(ctx, dbTx, boil.Infer()); err != nil {
 		return nil, errors.Wrap(err, "failed to insert mempool transaction")
 	}
 
 	taTx := models.TransactionAuditlog{
+		Txid:   txidBytes,
 		Raw:    txBytes,
 		Status: models.TransactionStatusPending,
 	}
@@ -306,12 +326,41 @@ func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTran
 
 	s.l.Info("PostTransaction - success")
 
+	s.l.Info("Trigger new block creation right away")
+	err = s.BuildBlock(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create block")
+	}
+	s.l.Info("Block has been created")
+
 	return &ccmsg.PostTransactionResponse{}, nil
 }
 
 func (s *LedgerService) GetBlocks(ctx context.Context, req *ccmsg.GetBlocksRequest) (*ccmsg.GetBlocksResponse, error) {
 	s.l.Info("GetBlocks")
-	return nil, errors.New("no implementation")
+
+	if req.Limit > 100 {
+		return nil, errors.New("limit is too high")
+	}
+
+	blocks, err := models.Blocks(
+		qm.Where("height >= ?", req.StartDepth),
+		qm.OrderBy("height ASC"),
+		qm.Limit(int(req.Limit)),
+	).All(ctx, s.db)
+
+	if err != nil {
+		return nil, errors.New("failed to get blocks")
+	}
+
+	byteBlocks := make([][]byte, 0, len(blocks))
+	for _, block := range blocks {
+		byteBlocks = append(byteBlocks, block.Raw)
+	}
+
+	return &ccmsg.GetBlocksResponse{
+		Blocks: byteBlocks,
+	}, nil
 }
 
 /*

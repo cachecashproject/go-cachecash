@@ -96,7 +96,44 @@ func (block *Block) MarshalTo(data []byte) (int, error) {
 		}
 		binary.LittleEndian.PutUint32(data[n:], uint32(len(txBytes)))
 		n += 4
-		n += copy(txBytes, data[n:])
+		n += copy(data[n:], txBytes)
+	}
+
+	return n, nil
+}
+
+func (block *Block) Unmarshal(data []byte) error {
+	_, err := block.UnmarshalFrom(data)
+	return err
+}
+
+// N.B.: This is not strictly required for the protobuf interface, but it's useful for test code to be able to tell how
+// many bytes were consumed.
+func (block *Block) UnmarshalFrom(data []byte) (int, error) {
+	var n int
+
+	block.Header = &BlockHeader{}
+	block.Header.Version = binary.LittleEndian.Uint32(data[n:])
+	n += 4
+
+	n += copy(block.Header.PreviousBlock[:], data[n:n+32])
+	n += copy(block.Header.MerkleRoot, data[n:n+32])
+
+	block.Header.Timestamp = binary.LittleEndian.Uint32(data[n:])
+	n += 4
+
+	for len(data[n:]) > 0 {
+		b := int(binary.LittleEndian.Uint32(data[n:]))
+		n += 4
+
+		tx := Transaction{}
+		err := tx.Unmarshal(data[n : n+b])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to unmarshal transaction")
+		}
+		n += b
+
+		block.Transactions = append(block.Transactions, &tx)
 	}
 
 	return n, nil

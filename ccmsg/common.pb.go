@@ -1468,9 +1468,9 @@ func (m *EscrowInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.PublicKey.Size()))
-		n1, err := m.PublicKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.PublicKey.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -1478,9 +1478,9 @@ func (m *EscrowInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.PublisherPublicKey.Size()))
-		n2, err := m.PublisherPublicKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.PublisherPublicKey.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -1573,9 +1573,9 @@ func (m *TicketBundle) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.Remainder.Size()))
-		n3, err := m.Remainder.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Remainder.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -1607,9 +1607,9 @@ func (m *TicketBundle) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.BatchSig.Size()))
-		n4, err := m.BatchSig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.BatchSig.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -1635,9 +1635,9 @@ func (m *TicketBundle) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.BundleSignerCert.Size()))
-		n5, err := m.BundleSignerCert.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.BundleSignerCert.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}
@@ -1645,9 +1645,9 @@ func (m *TicketBundle) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x62
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.Metadata.Size()))
-		n6, err := m.Metadata.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n6, err6 := m.Metadata.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
 		}
 		i += n6
 	}
@@ -1693,9 +1693,9 @@ func (m *TicketBundleRemainder) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.PuzzleInfo.Size()))
-		n7, err := m.PuzzleInfo.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n7, err7 := m.PuzzleInfo.MarshalTo(dAtA[i:])
+		if err7 != nil {
+			return 0, err7
 		}
 		i += n7
 	}
@@ -1703,9 +1703,9 @@ func (m *TicketBundleRemainder) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.ClientPublicKey.Size()))
-		n8, err := m.ClientPublicKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n8, err8 := m.ClientPublicKey.MarshalTo(dAtA[i:])
+		if err8 != nil {
+			return 0, err8
 		}
 		i += n8
 	}
@@ -1734,9 +1734,9 @@ func (m *CacheInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.Addr.Size()))
-		n9, err := m.Addr.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n9, err9 := m.Addr.MarshalTo(dAtA[i:])
+		if err9 != nil {
+			return 0, err9
 		}
 		i += n9
 	}
@@ -1744,9 +1744,9 @@ func (m *CacheInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.Pubkey.Size()))
-		n10, err := m.Pubkey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n10, err10 := m.Pubkey.MarshalTo(dAtA[i:])
+		if err10 != nil {
+			return 0, err10
 		}
 		i += n10
 	}
@@ -1882,9 +1882,9 @@ func (m *BatchSignature) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.SigningKey.Size()))
-		n11, err := m.SigningKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n11, err11 := m.SigningKey.MarshalTo(dAtA[i:])
+		if err11 != nil {
+			return 0, err11
 		}
 		i += n11
 	}
@@ -1945,9 +1945,9 @@ func (m *TicketRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.InnerKey.Size()))
-		n12, err := m.InnerKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n12, err12 := m.InnerKey.MarshalTo(dAtA[i:])
+		if err12 != nil {
+			return 0, err12
 		}
 		i += n12
 	}
@@ -1955,9 +1955,9 @@ func (m *TicketRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.CachePublicKey.Size()))
-		n13, err := m.CachePublicKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n13, err13 := m.CachePublicKey.MarshalTo(dAtA[i:])
+		if err13 != nil {
+			return 0, err13
 		}
 		i += n13
 	}
@@ -1997,9 +1997,9 @@ func (m *TicketL1) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.CachePublicKey.Size()))
-		n14, err := m.CachePublicKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n14, err14 := m.CachePublicKey.MarshalTo(dAtA[i:])
+		if err14 != nil {
+			return 0, err14
 		}
 		i += n14
 	}
@@ -2105,9 +2105,9 @@ func (m *Certificate) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(m.SubjectPublicKey.Size()))
-		n15, err := m.SubjectPublicKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n15, err15 := m.SubjectPublicKey.MarshalTo(dAtA[i:])
+		if err15 != nil {
+			return 0, err15
 		}
 		i += n15
 	}

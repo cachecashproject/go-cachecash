@@ -409,9 +409,9 @@ func (m *ContentRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintClientPublisher(dAtA, i, uint64(m.ClientPublicKey.Size()))
-		n1, err := m.ClientPublicKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.ClientPublicKey.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -456,9 +456,9 @@ func (m *ContentRequest) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintClientPublisher(dAtA, i, uint64(v.Size()))
-				n2, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				n2, err2 := v.MarshalTo(dAtA[i:])
+				if err2 != nil {
+					return 0, err2
 				}
 				i += n2
 			}
@@ -525,9 +525,9 @@ func (m *ContentResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintClientPublisher(dAtA, i, uint64(m.Error.Size()))
-		n3, err := m.Error.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Error.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}

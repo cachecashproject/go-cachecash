@@ -819,9 +819,9 @@ func (m *ClientCacheRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.BundleRemainder.Size()))
-		n1, err := m.BundleRemainder.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.BundleRemainder.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -829,9 +829,9 @@ func (m *ClientCacheRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.TicketBundleSubdigests.Size()))
-		n2, err := m.TicketBundleSubdigests.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.TicketBundleSubdigests.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -839,9 +839,9 @@ func (m *ClientCacheRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.BundleSig.Size()))
-		n3, err := m.BundleSig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.BundleSig.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -849,16 +849,16 @@ func (m *ClientCacheRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.BundleSignerCert.Size()))
-		n4, err := m.BundleSignerCert.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.BundleSignerCert.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
 	if m.Ticket != nil {
-		nn5, err := m.Ticket.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn5, err5 := m.Ticket.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += nn5
 	}
@@ -879,9 +879,9 @@ func (m *ClientCacheRequest_TicketRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.TicketRequest.Size()))
-		n6, err := m.TicketRequest.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n6, err6 := m.TicketRequest.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
 		}
 		i += n6
 	}
@@ -893,9 +893,9 @@ func (m *ClientCacheRequest_TicketL1) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.TicketL1.Size()))
-		n7, err := m.TicketL1.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n7, err7 := m.TicketL1.MarshalTo(dAtA[i:])
+		if err7 != nil {
+			return 0, err7
 		}
 		i += n7
 	}
@@ -907,9 +907,9 @@ func (m *ClientCacheRequest_TicketL2) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.TicketL2.Size()))
-		n8, err := m.TicketL2.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n8, err8 := m.TicketL2.MarshalTo(dAtA[i:])
+		if err8 != nil {
+			return 0, err8
 		}
 		i += n8
 	}
@@ -936,9 +936,9 @@ func (m *ClientCacheResponse) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintClientCache(dAtA, i, uint64(m.RequestSequenceNo))
 	}
 	if m.Msg != nil {
-		nn9, err := m.Msg.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn9, err9 := m.Msg.MarshalTo(dAtA[i:])
+		if err9 != nil {
+			return 0, err9
 		}
 		i += nn9
 	}
@@ -954,9 +954,9 @@ func (m *ClientCacheResponse_Error) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.Error.Size()))
-		n10, err := m.Error.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n10, err10 := m.Error.MarshalTo(dAtA[i:])
+		if err10 != nil {
+			return 0, err10
 		}
 		i += n10
 	}
@@ -968,9 +968,9 @@ func (m *ClientCacheResponse_DataResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.DataResponse.Size()))
-		n11, err := m.DataResponse.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n11, err11 := m.DataResponse.MarshalTo(dAtA[i:])
+		if err11 != nil {
+			return 0, err11
 		}
 		i += n11
 	}
@@ -982,9 +982,9 @@ func (m *ClientCacheResponse_L1Response) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.L1Response.Size()))
-		n12, err := m.L1Response.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n12, err12 := m.L1Response.MarshalTo(dAtA[i:])
+		if err12 != nil {
+			return 0, err12
 		}
 		i += n12
 	}
@@ -996,9 +996,9 @@ func (m *ClientCacheResponse_L2Response) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.L2Response.Size()))
-		n13, err := m.L2Response.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n13, err13 := m.L2Response.MarshalTo(dAtA[i:])
+		if err13 != nil {
+			return 0, err13
 		}
 		i += n13
 	}
@@ -1050,9 +1050,9 @@ func (m *ClientCacheResponseL1) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintClientCache(dAtA, i, uint64(m.OuterKey.Size()))
-		n14, err := m.OuterKey.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n14, err14 := m.OuterKey.MarshalTo(dAtA[i:])
+		if err14 != nil {
+			return 0, err14
 		}
 		i += n14
 	}
