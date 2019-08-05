@@ -10,11 +10,8 @@ import (
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -3554,14 +3551,6 @@ type ClientPublisherServer interface {
 	GetContent(context.Context, *ContentRequest) (*ContentResponse, error)
 }
 
-// UnimplementedClientPublisherServer can be embedded to have forward compatible implementations.
-type UnimplementedClientPublisherServer struct {
-}
-
-func (*UnimplementedClientPublisherServer) GetContent(ctx context.Context, req *ContentRequest) (*ContentResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetContent not implemented")
-}
-
 func RegisterClientPublisherServer(s *grpc.Server, srv ClientPublisherServer) {
 	s.RegisterService(&_ClientPublisher_serviceDesc, srv)
 }
@@ -3646,20 +3635,6 @@ type ClientCacheServer interface {
 	GetChunk(context.Context, *ClientCacheRequest) (*ClientCacheResponseData, error)
 	ExchangeTicketL1(context.Context, *ClientCacheRequest) (*ClientCacheResponseL1, error)
 	ExchangeTicketL2(context.Context, *ClientCacheRequest) (*ClientCacheResponseL2, error)
-}
-
-// UnimplementedClientCacheServer can be embedded to have forward compatible implementations.
-type UnimplementedClientCacheServer struct {
-}
-
-func (*UnimplementedClientCacheServer) GetChunk(ctx context.Context, req *ClientCacheRequest) (*ClientCacheResponseData, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetChunk not implemented")
-}
-func (*UnimplementedClientCacheServer) ExchangeTicketL1(ctx context.Context, req *ClientCacheRequest) (*ClientCacheResponseL1, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ExchangeTicketL1 not implemented")
-}
-func (*UnimplementedClientCacheServer) ExchangeTicketL2(ctx context.Context, req *ClientCacheRequest) (*ClientCacheResponseL2, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ExchangeTicketL2 not implemented")
 }
 
 func RegisterClientCacheServer(s *grpc.Server, srv ClientCacheServer) {
@@ -3770,14 +3745,6 @@ type CachePublisherServer interface {
 	CacheMiss(context.Context, *CacheMissRequest) (*CacheMissResponse, error)
 }
 
-// UnimplementedCachePublisherServer can be embedded to have forward compatible implementations.
-type UnimplementedCachePublisherServer struct {
-}
-
-func (*UnimplementedCachePublisherServer) CacheMiss(ctx context.Context, req *CacheMissRequest) (*CacheMissResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CacheMiss not implemented")
-}
-
 func RegisterCachePublisherServer(s *grpc.Server, srv CachePublisherServer) {
 	s.RegisterService(&_CachePublisher_serviceDesc, srv)
 }
@@ -3851,17 +3818,6 @@ func (c *nodeBootstrapdClient) FetchCaches(ctx context.Context, in *CacheFetchRe
 type NodeBootstrapdServer interface {
 	AnnounceCache(context.Context, *CacheAnnounceRequest) (*CacheAnnounceResponse, error)
 	FetchCaches(context.Context, *CacheFetchRequest) (*CacheFetchResponse, error)
-}
-
-// UnimplementedNodeBootstrapdServer can be embedded to have forward compatible implementations.
-type UnimplementedNodeBootstrapdServer struct {
-}
-
-func (*UnimplementedNodeBootstrapdServer) AnnounceCache(ctx context.Context, req *CacheAnnounceRequest) (*CacheAnnounceResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AnnounceCache not implemented")
-}
-func (*UnimplementedNodeBootstrapdServer) FetchCaches(ctx context.Context, req *CacheFetchRequest) (*CacheFetchResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FetchCaches not implemented")
 }
 
 func RegisterNodeBootstrapdServer(s *grpc.Server, srv NodeBootstrapdServer) {
@@ -3961,17 +3917,6 @@ type PublisherCacheServer interface {
 	PingCache(context.Context, *PingCacheRequest) (*PingCacheResponse, error)
 }
 
-// UnimplementedPublisherCacheServer can be embedded to have forward compatible implementations.
-type UnimplementedPublisherCacheServer struct {
-}
-
-func (*UnimplementedPublisherCacheServer) OfferEscrow(ctx context.Context, req *EscrowOfferRequest) (*EscrowOfferResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method OfferEscrow not implemented")
-}
-func (*UnimplementedPublisherCacheServer) PingCache(ctx context.Context, req *PingCacheRequest) (*PingCacheResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PingCache not implemented")
-}
-
 func RegisterPublisherCacheServer(s *grpc.Server, srv PublisherCacheServer) {
 	s.RegisterService(&_PublisherCache_serviceDesc, srv)
 }
@@ -4067,17 +4012,6 @@ func (c *ledgerClient) GetBlocks(ctx context.Context, in *GetBlocksRequest, opts
 type LedgerServer interface {
 	PostTransaction(context.Context, *PostTransactionRequest) (*PostTransactionResponse, error)
 	GetBlocks(context.Context, *GetBlocksRequest) (*GetBlocksResponse, error)
-}
-
-// UnimplementedLedgerServer can be embedded to have forward compatible implementations.
-type UnimplementedLedgerServer struct {
-}
-
-func (*UnimplementedLedgerServer) PostTransaction(ctx context.Context, req *PostTransactionRequest) (*PostTransactionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PostTransaction not implemented")
-}
-func (*UnimplementedLedgerServer) GetBlocks(ctx context.Context, req *GetBlocksRequest) (*GetBlocksResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBlocks not implemented")
 }
 
 func RegisterLedgerServer(s *grpc.Server, srv LedgerServer) {
@@ -4215,9 +4149,9 @@ func (m *EscrowInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.PublicKey.Size()))
-		n1, err1 := m.PublicKey.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.PublicKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -4225,9 +4159,9 @@ func (m *EscrowInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.PublisherPublicKey.Size()))
-		n2, err2 := m.PublisherPublicKey.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.PublisherPublicKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -4320,9 +4254,9 @@ func (m *TicketBundle) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Remainder.Size()))
-		n3, err3 := m.Remainder.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.Remainder.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -4354,9 +4288,9 @@ func (m *TicketBundle) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.BatchSig.Size()))
-		n4, err4 := m.BatchSig.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.BatchSig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -4382,9 +4316,9 @@ func (m *TicketBundle) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.BundleSignerCert.Size()))
-		n5, err5 := m.BundleSignerCert.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.BundleSignerCert.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -4392,9 +4326,9 @@ func (m *TicketBundle) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x62
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Metadata.Size()))
-		n6, err6 := m.Metadata.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.Metadata.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -4440,9 +4374,9 @@ func (m *TicketBundleRemainder) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.PuzzleInfo.Size()))
-		n7, err7 := m.PuzzleInfo.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.PuzzleInfo.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -4450,9 +4384,9 @@ func (m *TicketBundleRemainder) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.ClientPublicKey.Size()))
-		n8, err8 := m.ClientPublicKey.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.ClientPublicKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -4481,9 +4415,9 @@ func (m *CacheInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Addr.Size()))
-		n9, err9 := m.Addr.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.Addr.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -4491,9 +4425,9 @@ func (m *CacheInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Pubkey.Size()))
-		n10, err10 := m.Pubkey.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.Pubkey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -4629,9 +4563,9 @@ func (m *BatchSignature) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.SigningKey.Size()))
-		n11, err11 := m.SigningKey.MarshalTo(dAtA[i:])
-		if err11 != nil {
-			return 0, err11
+		n11, err := m.SigningKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n11
 	}
@@ -4692,9 +4626,9 @@ func (m *TicketRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.InnerKey.Size()))
-		n12, err12 := m.InnerKey.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+		n12, err := m.InnerKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n12
 	}
@@ -4702,9 +4636,9 @@ func (m *TicketRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.CachePublicKey.Size()))
-		n13, err13 := m.CachePublicKey.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
+		n13, err := m.CachePublicKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n13
 	}
@@ -4744,9 +4678,9 @@ func (m *TicketL1) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.CachePublicKey.Size()))
-		n14, err14 := m.CachePublicKey.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+		n14, err := m.CachePublicKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n14
 	}
@@ -4852,9 +4786,9 @@ func (m *Certificate) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.SubjectPublicKey.Size()))
-		n15, err15 := m.SubjectPublicKey.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
+		n15, err := m.SubjectPublicKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n15
 	}
@@ -4950,9 +4884,9 @@ func (m *ContentRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.ClientPublicKey.Size()))
-		n16, err16 := m.ClientPublicKey.MarshalTo(dAtA[i:])
-		if err16 != nil {
-			return 0, err16
+		n16, err := m.ClientPublicKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n16
 	}
@@ -4997,9 +4931,9 @@ func (m *ContentRequest) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintCachecash(dAtA, i, uint64(v.Size()))
-				n17, err17 := v.MarshalTo(dAtA[i:])
-				if err17 != nil {
-					return 0, err17
+				n17, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
 				}
 				i += n17
 			}
@@ -5066,9 +5000,9 @@ func (m *ContentResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Error.Size()))
-		n18, err18 := m.Error.MarshalTo(dAtA[i:])
-		if err18 != nil {
-			return 0, err18
+		n18, err := m.Error.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n18
 	}
@@ -5109,9 +5043,9 @@ func (m *ClientCacheRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.BundleRemainder.Size()))
-		n19, err19 := m.BundleRemainder.MarshalTo(dAtA[i:])
-		if err19 != nil {
-			return 0, err19
+		n19, err := m.BundleRemainder.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n19
 	}
@@ -5119,9 +5053,9 @@ func (m *ClientCacheRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.TicketBundleSubdigests.Size()))
-		n20, err20 := m.TicketBundleSubdigests.MarshalTo(dAtA[i:])
-		if err20 != nil {
-			return 0, err20
+		n20, err := m.TicketBundleSubdigests.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n20
 	}
@@ -5129,9 +5063,9 @@ func (m *ClientCacheRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.BundleSig.Size()))
-		n21, err21 := m.BundleSig.MarshalTo(dAtA[i:])
-		if err21 != nil {
-			return 0, err21
+		n21, err := m.BundleSig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n21
 	}
@@ -5139,16 +5073,16 @@ func (m *ClientCacheRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.BundleSignerCert.Size()))
-		n22, err22 := m.BundleSignerCert.MarshalTo(dAtA[i:])
-		if err22 != nil {
-			return 0, err22
+		n22, err := m.BundleSignerCert.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n22
 	}
 	if m.Ticket != nil {
-		nn23, err23 := m.Ticket.MarshalTo(dAtA[i:])
-		if err23 != nil {
-			return 0, err23
+		nn23, err := m.Ticket.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn23
 	}
@@ -5169,9 +5103,9 @@ func (m *ClientCacheRequest_TicketRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.TicketRequest.Size()))
-		n24, err24 := m.TicketRequest.MarshalTo(dAtA[i:])
-		if err24 != nil {
-			return 0, err24
+		n24, err := m.TicketRequest.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n24
 	}
@@ -5183,9 +5117,9 @@ func (m *ClientCacheRequest_TicketL1) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.TicketL1.Size()))
-		n25, err25 := m.TicketL1.MarshalTo(dAtA[i:])
-		if err25 != nil {
-			return 0, err25
+		n25, err := m.TicketL1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n25
 	}
@@ -5197,9 +5131,9 @@ func (m *ClientCacheRequest_TicketL2) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.TicketL2.Size()))
-		n26, err26 := m.TicketL2.MarshalTo(dAtA[i:])
-		if err26 != nil {
-			return 0, err26
+		n26, err := m.TicketL2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n26
 	}
@@ -5226,9 +5160,9 @@ func (m *ClientCacheResponse) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintCachecash(dAtA, i, uint64(m.RequestSequenceNo))
 	}
 	if m.Msg != nil {
-		nn27, err27 := m.Msg.MarshalTo(dAtA[i:])
-		if err27 != nil {
-			return 0, err27
+		nn27, err := m.Msg.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn27
 	}
@@ -5244,9 +5178,9 @@ func (m *ClientCacheResponse_Error) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Error.Size()))
-		n28, err28 := m.Error.MarshalTo(dAtA[i:])
-		if err28 != nil {
-			return 0, err28
+		n28, err := m.Error.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n28
 	}
@@ -5258,9 +5192,9 @@ func (m *ClientCacheResponse_DataResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.DataResponse.Size()))
-		n29, err29 := m.DataResponse.MarshalTo(dAtA[i:])
-		if err29 != nil {
-			return 0, err29
+		n29, err := m.DataResponse.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n29
 	}
@@ -5272,9 +5206,9 @@ func (m *ClientCacheResponse_L1Response) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.L1Response.Size()))
-		n30, err30 := m.L1Response.MarshalTo(dAtA[i:])
-		if err30 != nil {
-			return 0, err30
+		n30, err := m.L1Response.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n30
 	}
@@ -5286,9 +5220,9 @@ func (m *ClientCacheResponse_L2Response) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.L2Response.Size()))
-		n31, err31 := m.L2Response.MarshalTo(dAtA[i:])
-		if err31 != nil {
-			return 0, err31
+		n31, err := m.L2Response.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n31
 	}
@@ -5340,9 +5274,9 @@ func (m *ClientCacheResponseL1) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.OuterKey.Size()))
-		n32, err32 := m.OuterKey.MarshalTo(dAtA[i:])
-		if err32 != nil {
-			return 0, err32
+		n32, err := m.OuterKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n32
 	}
@@ -5429,9 +5363,9 @@ func (m *CacheMissResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Metadata.Size()))
-		n33, err33 := m.Metadata.MarshalTo(dAtA[i:])
-		if err33 != nil {
-			return 0, err33
+		n33, err := m.Metadata.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n33
 	}
@@ -5474,9 +5408,9 @@ func (m *Chunk) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintCachecash(dAtA, i, uint64(m.SlotIdx))
 	}
 	if m.Source != nil {
-		nn34, err34 := m.Source.MarshalTo(dAtA[i:])
-		if err34 != nil {
-			return 0, err34
+		nn34, err := m.Source.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn34
 	}
@@ -5492,9 +5426,9 @@ func (m *Chunk_Http) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Http.Size()))
-		n35, err35 := m.Http.MarshalTo(dAtA[i:])
-		if err35 != nil {
-			return 0, err35
+		n35, err := m.Http.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n35
 	}
@@ -5508,9 +5442,9 @@ func (m *Chunk_Inline) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Inline.Size()))
-		n36, err36 := m.Inline.MarshalTo(dAtA[i:])
-		if err36 != nil {
-			return 0, err36
+		n36, err := m.Inline.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n36
 	}
@@ -6013,9 +5947,9 @@ func (m *PostTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintCachecash(dAtA, i, uint64(m.Tx.Size()))
-	n37, err37 := m.Tx.MarshalTo(dAtA[i:])
-	if err37 != nil {
-		return 0, err37
+	n37, err := m.Tx.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n37
 	if m.XXX_unrecognized != nil {
@@ -6043,9 +5977,9 @@ func (m *PostTransactionResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachecash(dAtA, i, uint64(m.Error.Size()))
-		n38, err38 := m.Error.MarshalTo(dAtA[i:])
-		if err38 != nil {
-			return 0, err38
+		n38, err := m.Error.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n38
 	}
@@ -7276,7 +7210,14 @@ func (m *GetBlocksResponse) Size() (n int) {
 }
 
 func sovCachecash(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozCachecash(x uint64) (n int) {
 	return sovCachecash(uint64((x << 1) ^ uint64((int64(x) >> 63))))
