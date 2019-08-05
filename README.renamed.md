@@ -71,8 +71,17 @@ You will also need some extra code generation tools:
 make dev-setup
 ```
 
-TODO: You will need `protoc` and `gogo-protobuf`.  We should use a Docker container for these tools; otherwise,
-variations in tool versions will cause all sorts of headaches.
+To generate source from proto files:
+
+```
+make gen
+```
+
+To generate documentation from the proto files:
+
+```
+make gen-docs
+```
 
 ## Running tests
 
