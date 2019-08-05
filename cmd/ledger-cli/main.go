@@ -8,6 +8,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledger"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -54,7 +55,18 @@ func getFirstGenesisTransaction(ctx context.Context, l *logrus.Logger, grpcClien
 	return &txid, nil
 }
 
-func moveCoins(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerClient, prevtx ledger.TXID, kp *keypair.KeyPair) (*ledger.TXID, error) {
+func moveCoins(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerClient, prevtx ledger.TXID, kp *keypair.KeyPair, target *keypair.KeyPair) (*ledger.TXID, error) {
+	pubKeyHash := txscript.Hash160Sum(kp.PublicKey)
+	scriptPubKey, err := txscript.MakeP2WPKHOutputScript(pubKeyHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create scriptPubKey")
+	}
+
+	scriptBytes, err := scriptPubKey.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal output script")
+	}
+
 	tx := ledger.Transaction{
 		Version: 1,
 		Flags:   0,
@@ -65,7 +77,7 @@ func moveCoins(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerCli
 						PreviousTx: prevtx,
 						Index:      0,
 					},
-					ScriptSig:  []byte{},
+					ScriptSig:  scriptBytes,
 					SequenceNo: 0xFFFFFFFF,
 				},
 			},
@@ -85,7 +97,7 @@ func moveCoins(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerCli
 	}
 
 	l.Info("sending transaction to ledgerd...")
-	_, err := grpcClient.PostTransaction(ctx, &ccmsg.PostTransactionRequest{Tx: tx})
+	_, err = grpcClient.PostTransaction(ctx, &ccmsg.PostTransactionRequest{Tx: tx})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to post transaction")
 	}
@@ -135,17 +147,27 @@ func mainC() error {
 	}
 	l.Info("1st tx: ", txid)
 
-	txid, err = moveCoins(ctx, l, grpcClient, *txid, kp)
+	target, err := keypair.Generate()
+	if err != nil {
+		return errors.Wrap(err, "failed to generate next target address")
+	}
+	txid, err = moveCoins(ctx, l, grpcClient, *txid, kp, target)
 	if err != nil {
 		return err
 	}
 	l.Info("2nd tx: ", txid)
+	kp = target
 
-	txid, err = moveCoins(ctx, l, grpcClient, *txid, kp)
+	target, err = keypair.Generate()
+	if err != nil {
+		return errors.Wrap(err, "failed to generate next target address")
+	}
+	txid, err = moveCoins(ctx, l, grpcClient, *txid, kp, target)
 	if err != nil {
 		return err
 	}
 	l.Info("3rd tx: ", txid)
+	kp = target
 
 	l.Info("fin")
 	return nil

@@ -39,7 +39,7 @@ func (suite *VMTestSuite) TestP2WPKHOutput_StandardOutput() {
 
 	_, pubKey, err := ed25519.GenerateKey(nil)
 	assert.Nil(t, err)
-	pubKeyHash := hash160Sum(pubKey)
+	pubKeyHash := Hash160Sum(pubKey)
 
 	scriptPubKey, err := MakeP2WPKHOutputScript(pubKeyHash)
 	if err != nil {

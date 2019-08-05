@@ -80,7 +80,7 @@ func opHash160(vm *VirtualMachine, ins *instruction) error {
 			return err
 		}
 
-		vm.stack.PushBytes(hash160Sum(v))
+		vm.stack.PushBytes(Hash160Sum(v))
 		return nil
 	default:
 		return BadOpcode
