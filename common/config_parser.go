@@ -42,6 +42,11 @@ func (p *ConfigParser) ReadFile(path string) error {
 	return nil
 }
 
+func (p *ConfigParser) GetBool(key string, fallback bool) bool {
+	p.v.SetDefault(key, fallback)
+	return p.v.GetBool(key)
+}
+
 func (p *ConfigParser) GetString(key string, fallback string) string {
 	p.v.SetDefault(key, fallback)
 	return p.v.GetString(key)

@@ -10,6 +10,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+
+	proxyproto "github.com/pires/go-proxyproto"
 )
 
 type Application interface {
@@ -17,9 +19,10 @@ type Application interface {
 }
 
 type ConfigFile struct {
-	GrpcAddr   string `json:"grpc_addr"`
-	Database   string `json:"database"`
-	StatusAddr string `json:"status_addr"`
+	GrpcAddr      string `json:"grpc_addr"`
+	Database      string `json:"database"`
+	StatusAddr    string `json:"status_addr"`
+	ProxyProtocol bool   `json:"proxy_protocol"`
 }
 
 type application struct {
@@ -96,6 +99,10 @@ func (s *bootstrapServer) Start() error {
 	grpcLis, err := net.Listen("tcp", s.conf.GrpcAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to bind listener")
+	}
+
+	if s.conf.ProxyProtocol {
+		grpcLis = &proxyproto.Listener{Listener: grpcLis}
 	}
 
 	go func() {

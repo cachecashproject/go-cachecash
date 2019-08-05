@@ -17,6 +17,7 @@ import (
 var (
 	configPath = flag.String("config", "bootstrapd.config.json", "Path to configuration file")
 	traceAPI   = flag.String("trace", "", "Jaeger API for tracing")
+	proxy      = flag.Bool("proxy-protocol", false, "Enable PROXY protocol support")
 )
 
 func loadConfigFile(l *logrus.Logger, path string) (*bootstrap.ConfigFile, error) {
@@ -30,6 +31,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*bootstrap.ConfigFile, error
 	conf.GrpcAddr = p.GetString("grpc_addr", ":7777")
 	conf.Database = p.GetString("database", "./bootstrapd.db")
 	conf.StatusAddr = p.GetString("status_addr", ":8100")
+	conf.ProxyProtocol = p.GetBool("proxy_protocol", *proxy)
 
 	return &conf, nil
 }
