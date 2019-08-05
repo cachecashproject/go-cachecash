@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
+
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 )
 
 type TxType uint8
@@ -138,6 +140,18 @@ func (tx *Transaction) Inpoints() []Outpoint {
 	return tx.Body.Inpoints()
 }
 
+func (tx *Transaction) Inputs() []TransactionInput {
+	return tx.Body.TxInputs()
+}
+
+func (tx *Transaction) Outputs() []TransactionOutput {
+	return tx.Body.TxOutputs()
+}
+
+func (tx *Transaction) Witnesses() []TransactionWitness {
+	return tx.Body.TxWitnesses()
+}
+
 func (tx *Transaction) Outpoints() []Outpoint {
 	txid, err := tx.TXID()
 	if err != nil {
@@ -154,6 +168,36 @@ func (tx *Transaction) Outpoints() []Outpoint {
 	return pp
 }
 
+func (tx *Transaction) WellFormed() error {
+	// XXX: Add validation logic here.
+	return nil
+}
+
+func (tx *Transaction) Standard() error {
+	// Check that input and output scripts are standard.
+	for _, ti := range tx.Inputs() {
+		scr, err := txscript.ParseScript(ti.ScriptSig)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse script")
+		}
+		if err := scr.StandardInput(); err != nil {
+			return errors.Wrap(err, "input script is not standard")
+		}
+	}
+	// TODO: Do we also need to check that there are two witness values for each input?
+	for _, to := range tx.Outputs() {
+		scr, err := txscript.ParseScript(to.ScriptPubKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse script")
+		}
+		if err := scr.StandardOutput(); err != nil {
+			return errors.Wrap(err, "output script is not standard")
+		}
+	}
+
+	return nil
+}
+
 type TransactionBody interface {
 	Size() int
 	TxType() TxType
@@ -162,6 +206,9 @@ type TransactionBody interface {
 	UnmarshalFrom(data []byte) (n int, err error)
 	Inpoints() []Outpoint
 	OutputCount() uint8
+	TxInputs() []TransactionInput
+	TxOutputs() []TransactionOutput
+	TxWitnesses() []TransactionWitness
 }
 
 // A TransferTransaction is very similar to a Bitcoin transaction.  It consumes one or more unspent outputs of previous
@@ -296,6 +343,18 @@ func (tx *TransferTransaction) Inpoints() []Outpoint {
 	return pp
 }
 
+func (tx *TransferTransaction) TxInputs() []TransactionInput {
+	return tx.Inputs
+}
+
+func (tx *TransferTransaction) TxOutputs() []TransactionOutput {
+	return tx.Outputs
+}
+
+func (tx *TransferTransaction) TxWitnesses() []TransactionWitness {
+	return tx.Witnesses
+}
+
 func (tx *TransferTransaction) OutputCount() uint8 {
 	return uint8(len(tx.Outputs))
 }
@@ -336,6 +395,18 @@ func (tx *EscrowOpenTransaction) Inpoints() []Outpoint {
 
 func (tx *EscrowOpenTransaction) OutputCount() uint8 {
 	return 0
+}
+
+func (tx *EscrowOpenTransaction) TxInputs() []TransactionInput {
+	return nil
+}
+
+func (tx *EscrowOpenTransaction) TxOutputs() []TransactionOutput {
+	return nil
+}
+
+func (tx *EscrowOpenTransaction) TxWitnesses() []TransactionWitness {
+	return nil
 }
 
 // XXX: This is a bad name, because we use this struct to describe both inpoints and outpoints.
@@ -544,4 +615,16 @@ func (tx *GenesisTransaction) Inpoints() []Outpoint {
 
 func (tx *GenesisTransaction) OutputCount() uint8 {
 	return uint8(len(tx.Outputs))
+}
+
+func (tx *GenesisTransaction) TxInputs() []TransactionInput {
+	return nil
+}
+
+func (tx *GenesisTransaction) TxOutputs() []TransactionOutput {
+	return tx.Outputs
+}
+
+func (tx *GenesisTransaction) TxWitnesses() []TransactionWitness {
+	return nil
 }

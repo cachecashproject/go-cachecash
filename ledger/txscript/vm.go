@@ -5,7 +5,9 @@
 //
 package txscript
 
-import "errors"
+import (
+	"github.com/pkg/errors"
+)
 
 type VirtualMachine struct {
 	// stack is the underlying data on the stack.  The 0th element of this slice is the bottom element on the stack.
@@ -40,6 +42,29 @@ func (vm *VirtualMachine) Verify() error {
 	}
 	if !v {
 		return errors.New("OP_VERIFY failed; top stack element is not truthy")
+	}
+	return nil
+}
+
+func ExecuteVerify(inScr, outScr *Script, witData [][]byte) error {
+	vm := NewVirtualMachine()
+
+	if err := vm.Execute(inScr); err != nil {
+		return errors.Wrap(err, "failed to execute input script (scriptPubKey)")
+	}
+
+	// XXX: This should be better-encapsulated.  These two values are consumed during the process where scriptSig is
+	// generated (which the VM knows to do because the address is a P2WPKH address).
+	_, _ = vm.stack.PopBytes()
+	_, _ = vm.stack.PopBytes()
+
+	vm.PushWitnessData(witData)
+	if err := vm.Execute(outScr); err != nil {
+		return errors.Wrap(err, "failed to execute output script (scriptSig)")
+	}
+
+	if err := vm.Verify(); err != nil {
+		return errors.Wrap(err, "failed to verify after execution")
 	}
 	return nil
 }

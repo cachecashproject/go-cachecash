@@ -3,6 +3,7 @@ package ledger
 import (
 	"fmt"
 
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 	"github.com/pkg/errors"
 )
 
@@ -179,4 +180,98 @@ func (cdb *simpleChainDatabase) Unspent(cc *ChainContext, op Outpoint) (bool, er
 		return false, errors.New("failed to locate outpoint")
 	}
 	return unspent, nil
+}
+
+// TransactionValid determines whether a gievn transaction is valid at a particular place in the block-graph.
+//
+// A transfer transaction is valid iff
+// - it is well-formed (has no obvious syntactic/validity issues);
+// - its input and output scripts are standard;
+// - it spends only previously-unspent inputs;
+// - all of its input scripts execute successfully when paired with the corresponding output scripts (which is where
+//   input signatures are checked); and
+// - the sum of input values is *exactly* equal to the sum of output values (since we do not currently support fees).
+//
+// Of these requirements, the first two can be checked in isolation.
+//
+// TODO: We probably want to be able to distinguish between errors that mean "this is not a valid transaction but the
+// mechanism worked correctly" and "something went wrong in the chain database (or somewhere else)".
+//
+// XXX: We clearly need to do some refactoring.  We wind up searching the chain database multiple times, parsing each
+// script more than once, etc.
+//
+func TransactionValid(cdb ChainDatabase, cc *ChainContext, tx *Transaction) error {
+	// Check if the transaction is well-formed.
+	if err := tx.WellFormed(); err != nil {
+		return errors.Wrap(err, "transaction is not well-formed")
+	}
+
+	// Check if all input and output scripts are standard.
+	if err := tx.Standard(); err != nil {
+		return errors.Wrap(err, "script(s) are not standard")
+	}
+
+	// Check that all inputs are previously unspent.
+	for _, ip := range tx.Inpoints() {
+		ok, err := cdb.Unspent(cc, ip)
+		if err != nil {
+			return errors.Wrap(err, "failed to check inpoint")
+		}
+		if !ok {
+			return errors.New("transaction has previously-spent input")
+		}
+	}
+
+	// Get matching output for each input.
+	var prevOuts []TransactionOutput
+	for _, ip := range tx.Inpoints() {
+		prevTx, err := cdb.GetTransaction(cc, ip.PreviousTx)
+		if err != nil {
+			return errors.Wrap(err, "failed to get previous transaction")
+		}
+		if prevTx == nil {
+			return errors.New("failed to locate previous transaction")
+		}
+
+		// XXX: Let's make sure we wind up with tests covering situations like this.
+		prevTxOuts := prevTx.Outputs()
+		if int(ip.Index) >= len(prevTxOuts) {
+			return errors.New("input index is out-of-range for previous transaction")
+		}
+
+		prevOuts = append(prevOuts, prevTxOuts[int(ip.Index)])
+	}
+
+	// Check that all script pairs execute correctly.
+	witnesses := tx.Witnesses()
+	for i, ti := range tx.Inputs() {
+		inScr, err := txscript.ParseScript(ti.ScriptSig)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse input script")
+		}
+
+		outScr, err := txscript.ParseScript(prevOuts[i].ScriptPubKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse output script")
+		}
+
+		if err := txscript.ExecuteVerify(inScr, outScr, witnesses[i].Data); err != nil {
+			return errors.Wrap(err, "failed to execute and verify script pair")
+		}
+	}
+
+	// Check that the sum of input and output values matches.
+	// N.B.: We use a uint64 to avoid overflow issues with adding multiple uint32s.
+	var totalIn, totalOut uint64
+	for _, pto := range prevOuts {
+		totalIn += uint64(pto.Value)
+	}
+	for _, to := range tx.Outputs() {
+		totalOut += uint64(to.Value)
+	}
+	if totalIn != totalOut {
+		return errors.New("value of inputs does not equal value of outputs")
+	}
+
+	return nil
 }
