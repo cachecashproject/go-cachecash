@@ -9,7 +9,7 @@ GIT_VERSION:=$(or \
 	$(shell printf "0.0.0.r%s.%s" "$(shell git rev-list --count HEAD)" "$(shell git rev-parse --short HEAD)") \
 )
 
-.PHONY: $(BINNAMES) dockerfiles clean lint lint-fix
+.PHONY: $(BINNAMES) dockerfiles clean lint lint-fix dev-setup
 
 all: $(BINNAMES)
 
@@ -42,3 +42,9 @@ lint:
 lint-fix:
 	docker build -t cachecash-ci ci
 	docker run -v ${PWD}:/go/src/github.com/cachecashproject/go-cachecash --rm cachecash-ci golangci-lint run --fix
+
+dev-setup:
+	go get -u github.com/rubenv/sql-migrate/...
+	go get -u github.com/volatiletech/sqlboiler/...
+	go get -u github.com/volatiletech/sqlboiler-sqlite3/...
+	go get -u github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/...
