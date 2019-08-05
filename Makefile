@@ -9,7 +9,12 @@ GIT_VERSION:=$(or \
 	$(shell printf "0.0.0.r%s.%s" "$(shell git rev-list --count HEAD)" "$(shell git rev-parse --short HEAD)") \
 )
 
-.PHONY: $(BINNAMES) dockerfiles clean lint lint-fix dev-setup
+GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
+GEN_PROTO_FILE=${GEN_CONTAINER_DIR}/ccmsg/cachecash.proto 
+GEN_DOCKER=docker run -it -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} cachecash-gen
+
+.PHONY: $(BINNAMES) dockerfiles clean lint lint-fix \
+	dev-setup gen gen-image gen-docs
 
 all: $(BINNAMES)
 
@@ -48,3 +53,15 @@ dev-setup:
 	go get -u github.com/volatiletech/sqlboiler/...
 	go get -u github.com/volatiletech/sqlboiler-sqlite3/...
 	go get -u github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/...
+
+gen: gen-image
+	$(GEN_DOCKER) \
+		go generate github.com/cachecashproject/go-cachecash/ccmsg/...
+
+gen-docs:
+	mkdir -p docs-gen
+	$(GEN_DOCKER) \
+		protoc --doc_out=${GEN_CONTAINER_DIR}/docs-gen --doc_opt=html,index.html --proto_path=/go/src ${GEN_PROTO_FILE}
+
+gen-image:
+	docker build -t cachecash-gen -f Dockerfile.gen .
