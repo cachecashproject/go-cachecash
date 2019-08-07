@@ -8,6 +8,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledger"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -41,6 +42,17 @@ func NewLedgerService(l *logrus.Logger, db *sql.DB, kp *keypair.KeyPair) (*Ledge
 }
 
 func (s *LedgerService) InitGenesisBlock(totalCoins uint32) error {
+	pubKeyHash := txscript.Hash160Sum(s.kp.PublicKey)
+	script, err := txscript.MakeP2WPKHInputScript(pubKeyHash)
+	if err != nil {
+		return errors.Wrap(err, "failed to crate p2wpkh input script")
+	}
+
+	scriptBytes, err := script.Marshal()
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal input script")
+	}
+
 	tx := ledger.Transaction{
 		Version: 1,
 		Flags:   0,
@@ -48,7 +60,7 @@ func (s *LedgerService) InitGenesisBlock(totalCoins uint32) error {
 			Outputs: []ledger.TransactionOutput{
 				{
 					Value:        totalCoins,
-					ScriptPubKey: s.kp.PublicKey,
+					ScriptPubKey: scriptBytes,
 				},
 			},
 		},
@@ -89,13 +101,32 @@ func (s *LedgerService) BuildBlock(ctx context.Context) error {
 		// TODO: verify transaction is correctly signed
 
 		// verify all inputs are unspent
+		var prevOuts []*models.Utxo
 		for _, inpoint := range tx.Inpoints() {
 			utxo, err := s.GetUtxo(ctx, inpoint.Key())
 			if err != nil {
 				return errors.Wrap(err, "failed to get utxo, input probably already spent")
 			}
 			// input sum and output sum is already verified at this point
-			_ = utxo
+			prevOuts = append(prevOuts, utxo)
+		}
+
+		// Check that all script pairs execute correctly.
+		witnesses := tx.Witnesses()
+		for i, ti := range tx.Inputs() {
+			inScr, err := txscript.ParseScript(ti.ScriptSig)
+			if err != nil {
+				return errors.Wrap(err, "failed to parse input script")
+			}
+
+			outScr, err := txscript.ParseScript(prevOuts[i].ScriptPubkey)
+			if err != nil {
+				return errors.Wrap(err, "failed to parse output script")
+			}
+
+			if err := txscript.ExecuteVerify(inScr, outScr, witnesses[i].Data); err != nil {
+				return errors.Wrap(err, "failed to execute and verify script pair")
+			}
 		}
 
 		// try to add tx into block

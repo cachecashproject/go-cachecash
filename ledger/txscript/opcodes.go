@@ -2,7 +2,8 @@ package txscript
 
 import (
 	"bytes"
-	"errors"
+
+	"github.com/pkg/errors"
 )
 
 type opcode struct {
@@ -107,7 +108,7 @@ func opEqual(vm *VirtualMachine, ins *instruction) error {
 			return err
 		}
 		if !v {
-			return errors.New("OP_VERIFY failed; top stack element is not truthy")
+			return errors.New("OP_EQUALVERIFY failed; top stack elements are not equal")
 		}
 
 		// Done!

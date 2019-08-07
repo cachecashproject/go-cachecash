@@ -9,15 +9,19 @@ import (
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledger"
 	"github.com/cachecashproject/go-cachecash/ledger/txscript"
+	"github.com/cachecashproject/go-cachecash/testutil"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ed25519"
 )
 
 var (
 	ledgerAddr  = flag.String("ledgerAddr", "localhost:7778", "Address of ledgerd instance")
 	keypairPath = flag.String("keypair", "ledger.keypair.json", "Path to keypair file")
 )
+
+// sudo chmod 0666 data/ledger/ledger.keypair.json && go run ./cmd/ledger-cli -keypair data/ledger/ledger.keypair.json
 
 func main() {
 	common.Main(mainC)
@@ -55,8 +59,8 @@ func getFirstGenesisTransaction(ctx context.Context, l *logrus.Logger, grpcClien
 	return &txid, nil
 }
 
-func moveCoins(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerClient, prevtx ledger.TXID, kp *keypair.KeyPair, target *keypair.KeyPair) (*ledger.TXID, error) {
-	pubKeyHash := txscript.Hash160Sum(kp.PublicKey)
+func makeOutputScript(pubkey ed25519.PublicKey) ([]byte, error) {
+	pubKeyHash := txscript.Hash160Sum(pubkey)
 	scriptPubKey, err := txscript.MakeP2WPKHOutputScript(pubKeyHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create scriptPubKey")
@@ -65,6 +69,35 @@ func moveCoins(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerCli
 	scriptBytes, err := scriptPubKey.Marshal()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal output script")
+	}
+
+	return scriptBytes, nil
+}
+
+func makeInputScript(pubkey ed25519.PublicKey) ([]byte, error) {
+	pubKeyHash := txscript.Hash160Sum(pubkey)
+	scriptPubKey, err := txscript.MakeP2WPKHInputScript(pubKeyHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create scriptPubKey")
+	}
+
+	scriptBytes, err := scriptPubKey.Marshal()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal input script")
+	}
+
+	return scriptBytes, nil
+}
+
+func moveCoins(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerClient, prevtx ledger.TXID, kp *keypair.KeyPair, target *keypair.KeyPair) (*ledger.TXID, error) {
+	inputScriptBytes, err := makeOutputScript(kp.PublicKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create input script")
+	}
+
+	outputScriptBytes, err := makeInputScript(target.PublicKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create output script")
 	}
 
 	tx := ledger.Transaction{
@@ -77,19 +110,22 @@ func moveCoins(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerCli
 						PreviousTx: prevtx,
 						Index:      0,
 					},
-					ScriptSig:  scriptBytes,
+					ScriptSig:  inputScriptBytes,
 					SequenceNo: 0xFFFFFFFF,
 				},
 			},
 			Outputs: []ledger.TransactionOutput{
 				{
 					Value:        420000000,
-					ScriptPubKey: kp.PublicKey,
+					ScriptPubKey: outputScriptBytes,
 				},
 			},
 			Witnesses: []ledger.TransactionWitness{
 				{
-					Data: [][]byte{},
+					Data: [][]byte{
+						testutil.MustDecodeString("cafebabe"), // XXX: Once we have sighash, we'll need an actual signature here.
+						kp.PublicKey,
+					},
 				},
 			},
 			LockTime: 0,
@@ -167,7 +203,7 @@ func mainC() error {
 		return err
 	}
 	l.Info("3rd tx: ", txid)
-	kp = target
+	// kp = target
 
 	l.Info("fin")
 	return nil

@@ -28,6 +28,8 @@ services:
     environment:
     - CACHECASH_INSECURE=true
     - LEDGER_DATABASE=host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable
+    volumes:
+    - ./data/ledger:/data
 
   ledger-db:
     image: postgres:11
