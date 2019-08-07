@@ -2,6 +2,8 @@ module github.com/cachecashproject/go-cachecash
 
 go 1.12
 
+require github.com/elastic/go-elasticsearch/v7 v7.3.1-0.20190801065659-92cf325b6bfb
+
 require (
 	contrib.go.opencensus.io/exporter/jaeger v0.1.0
 	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
