@@ -15,7 +15,7 @@ GEN_DOCKER=docker run -it -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} 
 	dev-setup gen gen-image gen-docs modules
 
 all:
-	GOBIN=$(PREFIX)/bin go install \
+	GO111MODULE=on GOBIN=$(PREFIX)/bin go install \
 		-gcflags="all=-trimpath=${GOPATH}" \
 		-asmflags="all=-trimpath=${GOPATH}" \
 		-ldflags="-X github.com/cachecashproject/go-cachecash.CurrentVersion=$(GIT_VERSION)" \
