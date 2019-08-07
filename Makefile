@@ -1,6 +1,4 @@
-BINNAMES2:=$(wildcard cmd/*)
-BINNAMES:=$(BINNAMES2:cmd/%=%)
-PREFIX?=.
+PREFIX?=$(shell realpath .)
 GOPATH?=$(shell go env GOPATH)
 # use git describe after the first release
 # XXX: for building from tar balls that don't have git meta data we need a fallback
@@ -13,17 +11,15 @@ GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
 GEN_PROTO_FILE=${GEN_CONTAINER_DIR}/ccmsg/cachecash.proto 
 GEN_DOCKER=docker run -it -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} cachecash-gen
 
-.PHONY: $(BINNAMES) dockerfiles clean lint lint-fix \
-	dev-setup gen gen-image gen-docs
+.PHONY: dockerfiles clean lint lint-fix \
+	dev-setup gen gen-image gen-docs modules
 
-all: $(BINNAMES)
-
-$(BINNAMES):
-	go build \
+all:
+	GOBIN=$(PREFIX)/bin go install \
 		-gcflags="all=-trimpath=${GOPATH}" \
 		-asmflags="all=-trimpath=${GOPATH}" \
 		-ldflags="-X github.com/cachecashproject/go-cachecash.CurrentVersion=$(GIT_VERSION)" \
-		-o $(PREFIX)/bin/$@ ./cmd/$@
+		./cmd/...
 
 dockerfiles:
 	cat deploy/dockerfiles/autogen-warning.txt \
@@ -65,3 +61,7 @@ gen-docs:
 
 gen-image:
 	docker build -t cachecash-gen -f Dockerfile.gen .
+
+modules:
+	GO111MODULE=on go mod tidy
+	GO111MODULE=on go mod vendor
