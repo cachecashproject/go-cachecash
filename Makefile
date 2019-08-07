@@ -14,7 +14,7 @@ GEN_PROTO_FILE=${GEN_CONTAINER_DIR}/ccmsg/cachecash.proto
 GEN_DOCKER=docker run -it -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} cachecash-gen
 
 .PHONY: $(BINNAMES) dockerfiles clean lint lint-fix \
-	dev-setup gen gen-image gen-docs
+	dev-setup gen gen-image gen-docs modules
 
 all: $(BINNAMES)
 
@@ -65,3 +65,7 @@ gen-docs:
 
 gen-image:
 	docker build -t cachecash-gen -f Dockerfile.gen .
+
+modules:
+	GO111MODULE=on go mod tidy
+	GO111MODULE=on go mod vendor
