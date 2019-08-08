@@ -23,7 +23,7 @@ fi
 
 case "$BUILD_MODE" in
 	test)
-		docker network create cachecash || true
+		docker network create cachecash --opt com.docker.network.bridge.enable_ip_masquerade=false || true
 		time docker run -d -p 5433:5432 -e POSTGRES_DB=ledger --name ledger-db --net=cachecash postgres:11
 		time docker run -d -p 5434:5432 -e POSTGRES_DB=publisher --name publisher-db --net=cachecash postgres:11
 		time docker build -t cachecash-ci ci
