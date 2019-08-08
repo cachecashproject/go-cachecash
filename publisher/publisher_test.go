@@ -177,7 +177,7 @@ func (suite *PublisherTestSuite) TestContentRequestEndWholeObject() {
 func (suite *PublisherTestSuite) TestContentRequestTooManyFailedCaches() {
 	t := suite.T()
 
-	_, err := suite.publisher.HandleContentRequest(context.TODO(), &ccmsg.ContentRequest{
+	bundle, err := suite.publisher.HandleContentRequest(context.TODO(), &ccmsg.ContentRequest{
 		Path:            "/foo/bar",
 		RangeBegin:      uint64(0),
 		RangeEnd:        uint64(suite.chunkSize),
@@ -192,6 +192,7 @@ func (suite *PublisherTestSuite) TestContentRequestTooManyFailedCaches() {
 		},
 	})
 	assert.NotNil(t, err, "got an impossible bundle")
+	assert.Nil(t, bundle, "got an impossible bundle")
 }
 
 func (suite *PublisherTestSuite) TestContentRequestWithFailedCache() {

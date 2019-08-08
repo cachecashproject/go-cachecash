@@ -353,6 +353,14 @@ func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, o
 	}
 	p.reverseMapping[objID] = reverseMappingEntry{path: path}
 
+	// We use the consistent hash to pick the first of the caches in the escrow.
+	// Then each cache is assigned in round robin fashion ignoring error status.
+	// Then failed caches are replaced with unused good caches also in round
+	// robin order.
+	// Start: escrow has: A B C D E
+	// first index picks (say) C, giving C,D,E,A
+	// if A is errored, A is replaced with B giving C,D,E,B.
+	// if two caches are errored, an error is given.
 	bundleInput := append(prefix, string(chunkRangeBegin)...)
 	h64 := siphash.Hash(k0, k1, bundleInput)
 	firstIndex := (*escrow.lookup)[h64%uint64(len(*escrow.lookup))]
@@ -385,8 +393,9 @@ func (p *ContentPublisher) generateBundle(ctx context.Context, escrow *Escrow, o
 			// Good cache. Could also consider backlog length or other signal.
 			continue
 		}
-		// The first possible cache is a chunks worth higher up.
-		offset := i + firstIndex + chunksPerGroup
+		// The next possible cache is located at the hash offset + the caches we
+		// allocated in this chunk + the badcaches we consumed thus far.
+		offset := firstIndex + chunksPerGroup + badcaches
 		for j := 0; j < len(escrow.Caches)-chunksPerGroup-badcaches; j++ {
 			index := (offset + j) % len(escrow.Caches)
 			cache := escrow.Caches[index]
