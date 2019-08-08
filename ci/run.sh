@@ -26,7 +26,7 @@ case "$BUILD_MODE" in
 			run_test -tags=sqlboiler_test ./ledgerservice/...
 
 		# Linting is non-fatal right now.  See `.golangci.yml` for configuration.
-		time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --network=cachecash cachecash-ci golangci-lint run
+		time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --network=cachecash cachecash-ci golangci-lint run --deadline 5m
 		;;
 	docker)
 		docker-compose build
