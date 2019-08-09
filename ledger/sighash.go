@@ -156,14 +156,17 @@ func calcHashOutputs(tx *Transaction) (*chainhash.Hash, error) {
 	}
 
 	for _, out := range body.Outputs {
-		WriteTxOut(&b, 0, 0, &out)
+		err := WriteTxOut(&b, 0, 0, out)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to add output to hash")
+		}
 	}
 
 	hash := chainhash.DoubleHashH(b.Bytes())
 	return &hash, nil
 }
 
-func WriteTxOut(w io.Writer, pver uint32, version int32, to *TransactionOutput) error {
+func WriteTxOut(w io.Writer, pver uint32, version int32, to TransactionOutput) error {
 	var buf [8]byte
 	binary.LittleEndian.PutUint64(buf[:], uint64(to.Value))
 	_, err := w.Write(buf[:])

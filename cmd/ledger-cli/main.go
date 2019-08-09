@@ -198,8 +198,11 @@ func mainC() error {
 		return err
 	}
 	l.Info("3rd tx: ", txid)
-	// kp = target
+	kp = target
 
+	// done
+	_ = prevOutputs
+	_ = kp
 	l.Info("fin")
 	return nil
 }
