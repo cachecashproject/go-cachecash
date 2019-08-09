@@ -7,15 +7,16 @@ GIT_VERSION:=$(or \
 	$(shell printf "0.0.0.r%s.%s" "$(shell git rev-list --count HEAD)" "$(shell git rev-parse --short HEAD)") \
 )
 
+GEN_PROTO_DIRS=./ccmsg/... ./log/...
 GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
 GEN_PROTO_FILE=${GEN_CONTAINER_DIR}/ccmsg/cachecash.proto 
-GEN_DOCKER=docker run -it -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} cachecash-gen
+GEN_DOCKER=docker run -it -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} cachecash-gen
 
 .PHONY: dockerfiles clean lint lint-fix \
 	dev-setup gen gen-image gen-docs modules
 
 all:
-	GOBIN=$(PREFIX)/bin go install \
+	GO111MODULE=on GOBIN=$(PREFIX)/bin go install \
 		-gcflags="all=-trimpath=${GOPATH}" \
 		-asmflags="all=-trimpath=${GOPATH}" \
 		-ldflags="-X github.com/cachecashproject/go-cachecash.CurrentVersion=$(GIT_VERSION)" \
@@ -52,7 +53,7 @@ dev-setup:
 
 gen: gen-image
 	$(GEN_DOCKER) \
-		go generate github.com/cachecashproject/go-cachecash/ccmsg/...
+		go generate ${GEN_PROTO_DIRS}
 
 gen-docs:
 	mkdir -p docs-gen

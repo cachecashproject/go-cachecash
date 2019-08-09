@@ -170,4 +170,17 @@ services:
     - 16686:16686
     - 14268:14268
     - 9411:9411
+
+  elasticsearch:
+    image: elasticsearch:7.3.0
+    ports:
+    - 9200:9200
+    - 9300:9300
+    environment:
+    - discovery.type=single-node
+
+  kibana:
+    image: kibana:7.3.0
+    ports:
+    - 5601:5601
 ...

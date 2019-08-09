@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package log;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// Entry is a log message
+message Entry {
+  string                    message = 1; // the text description of the entry
+  google.protobuf.Struct    fields  = 2; // the fields that correspond to this message
+  google.protobuf.Timestamp at      = 3; // the time at which this message was generated
+  string                    service = 4; // the service which sent this message.
+  int64                     level   = 5; // the level of log entry, 0: Debug, 1: Info, 2: Error
+}
