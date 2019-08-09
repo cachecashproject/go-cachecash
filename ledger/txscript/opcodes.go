@@ -4,6 +4,7 @@ import (
 	"bytes"
 
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/ed25519"
 )
 
 type opcode struct {
@@ -121,18 +122,27 @@ func opEqual(vm *VirtualMachine, ins *instruction) error {
 func opCheckSig(vm *VirtualMachine, ins *instruction) error {
 	switch ins.opcode.code {
 	case OP_CHECKSIG:
-		vSig, err := vm.stack.PopBytes()
+		vPubKey, err := vm.stack.PopNBytes(ed25519.PublicKeySize)
 		if err != nil {
+			vm.stack.PushBool(false)
 			return err
 		}
-		vPubKey, err := vm.stack.PopBytes()
+		pubKey := ed25519.PublicKey(vPubKey)
+
+		sig, err := vm.stack.PopNBytes(ed25519.SignatureSize)
 		if err != nil {
+			vm.stack.PushBool(false)
 			return err
 		}
 
-		// XXX: Implement actual check once we have sighash.
-		_, _ = vSig, vPubKey
-		vm.stack.PushBool(true)
+		hash, err := vm.tx.SigHash(vm.script, vm.txIdx, vm.inputAmount)
+		if err != nil {
+			vm.stack.PushBool(false)
+			return err
+		}
+
+		valid := ed25519.Verify(pubKey, hash, sig)
+		vm.stack.PushBool(valid)
 
 		return nil
 	default:

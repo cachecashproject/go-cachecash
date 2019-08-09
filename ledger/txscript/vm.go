@@ -11,7 +11,11 @@ import (
 
 type VirtualMachine struct {
 	// stack is the underlying data on the stack.  The 0th element of this slice is the bottom element on the stack.
-	stack *ScriptStack
+	stack       *ScriptStack
+	tx          SigHashable
+	script      *Script
+	txIdx       int
+	inputAmount int64
 }
 
 func NewVirtualMachine() *VirtualMachine {
@@ -46,8 +50,12 @@ func (vm *VirtualMachine) Verify() error {
 	return nil
 }
 
-func ExecuteVerify(inScr, outScr *Script, witData [][]byte) error {
+func ExecuteVerify(inScr, outScr *Script, witData [][]byte, tx SigHashable, txIdx int, inputAmount int64) error {
 	vm := NewVirtualMachine()
+	vm.tx = tx
+	vm.script = outScr
+	vm.txIdx = txIdx
+	vm.inputAmount = inputAmount
 
 	if err := vm.Execute(inScr); err != nil {
 		return errors.Wrap(err, "failed to execute input script (scriptPubKey)")

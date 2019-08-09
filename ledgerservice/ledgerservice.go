@@ -124,7 +124,7 @@ func (s *LedgerService) BuildBlock(ctx context.Context) error {
 				return errors.Wrap(err, "failed to parse output script")
 			}
 
-			if err := txscript.ExecuteVerify(inScr, outScr, witnesses[i].Data); err != nil {
+			if err := txscript.ExecuteVerify(inScr, outScr, witnesses[i].Data, &tx, i, int64(prevOuts[i].Value)); err != nil {
 				return errors.Wrap(err, "failed to execute and verify script pair")
 			}
 		}

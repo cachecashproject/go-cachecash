@@ -255,7 +255,8 @@ func TransactionValid(cdb ChainDatabase, cc *ChainContext, tx *Transaction) erro
 			return errors.Wrap(err, "failed to parse output script")
 		}
 
-		if err := txscript.ExecuteVerify(inScr, outScr, witnesses[i].Data); err != nil {
+		// TODO: this should be int32 instead of int64?
+		if err := txscript.ExecuteVerify(inScr, outScr, witnesses[i].Data, tx, i, int64(prevOuts[i].Value)); err != nil {
 			return errors.Wrap(err, "failed to execute and verify script pair")
 		}
 	}
