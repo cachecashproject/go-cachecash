@@ -11,6 +11,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/bootstrap"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
@@ -33,6 +34,7 @@ type ConfigFile struct {
 	BadgerDirectory string `json:"badger_directory"`
 	Database        string `json:"database"`
 	ContactUrl      string `json:"contact_url"`
+	MetricsEndpoint string `json:"metrics_endpoint"`
 }
 
 type application struct {
@@ -40,12 +42,13 @@ type application struct {
 
 	clientProtocolServer *clientProtocolServer
 	statusServer         *statusServer
+	metricsPush          *common.MetricsPusher
 	// TODO: ...
 }
 
 var _ Application = (*application)(nil)
 
-func NewApplication(l *logrus.Logger, c *Cache, conf *ConfigFile) (Application, error) {
+func NewApplication(l *logrus.Logger, c *Cache, conf *ConfigFile, kp *keypair.KeyPair) (Application, error) {
 	clientProtocolServer, err := newClientProtocolServer(l, c, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client protocol server")
@@ -56,10 +59,13 @@ func NewApplication(l *logrus.Logger, c *Cache, conf *ConfigFile) (Application, 
 		return nil, errors.Wrap(err, "failed to create status server")
 	}
 
+	metricsPush := common.NewMetricsPusher(l, conf.MetricsEndpoint, kp)
+
 	return &application{
 		l:                    l,
 		clientProtocolServer: clientProtocolServer,
 		statusServer:         statusServer,
+		metricsPush:          metricsPush,
 	}, nil
 }
 
@@ -70,6 +76,9 @@ func (a *application) Start() error {
 	if err := a.statusServer.Start(); err != nil {
 		return errors.Wrap(err, "failed to start status server")
 	}
+	if err := a.metricsPush.Start(); err != nil {
+		return errors.Wrap(err, "failed to start metrics pusher")
+	}
 	return nil
 }
 
@@ -79,6 +88,9 @@ func (a *application) Shutdown(ctx context.Context) error {
 	}
 	if err := a.statusServer.Shutdown(ctx); err != nil {
 		return errors.Wrap(err, "failed to shut down status server")
+	}
+	if err := a.metricsPush.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "failed to shut down metrics push")
 	}
 	return nil
 }

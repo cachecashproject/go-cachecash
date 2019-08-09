@@ -4,14 +4,30 @@ package metrics;
 
 import "google/protobuf/empty.proto";
 
-// LogData is the data to be shipped over the wire
-message Scrape {
-  bytes data = 1;
+// Crypto key types
+enum KeyType {
+  ED25519 = 0;
+  RESERVED = 1;
 }
 
+// A Crytpo public key
+message PublicKey {
+  bytes public_key = 1; // Must be exactly 33 bytes for ed25519
+  KeyType keytype = 2;
+}
+
+// Scrape is a wrapped pb scrape of the metrics from one metrics source in the field
+message Scrape {
+  bytes data = 1;
+  bytes signature = 2;
+  // Sent just once at the start of the stream
+  PublicKey public_key = 3;
+}
+
+
 service Metrics {
-// MetricsPoller polls for metrics from the datacentre out to clients
-// Clients establish a connection and then send one scrape in protobuf
-// format each time the server sends a poll request
+  // MetricsPoller polls for metrics from the datacentre out to clients
+  // Clients establish a connection and then send one scrape in protobuf
+  // format each time the server sends a poll request
   rpc MetricsPoller(stream Scrape) returns (stream google.protobuf.Empty) {};
 }

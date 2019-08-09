@@ -35,7 +35,7 @@ require (
 	github.com/pires/go-proxyproto v0.0.0-20190615163442-2c19fd512994
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0
-	github.com/prometheus/common v0.6.0 // indirect
+	github.com/prometheus/common v0.6.0
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/rubenv/sql-migrate v0.0.0-20190618074426-f4d34eae5a5c
 	github.com/sirupsen/logrus v1.4.2

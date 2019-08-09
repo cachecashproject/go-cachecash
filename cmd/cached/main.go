@@ -39,6 +39,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*cache.ConfigFile, error) {
 	conf.BadgerDirectory = p.GetString("badger_directory", "./chunks/")
 	conf.Database = p.GetString("database", "cache.db")
 	conf.ContactUrl = p.GetString("contact_url", "")
+	conf.MetricsEndpoint = p.GetString("metrics_endpoint", "")
 
 	return &conf, nil
 }
@@ -93,7 +94,7 @@ func mainC() error {
 		"len(escrows)": num,
 	}).Info("loaded escrows from database")
 
-	app, err := cache.NewApplication(&l.Logger, c, cf)
+	app, err := cache.NewApplication(&l.Logger, c, cf, kp)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}

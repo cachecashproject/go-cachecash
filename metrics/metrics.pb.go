@@ -9,11 +9,8 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -27,19 +24,104 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-// LogData is the data to be shipped over the wire
-type Scrape struct {
-	Data                 []byte   `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+// Crypto key types
+type KeyType int32
+
+const (
+	KeyType_ED25519  KeyType = 0
+	KeyType_RESERVED KeyType = 1
+)
+
+var KeyType_name = map[int32]string{
+	0: "ED25519",
+	1: "RESERVED",
+}
+
+var KeyType_value = map[string]int32{
+	"ED25519":  0,
+	"RESERVED": 1,
+}
+
+func (x KeyType) String() string {
+	return proto.EnumName(KeyType_name, int32(x))
+}
+
+func (KeyType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_6039342a2ba47b72, []int{0}
+}
+
+// A Crytpo public key
+type PublicKey struct {
+	PublicKey            []byte   `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	Keytype              KeyType  `protobuf:"varint,2,opt,name=keytype,proto3,enum=metrics.KeyType" json:"keytype,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PublicKey) Reset()         { *m = PublicKey{} }
+func (m *PublicKey) String() string { return proto.CompactTextString(m) }
+func (*PublicKey) ProtoMessage()    {}
+func (*PublicKey) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6039342a2ba47b72, []int{0}
+}
+func (m *PublicKey) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *PublicKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_PublicKey.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *PublicKey) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PublicKey.Merge(m, src)
+}
+func (m *PublicKey) XXX_Size() int {
+	return m.Size()
+}
+func (m *PublicKey) XXX_DiscardUnknown() {
+	xxx_messageInfo_PublicKey.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PublicKey proto.InternalMessageInfo
+
+func (m *PublicKey) GetPublicKey() []byte {
+	if m != nil {
+		return m.PublicKey
+	}
+	return nil
+}
+
+func (m *PublicKey) GetKeytype() KeyType {
+	if m != nil {
+		return m.Keytype
+	}
+	return KeyType_ED25519
+}
+
+// Scrape is a wrapped pb scrape of the metrics from one metrics source in the field
+type Scrape struct {
+	Data      []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	Signature []byte `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	// Sent just once at the start of the stream
+	PublicKey            *PublicKey `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
 }
 
 func (m *Scrape) Reset()         { *m = Scrape{} }
 func (m *Scrape) String() string { return proto.CompactTextString(m) }
 func (*Scrape) ProtoMessage()    {}
 func (*Scrape) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6039342a2ba47b72, []int{0}
+	return fileDescriptor_6039342a2ba47b72, []int{1}
 }
 func (m *Scrape) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -75,24 +157,49 @@ func (m *Scrape) GetData() []byte {
 	return nil
 }
 
+func (m *Scrape) GetSignature() []byte {
+	if m != nil {
+		return m.Signature
+	}
+	return nil
+}
+
+func (m *Scrape) GetPublicKey() *PublicKey {
+	if m != nil {
+		return m.PublicKey
+	}
+	return nil
+}
+
 func init() {
+	proto.RegisterEnum("metrics.KeyType", KeyType_name, KeyType_value)
+	proto.RegisterType((*PublicKey)(nil), "metrics.PublicKey")
 	proto.RegisterType((*Scrape)(nil), "metrics.Scrape")
 }
 
 func init() { proto.RegisterFile("metrics.proto", fileDescriptor_6039342a2ba47b72) }
 
 var fileDescriptor_6039342a2ba47b72 = []byte{
-	// 160 bytes of a gzipped FileDescriptorProto
+	// 290 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xcd, 0x4d, 0x2d, 0x29,
 	0xca, 0x4c, 0x2e, 0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x87, 0x72, 0xa5, 0xa4, 0xd3,
 	0xf3, 0xf3, 0xd3, 0x73, 0x52, 0xf5, 0xc1, 0xc2, 0x49, 0xa5, 0x69, 0xfa, 0xa9, 0xb9, 0x05, 0x25,
-	0x95, 0x10, 0x55, 0x4a, 0x32, 0x5c, 0x6c, 0xc1, 0xc9, 0x45, 0x89, 0x05, 0xa9, 0x42, 0x42, 0x5c,
-	0x2c, 0x29, 0x89, 0x25, 0x89, 0x12, 0x8c, 0x0a, 0x8c, 0x1a, 0x3c, 0x41, 0x60, 0xb6, 0x91, 0x27,
-	0x17, 0xbb, 0x2f, 0xc4, 0x14, 0x21, 0x3b, 0x2e, 0x5e, 0x28, 0x33, 0x20, 0x3f, 0x27, 0x27, 0xb5,
-	0x48, 0x88, 0x5f, 0x0f, 0x66, 0x1f, 0xc4, 0x00, 0x29, 0x31, 0x3d, 0x88, 0x45, 0x7a, 0x30, 0x8b,
-	0xf4, 0x5c, 0x41, 0x16, 0x29, 0x31, 0x68, 0x30, 0x1a, 0x30, 0x3a, 0x09, 0x9c, 0x78, 0x24, 0xc7,
-	0x78, 0xe1, 0x91, 0x1c, 0xe3, 0x83, 0x47, 0x72, 0x8c, 0x33, 0x1e, 0xcb, 0x31, 0x24, 0xb1, 0x81,
-	0xd5, 0x19, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0xdf, 0x38, 0x34, 0x15, 0xb8, 0x00, 0x00, 0x00,
+	0x95, 0x10, 0x55, 0x4a, 0x61, 0x5c, 0x9c, 0x01, 0xa5, 0x49, 0x39, 0x99, 0xc9, 0xde, 0xa9, 0x95,
+	0x42, 0xb2, 0x5c, 0x5c, 0x05, 0x60, 0x4e, 0x7c, 0x76, 0x6a, 0xa5, 0x04, 0xa3, 0x02, 0xa3, 0x06,
+	0x4f, 0x10, 0x67, 0x01, 0x5c, 0x5a, 0x8b, 0x8b, 0x3d, 0x3b, 0xb5, 0xb2, 0xa4, 0xb2, 0x20, 0x55,
+	0x82, 0x49, 0x81, 0x51, 0x83, 0xcf, 0x48, 0x40, 0x0f, 0x66, 0xa5, 0x77, 0x6a, 0x65, 0x48, 0x65,
+	0x41, 0x6a, 0x10, 0x4c, 0x81, 0x52, 0x2e, 0x17, 0x5b, 0x70, 0x72, 0x51, 0x62, 0x41, 0xaa, 0x90,
+	0x10, 0x17, 0x4b, 0x4a, 0x62, 0x49, 0x22, 0xd4, 0x38, 0x30, 0x5b, 0x48, 0x86, 0x8b, 0xb3, 0x38,
+	0x33, 0x3d, 0x2f, 0xb1, 0xa4, 0xb4, 0x08, 0x62, 0x16, 0x4f, 0x10, 0x42, 0x40, 0xc8, 0x10, 0xc5,
+	0x19, 0xcc, 0x0a, 0x8c, 0x1a, 0xdc, 0x46, 0x42, 0x70, 0xab, 0xe0, 0xce, 0x45, 0x72, 0x9a, 0x96,
+	0x0a, 0x17, 0x3b, 0xd4, 0x09, 0x42, 0xdc, 0x5c, 0xec, 0xae, 0x2e, 0x46, 0xa6, 0xa6, 0x86, 0x96,
+	0x02, 0x0c, 0x42, 0x3c, 0x5c, 0x1c, 0x41, 0xae, 0xc1, 0xae, 0x41, 0x61, 0xae, 0x2e, 0x02, 0x8c,
+	0x46, 0x9e, 0x5c, 0xec, 0xbe, 0x10, 0x53, 0x84, 0xec, 0xb8, 0x78, 0xa1, 0xcc, 0x80, 0xfc, 0x9c,
+	0x9c, 0xd4, 0x22, 0x21, 0x7e, 0xb8, 0x05, 0x10, 0x77, 0x4b, 0x89, 0xe9, 0x41, 0xc2, 0x4d, 0x0f,
+	0x16, 0x6e, 0x7a, 0xae, 0xa0, 0x70, 0x53, 0x62, 0xd0, 0x60, 0x34, 0x60, 0x74, 0x12, 0x38, 0xf1,
+	0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x67, 0x3c, 0x96, 0x63, 0x48,
+	0x62, 0x03, 0xab, 0x33, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0x15, 0x62, 0xf2, 0x6a, 0x87, 0x01,
+	0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -160,14 +267,6 @@ type MetricsServer interface {
 	MetricsPoller(Metrics_MetricsPollerServer) error
 }
 
-// UnimplementedMetricsServer can be embedded to have forward compatible implementations.
-type UnimplementedMetricsServer struct {
-}
-
-func (*UnimplementedMetricsServer) MetricsPoller(srv Metrics_MetricsPollerServer) error {
-	return status.Errorf(codes.Unimplemented, "method MetricsPoller not implemented")
-}
-
 func RegisterMetricsServer(s *grpc.Server, srv MetricsServer) {
 	s.RegisterService(&_Metrics_serviceDesc, srv)
 }
@@ -213,6 +312,38 @@ var _Metrics_serviceDesc = grpc.ServiceDesc{
 	Metadata: "metrics.proto",
 }
 
+func (m *PublicKey) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PublicKey) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.PublicKey) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMetrics(dAtA, i, uint64(len(m.PublicKey)))
+		i += copy(dAtA[i:], m.PublicKey)
+	}
+	if m.Keytype != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintMetrics(dAtA, i, uint64(m.Keytype))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func (m *Scrape) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -234,6 +365,22 @@ func (m *Scrape) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintMetrics(dAtA, i, uint64(len(m.Data)))
 		i += copy(dAtA[i:], m.Data)
 	}
+	if len(m.Signature) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintMetrics(dAtA, i, uint64(len(m.Signature)))
+		i += copy(dAtA[i:], m.Signature)
+	}
+	if m.PublicKey != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintMetrics(dAtA, i, uint64(m.PublicKey.Size()))
+		n1, err := m.PublicKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -249,6 +396,25 @@ func encodeVarintMetrics(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *PublicKey) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.PublicKey)
+	if l > 0 {
+		n += 1 + l + sovMetrics(uint64(l))
+	}
+	if m.Keytype != 0 {
+		n += 1 + sovMetrics(uint64(m.Keytype))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *Scrape) Size() (n int) {
 	if m == nil {
 		return 0
@@ -259,6 +425,14 @@ func (m *Scrape) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovMetrics(uint64(l))
 	}
+	l = len(m.Signature)
+	if l > 0 {
+		n += 1 + l + sovMetrics(uint64(l))
+	}
+	if m.PublicKey != nil {
+		l = m.PublicKey.Size()
+		n += 1 + l + sovMetrics(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -266,10 +440,124 @@ func (m *Scrape) Size() (n int) {
 }
 
 func sovMetrics(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozMetrics(x uint64) (n int) {
 	return sovMetrics(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *PublicKey) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMetrics
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: PublicKey: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: PublicKey: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PublicKey", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMetrics
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PublicKey = append(m.PublicKey[:0], dAtA[iNdEx:postIndex]...)
+			if m.PublicKey == nil {
+				m.PublicKey = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Keytype", wireType)
+			}
+			m.Keytype = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMetrics
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Keytype |= KeyType(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMetrics(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *Scrape) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -332,6 +620,76 @@ func (m *Scrape) Unmarshal(dAtA []byte) error {
 			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
 			if m.Data == nil {
 				m.Data = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signature", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMetrics
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signature = append(m.Signature[:0], dAtA[iNdEx:postIndex]...)
+			if m.Signature == nil {
+				m.Signature = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PublicKey", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMetrics
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.PublicKey == nil {
+				m.PublicKey = &PublicKey{}
+			}
+			if err := m.PublicKey.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
 			}
 			iNdEx = postIndex
 		default:
