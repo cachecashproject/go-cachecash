@@ -38,13 +38,13 @@ func (tx *Transaction) GenerateWitnesses(kp *keypair.KeyPair, prevOutputs []Tran
 
 	body.Witnesses = []TransactionWitness{}
 
-	for txIdx, output := range body.Outputs {
-		script, err := txscript.ParseScript(prevOutputs[txIdx].ScriptPubKey)
+	for txIdx, input := range prevOutputs {
+		script, err := txscript.ParseScript(input.ScriptPubKey)
 		if err != nil {
 			return errors.Wrap(err, "failed to parse script")
 		}
 
-		sighash, err := tx.SigHash(script, txIdx, int64(output.Value)) // possibly the input instead?
+		sighash, err := tx.SigHash(script, txIdx, int64(input.Value))
 		if err != nil {
 			return errors.Wrap(err, "failed to calculate sighash")
 		}

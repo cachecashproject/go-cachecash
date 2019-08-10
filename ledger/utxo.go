@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	BlockSizeLimit = 1000 // XXX: this is an arbitrary value
+	BlockSizeLimit = 1024 * 1024 // XXX: this is an arbitrary value
 )
 
 type UTXOSet struct {

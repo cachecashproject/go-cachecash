@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"math/rand"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
@@ -88,66 +89,226 @@ func makeInputScript(pubkey ed25519.PublicKey) ([]byte, error) {
 	return scriptBytes, nil
 }
 
-func moveCoins(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerClient, prevtx ledger.TXID, prevOutputs []ledger.TransactionOutput, kp *keypair.KeyPair, target *keypair.KeyPair) (*ledger.TXID, []ledger.TransactionOutput, error) {
-	inputScriptBytes, err := makeOutputScript(kp.PublicKey)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create input script")
+type wallet struct {
+	l     *logrus.Logger
+	kp    *keypair.KeyPair
+	utxos []*utxo
+}
+
+func (w *wallet) balance() uint64 {
+	sum := uint64(0)
+	for _, utxo := range w.utxos {
+		sum += uint64(utxo.value)
+	}
+	return sum
+}
+
+func (w *wallet) spendUtxos() ([]ledger.TransactionInput, []ledger.TransactionOutput, error) {
+	inputs := []ledger.TransactionInput{}
+	prevOutputs := []ledger.TransactionOutput{}
+
+	for _, utxo := range w.utxos {
+		w.l.Info("spending utxo: ", utxo.value)
+
+		inputScriptBytes, err := makeOutputScript(w.kp.PublicKey)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to create output script")
+		}
+
+		inputs = append(inputs, ledger.TransactionInput{
+			Outpoint: ledger.Outpoint{
+				PreviousTx: utxo.txid,
+				Index:      utxo.idx,
+			},
+			ScriptSig:  inputScriptBytes,
+			SequenceNo: 0xFFFFFFFF,
+		})
+		prevOutputs = append(prevOutputs, utxo.txo)
 	}
 
-	outputScriptBytes, err := makeInputScript(target.PublicKey)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create output script")
-	}
+	return inputs, prevOutputs, nil
+}
 
-	tx := ledger.Transaction{
-		Version: 1,
-		Flags:   0,
-		Body: &ledger.TransferTransaction{
-			Inputs: []ledger.TransactionInput{
-				{
-					Outpoint: ledger.Outpoint{
-						PreviousTx: prevtx,
-						Index:      0,
-					},
-					ScriptSig:  inputScriptBytes,
-					SequenceNo: 0xFFFFFFFF,
-				},
+func (w *wallet) addUTXO(utxo *utxo) {
+	w.utxos = append(w.utxos, utxo)
+}
+
+type utxo struct {
+	txid ledger.TXID
+	idx  uint8
+
+	value uint32
+	txo   ledger.TransactionOutput
+}
+
+type simulator struct {
+	l          *logrus.Logger
+	grpcClient ccmsg.LedgerClient
+	wallets    map[string]*wallet
+}
+
+func (s *simulator) addGenesisWallet(kp *keypair.KeyPair, txid ledger.TXID, prevOutputs []ledger.TransactionOutput) {
+	s.wallets[string(kp.PublicKey)] = &wallet{
+		l:  s.l,
+		kp: kp,
+		utxos: []*utxo{
+			{
+				txid:  txid,
+				idx:   0,
+				value: prevOutputs[0].Value,
+				txo:   prevOutputs[0],
 			},
-			Outputs: []ledger.TransactionOutput{
-				{
-					Value:        420000000,
-					ScriptPubKey: outputScriptBytes,
-				},
-			},
-			LockTime: 0,
 		},
 	}
-	err = tx.GenerateWitnesses(kp, prevOutputs)
+}
+
+func (s *simulator) genWallet() error {
+	kp, err := keypair.Generate()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to generate witnesses")
+		return err
+	}
+	s.wallets[string(kp.PublicKey)] = &wallet{
+		l:  s.l,
+		kp: kp,
+	}
+	return nil
+}
+
+func (s *simulator) randomWallets() []ed25519.PublicKey {
+	num := 0
+	for num == 0 {
+		num = rand.Intn(len(s.wallets))
 	}
 
-	l.Info("sending transaction to ledgerd...")
-	_, err = grpcClient.PostTransaction(ctx, &ccmsg.PostTransactionRequest{Tx: tx})
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to post transaction")
+	keys := make([]ed25519.PublicKey, 0, len(s.wallets))
+	for k := range s.wallets {
+		keys = append(keys, ed25519.PublicKey(k))
 	}
 
-	resp, err := grpcClient.GetBlocks(ctx, &ccmsg.GetBlocksRequest{
-		StartDepth: 0,
-		Limit:      5,
+	rand.Shuffle(len(keys), func(i, j int) { keys[i], keys[j] = keys[j], keys[i] })
+
+	return keys[:num]
+}
+
+func (s *simulator) genOutputs(wallet *wallet) ([]ledger.TransactionOutput, map[string]*utxo, error) {
+	outputWallets := s.randomWallets()
+	numWallets := uint64(len(outputWallets))
+
+	balance := wallet.balance()
+	remaining := balance % numWallets
+	perWalletAmount := (balance - remaining) / numWallets
+
+	outputs := []ledger.TransactionOutput{}
+	utxos := map[string]*utxo{}
+
+	for i, wallet := range outputWallets {
+		amount := perWalletAmount
+		if i == 0 {
+			amount += remaining
+		}
+
+		s.l.Infof("sending %d coins to %v", amount, wallet)
+
+		outputScriptBytes, err := makeInputScript(wallet)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to create input script")
+		}
+
+		txo := ledger.TransactionOutput{
+			Value:        uint32(amount),
+			ScriptPubKey: outputScriptBytes,
+		}
+		outputs = append(outputs, txo)
+
+		utxos[string(wallet)] = &utxo{
+			// txid is set at the end
+			idx:   uint8(i),
+			value: txo.Value,
+			txo:   txo,
+		}
+	}
+
+	return outputs, utxos, nil
+}
+
+func (s *simulator) submit(tx ledger.Transaction, prevOutputs []ledger.TransactionOutput, wallet *wallet, height uint64) (uint64, error) {
+	ctx := context.Background()
+
+	s.l.Info("sending transaction to ledgerd...")
+	_, err := s.grpcClient.PostTransaction(ctx, &ccmsg.PostTransactionRequest{Tx: tx})
+	if err != nil {
+		return height, errors.Wrap(err, "failed to post transaction")
+	}
+	s.l.Info("block got accepted")
+
+	resp, err := s.grpcClient.GetBlocks(ctx, &ccmsg.GetBlocksRequest{
+		StartDepth: height,
+		Limit:      50,
 	})
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to get blocks")
-	}
-	l.Info("got blocks: ", len(resp.Blocks))
-
-	txid, err := tx.TXID()
-	if err != nil {
-		return nil, nil, err
+		return height, errors.Wrap(err, "failed to get blocks")
 	}
 
-	return &txid, tx.Outputs(), nil
+	height = height + uint64(len(resp.Blocks))
+	s.l.Info("current blocks height: ", height)
+
+	return height, nil
+}
+
+func (s *simulator) run(rounds int) error {
+	height := uint64(0)
+
+	for i := 0; i <= rounds; i++ {
+		s.l.Infof("starting round: %d/%d", i, rounds)
+		for _, wallet := range s.wallets {
+			s.l.Info("mixing coins from ", wallet.kp.PublicKey)
+			if wallet.balance() == 0 {
+				s.l.Info("wallet is empty, skipping")
+				continue
+			}
+
+			inputs, prevOutputs, err := wallet.spendUtxos()
+			if err != nil {
+				return errors.Wrap(err, "failed to collect utxos")
+			}
+			outputs, utxos, err := s.genOutputs(wallet)
+			if err != nil {
+				return errors.Wrap(err, "failed to generate outputs")
+			}
+			wallet.utxos = []*utxo{} // everything is spent
+
+			tx := ledger.Transaction{
+				Version: 1,
+				Flags:   0,
+				Body: &ledger.TransferTransaction{
+					Inputs:   inputs,
+					Outputs:  outputs,
+					LockTime: 0,
+				},
+			}
+			err = tx.GenerateWitnesses(wallet.kp, prevOutputs)
+			if err != nil {
+				return errors.Wrap(err, "failed to generate witnesses")
+			}
+
+			for key, utxo := range utxos {
+				txid, err := tx.TXID()
+				if err != nil {
+					return err
+				}
+				utxo.txid = txid
+				s.wallets[key].addUTXO(utxo)
+			}
+
+			height, err = s.submit(tx, prevOutputs, wallet, height)
+			if err != nil {
+				return err
+			}
+		}
+		s.l.Infof("ending round: %d/%d", i, rounds)
+	}
+
+	return nil
 }
 
 func mainC() error {
@@ -176,33 +337,28 @@ func mainC() error {
 	if err != nil {
 		return err
 	}
-	l.Info("1st tx: ", txid)
+	l.Info("genesis tx: ", txid)
 
-	target, err := keypair.Generate()
-	if err != nil {
-		return errors.Wrap(err, "failed to generate next target address")
+	s := &simulator{
+		l:          l,
+		grpcClient: grpcClient,
+		wallets:    map[string]*wallet{},
 	}
-	txid, prevOutputs, err = moveCoins(ctx, l, grpcClient, *txid, prevOutputs, kp, target)
+
+	s.addGenesisWallet(kp, *txid, prevOutputs)
+	for i := 0; i < 12; i++ {
+		l.Info("adding wallet: ", i)
+		err = s.genWallet()
+		if err != nil {
+			return errors.Wrap(err, "failed to generate wallet")
+		}
+	}
+
+	err = s.run(3)
 	if err != nil {
 		return err
 	}
-	l.Info("2nd tx: ", txid)
-	kp = target
 
-	target, err = keypair.Generate()
-	if err != nil {
-		return errors.Wrap(err, "failed to generate next target address")
-	}
-	txid, prevOutputs, err = moveCoins(ctx, l, grpcClient, *txid, prevOutputs, kp, target)
-	if err != nil {
-		return err
-	}
-	l.Info("3rd tx: ", txid)
-	kp = target
-
-	// done
-	_ = prevOutputs
-	_ = kp
 	l.Info("fin")
 	return nil
 }

@@ -132,7 +132,7 @@ func (s *LedgerService) BuildBlock(ctx context.Context) error {
 		// try to add tx into block
 		err = state.AddTx(&tx)
 		if err != nil {
-			s.l.Info("failed to add tx to block, possibly conflicts with other tx")
+			s.l.Warn("failed to add tx to block, possibly conflicts with other tx: ", err)
 		}
 
 		// XXX: if the block is almost full we're going to loop through all remaining transactions regardless
