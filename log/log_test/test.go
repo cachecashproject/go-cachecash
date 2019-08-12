@@ -16,8 +16,9 @@ func main() {
 		panic(err)
 	}
 
-	logrus.AddHook(log.NewHook(c))
-	logrus.SetOutput(ioutil.Discard)
+	l := logrus.New()
+	l.SetOutput(ioutil.Discard)
+	l.AddHook(log.NewHook(c))
 
 	after := time.After(10 * time.Second)
 	var i int
@@ -26,7 +27,7 @@ func main() {
 		case <-after:
 			goto end
 		default:
-			logrus.WithField("count", i).Info("this is a message")
+			l.WithField("count", i).Info("this is a message")
 		}
 	}
 

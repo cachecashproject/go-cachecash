@@ -24,7 +24,7 @@ type TestPipe struct {
 	s    *grpc.Server
 	file string
 
-	lisMutex sync.Mutex
+	serveMutex sync.Mutex
 }
 
 // NewPipeServer creates a new GRPC logpipe server.
@@ -33,31 +33,45 @@ func NewTestPipeServer(file string) *TestPipe {
 }
 
 func (p *TestPipe) Serve(listenAddress string) error {
+	p.serveMutex.Lock()
+
 	p.s = grpc.NewServer()
 	RegisterLogPipeServer(p.s, p)
 
 	var err error
-	p.lisMutex.Lock()
 	p.l, err = net.Listen("tcp", listenAddress)
 	if err != nil {
-		defer p.lisMutex.Unlock()
+		p.serveMutex.Unlock()
 		return err
 	}
-	p.lisMutex.Unlock()
 
+	p.serveMutex.Unlock()
 	return p.s.Serve(p.l)
 }
 
 func (p *TestPipe) ListenAddress() string {
 	for {
-		p.lisMutex.Lock()
+		p.serveMutex.Lock()
 		if p.l != nil {
-			p.lisMutex.Unlock()
+			p.serveMutex.Unlock()
 			break
 		}
-		p.lisMutex.Unlock()
+		p.serveMutex.Unlock()
 	}
 	return p.l.Addr().String()
+}
+
+func (p *TestPipe) Close() {
+	p.serveMutex.Lock()
+	defer p.serveMutex.Unlock()
+
+	if p.s != nil {
+		p.s.GracefulStop()
+	}
+
+	if p.l != nil {
+		p.l.Close()
+	}
 }
 
 // ReceiveLogs receives the logs for processing. A large part of what this does
@@ -68,7 +82,7 @@ func (p *TestPipe) ListenAddress() string {
 func (p *TestPipe) ReceiveLogs(lf LogPipe_ReceiveLogsServer) (retErr error) {
 	tf, err := ioutil.TempFile("", "")
 	if err != nil {
-		return failedError(err)
+		return grpcFailedError(err)
 	}
 	defer func() {
 		tf.Close()
@@ -103,14 +117,14 @@ func (p *TestPipe) ReceiveLogs(lf LogPipe_ReceiveLogsServer) (retErr error) {
 	for {
 		select {
 		case <-lf.Context().Done():
-			return failedError(lf.Context().Err())
+			return grpcFailedError(lf.Context().Err())
 		default:
 		}
 
 		data, err := lf.Recv()
 		if err != nil {
 			if err != io.EOF {
-				return failedError(err)
+				return grpcFailedError(err)
 			}
 
 			return nil
@@ -118,17 +132,17 @@ func (p *TestPipe) ReceiveLogs(lf LogPipe_ReceiveLogsServer) (retErr error) {
 
 		n, err := tf.Write(data.Data)
 		if err != nil {
-			return failedError(err)
+			return grpcFailedError(err)
 		}
 
 		if n != len(data.Data) {
-			return failedError(errors.New("could not complete write to disk"))
+			return grpcFailedError(errors.New("could not complete write to disk"))
 		}
 
 		p.Mutex.Lock()
 		if p.RaiseError != nil {
 			defer p.Mutex.Unlock()
-			return failedError(p.RaiseError)
+			return grpcFailedError(p.RaiseError)
 		}
 		p.Mutex.Unlock()
 	}

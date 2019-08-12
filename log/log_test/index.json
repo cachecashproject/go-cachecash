@@ -1,0 +1,23 @@
+{
+  "settings":{
+    "analysis":{
+      "analyzer":{
+        "log_message":{
+          "type":"custom",
+          "tokenizer":"standard",
+          "filter":[
+            "lowercase"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "log_time":    { "type": "date" },
+      "message":     { "type": "text",    "analyzer": "log_message" },
+      "service":     { "type": "keyword", "eager_global_ordinals": true },
+      "log_level":   { "type": "keyword", "eager_global_ordinals": true }
+    }
+  }
+}
