@@ -1,10 +1,20 @@
 ---
 version: '3.7'
 services:
+  logpiped:
+    image: cachecash/go-cachecash
+    build: .
+    command: logpiped -spooldir /var/spool/logpiped -esconfig /config/esconfig.json test
+    ports:
+    - 9005:9005
+    volumes:
+    - ./data/logpiped:/var/spool/logpiped
+    - ./testdata/config:/config
+
   ledger:
     image: cachecash/go-cachecash
     build: .
-    command: ledgerd -logLevel debug
+    command: ledgerd -logLevel debug -logAddress logpiped:9005
     ports:
     - 9090:9090  # Ledger service
     - 9091:8100  # Status
@@ -58,7 +68,7 @@ services:
   publisher:
     image: cachecash/go-cachecash
     build: .
-    command: publisherd -logLevel debug -trace http://jaeger:14268
+    command: publisherd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
     - 7070:7070
     - 8043:8043
@@ -82,7 +92,7 @@ services:
   bootstrapd:
     image: cachecash/go-cachecash
     build: .
-    command: bootstrapd -logLevel debug -trace http://jaeger:14268
+    command: bootstrapd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
     - 7777:7777
     # status
@@ -93,7 +103,7 @@ services:
   cache-0:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug -trace http://jaeger:14268
+    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
     - 9000:9000
     - 9443:9443
@@ -107,7 +117,7 @@ services:
   cache-1:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug -trace http://jaeger:14268
+    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
     - 9001:9000
     - 9444:9443
@@ -121,7 +131,7 @@ services:
   cache-2:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug -trace http://jaeger:14268
+    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
     - 9002:9000
     - 9445:9443
@@ -135,7 +145,7 @@ services:
   cache-3:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug -trace http://jaeger:14268
+    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
     - 9003:9000
     - 9446:9443
@@ -148,7 +158,7 @@ services:
   cache-4:
     image: cachecash/go-cachecash
     build: .
-    command: cached -logLevel debug -trace http://jaeger:14268
+    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
     - 9004:9000
     - 9447:9443
