@@ -101,6 +101,7 @@ services:
     - 7100:9100
     environment:
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-0:/data
 
@@ -115,6 +116,7 @@ services:
     - 7101:9100
     environment:
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-1:/data
 
@@ -129,6 +131,7 @@ services:
     - 7102:9100
     environment:
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-2:/data
 
@@ -142,6 +145,7 @@ services:
     - 7103:9100
     environment:
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-3:/data
 
@@ -156,6 +160,7 @@ services:
     - 7104:9100
     environment:
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-4:/data
 
@@ -183,4 +188,14 @@ services:
     image: kibana:7.3.0
     ports:
     - 5601:5601
+
+  metrics:
+    image: cachecash/go-cachecash
+    build: .
+    command: metrics-proxy -logLevel debug -trace http://jaeger:14268
+    ports:
+    - 8000:8000
+    - 8102:8100
+
+
 ...
