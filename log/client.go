@@ -19,22 +19,34 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	// Heartbeat -- if set to true, will attempt to deliver the logs every
-	// TickInterval. Set this to false to not deliver logs at all, and instead just
-	// write them. Useful for testing.
-	Heartbeat = true
-
-	// BackoffCap is the maximum time we will wait before attempting to deliver logs
-	BackoffCap = 5 * time.Minute
-
-	// BackoffGranularity is the granularity by which backoff is calcluated
-	BackoffGranularity = time.Second
-
-	// DefaultTickInterval is a singleton for how long to wait for a log file to fill
-	// before delivering it.
-	DefaultTickInterval = time.Second
+const (
+	defaultDeliver            = true
+	defaultBackoffCap         = 5 * time.Minute
+	defaultBackoffGranularity = time.Second
+	defaultTickInterval       = time.Second
 )
+
+// Config is the configuration of the background logging services.
+type Config struct {
+	// DeliverLogs indicates whether or not logs should be delivered at all
+	DeliverLogs bool
+	// BackoffCap determines the maximum amount of time to wait in an backoff scenario.
+	BackoffCap time.Duration
+	// BackoffGranularity determines the time interval to use for calculating new backoff values
+	BackoffGranularity time.Duration
+	// TickInterval is the minimum/default amount of time to wait before waking up to deliver logs.
+	TickInterval time.Duration
+}
+
+// DefaultConfig returns the default configuration
+func DefaultConfig() *Config {
+	return &Config{
+		DeliverLogs:        defaultDeliver,
+		BackoffCap:         defaultBackoffCap,
+		BackoffGranularity: defaultBackoffGranularity,
+		TickInterval:       defaultTickInterval,
+	}
+}
 
 // Client is a logging client that uses grpc to send a structured log.
 type Client struct {
@@ -55,10 +67,12 @@ type Client struct {
 
 	errorMutex sync.RWMutex
 	Error      error
+
+	config *Config
 }
 
 // NewClient creates a new client.
-func NewClient(serverAddress, service, logDir string, debug bool) (*Client, error) {
+func NewClient(serverAddress, service, logDir string, debug bool, config *Config) (*Client, error) {
 	if err := os.MkdirAll(logDir, 0700); err != nil {
 		return nil, err
 	}
@@ -67,13 +81,14 @@ func NewClient(serverAddress, service, logDir string, debug bool) (*Client, erro
 		service:   service,
 		logDir:    logDir,
 		ourLogger: logrus.New(),
+		config:    config,
 	}
 
 	if debug {
 		c.ourLogger.SetLevel(logrus.DebugLevel)
 	}
 
-	if Heartbeat {
+	if c.config.DeliverLogs {
 		conn, err := common.GRPCDial(serverAddress)
 		if err != nil {
 			return nil, err
@@ -84,7 +99,7 @@ func NewClient(serverAddress, service, logDir string, debug bool) (*Client, erro
 		ctx, cancel := context.WithCancel(context.Background())
 		c.heartbeatCancel = cancel
 
-		c.adjustTicker(DefaultTickInterval)
+		c.adjustTicker(c.config.TickInterval)
 		go c.heartbeat(ctx)
 	}
 
@@ -149,15 +164,15 @@ func (c *Client) heartbeat(ctx context.Context) {
 
 			if err := c.deliverLog(ctx); err != nil {
 				c.tickerMutex.Lock()
-				newDuration := c.tickerDuration / BackoffGranularity
+				newDuration := c.tickerDuration / c.config.BackoffGranularity
 				if newDuration == 1 {
 					newDuration++
 				} else {
 					newDuration = time.Duration(math.Pow(float64(newDuration), 2))
 				}
 				newDuration *= time.Second
-				if newDuration > BackoffCap {
-					newDuration = BackoffCap
+				if newDuration > c.config.BackoffCap {
+					newDuration = c.config.BackoffCap
 				}
 				c.tickerMutex.Unlock()
 
@@ -165,9 +180,13 @@ func (c *Client) heartbeat(ctx context.Context) {
 				c.adjustTicker(newDuration)
 				continue
 			} else {
-				if c.tickerDuration != DefaultTickInterval {
-					c.ourLogger.Infof("Delivery succeeded; resetting to default interval %v", DefaultTickInterval)
-					c.adjustTicker(DefaultTickInterval)
+				c.tickerMutex.Lock()
+				if c.tickerDuration != c.config.TickInterval {
+					c.tickerMutex.Unlock()
+					c.ourLogger.Infof("Delivery succeeded; resetting to default interval %v", c.config.TickInterval)
+					c.adjustTicker(c.config.TickInterval)
+				} else {
+					c.tickerMutex.Unlock()
 				}
 			}
 		}

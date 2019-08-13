@@ -69,7 +69,7 @@ func (c *LoggerConfig) ConfigureLogger() error {
 	l.SetReportCaller(c.LogCaller)
 
 	if c.LogAddress != "" {
-		client, err := NewClient(c.LogAddress, c.serviceName, c.LogSpoolDir, c.options.Debug)
+		client, err := NewClient(c.LogAddress, c.serviceName, c.LogSpoolDir, c.options.Debug, DefaultConfig())
 		if err != nil {
 			return err
 		}

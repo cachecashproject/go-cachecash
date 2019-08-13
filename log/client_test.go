@@ -112,14 +112,17 @@ func getLogFile(t *testing.T, c *Client) string {
 	return path.Join(c.logDir, logFile)
 }
 
-func setupClient(t *testing.T, listenAddress, dir string) (*Client, *logrus.Logger, string) {
+func setupClient(t *testing.T, listenAddress, dir string, deliver bool) (*Client, *logrus.Logger, string) {
 	if dir == "" {
 		var err error
 		dir, err = ioutil.TempDir("", "")
 		assert.Nil(t, err)
 	}
 
-	c, err := NewClient(listenAddress, "test", dir, true)
+	config := DefaultConfig()
+	config.DeliverLogs = deliver
+
+	c, err := NewClient(listenAddress, "test", dir, true, config)
 	assert.Nil(t, err)
 
 	l := logrus.New()
@@ -129,10 +132,7 @@ func setupClient(t *testing.T, listenAddress, dir string) (*Client, *logrus.Logg
 }
 
 func TestClientBasic(t *testing.T) {
-	Heartbeat = false
-	defer func() { Heartbeat = true }()
-
-	c, l, dir := setupClient(t, "", "")
+	c, l, dir := setupClient(t, "", "", false)
 	defer os.RemoveAll(dir)
 
 	l.WithFields(logrus.Fields{"hi": "there", "number": 8675309}).Info("test")
@@ -160,10 +160,7 @@ func TestClientBasic(t *testing.T) {
 }
 
 func TestClientParallelWriters(t *testing.T) {
-	Heartbeat = false
-	defer func() { Heartbeat = true }()
-
-	c, l, dir := setupClient(t, "", "")
+	c, l, dir := setupClient(t, "", "", false)
 	defer os.RemoveAll(dir)
 
 	writeLogs(l, make(chan struct{}))
@@ -172,7 +169,6 @@ func TestClientParallelWriters(t *testing.T) {
 }
 
 func TestClientShipLogs(t *testing.T) {
-	Heartbeat = true
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
 	f.Close()
@@ -184,11 +180,11 @@ func TestClientShipLogs(t *testing.T) {
 	}()
 	defer tp.Close()
 
-	c, l, dir := setupClient(t, tp.ListenAddress(), "")
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
 	defer os.RemoveAll(dir)
 
 	writeLogs(l, make(chan struct{}))
-	time.Sleep(DefaultTickInterval * 2)
+	time.Sleep(defaultTickInterval * 2)
 	c.Close()
 
 	fi, err := os.Stat(f.Name())
@@ -199,7 +195,6 @@ func TestClientShipLogs(t *testing.T) {
 }
 
 func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
-	Heartbeat = true
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
 	f.Close()
@@ -211,7 +206,7 @@ func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
 	}()
 	defer tp.Close()
 
-	c, l, dir := setupClient(t, tp.ListenAddress(), "")
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
 	defer os.RemoveAll(dir)
 
 	// the main difference in this test is here. what we do instead of
@@ -223,7 +218,7 @@ func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
 	//
 	done := make(chan struct{})
 	go writeLogs(l, done)
-	time.Sleep(DefaultTickInterval / 2)
+	time.Sleep(defaultTickInterval / 2)
 	c.heartbeatCancel()
 	<-done // allow logging to finish
 	assert.Nil(t, c.Close())
@@ -238,8 +233,8 @@ func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
 	// we then setup a new client, which should immediately pick up the file and
 	// deliver it -- no additional work is required, the client does this on
 	// boot.
-	c, _, _ = setupClient(t, tp.ListenAddress(), dir)
-	time.Sleep(DefaultTickInterval * 2)
+	c, _, _ = setupClient(t, tp.ListenAddress(), dir, true)
+	time.Sleep(defaultTickInterval * 2)
 	defer c.Close()
 
 	// then we check the file again. ha ha! data!
@@ -252,7 +247,6 @@ func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
 }
 
 func TestClientShipLogsOnError(t *testing.T) {
-	Heartbeat = true
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
 	f.Close()
@@ -264,7 +258,7 @@ func TestClientShipLogsOnError(t *testing.T) {
 	}()
 	defer tp.Close()
 
-	c, l, dir := setupClient(t, tp.ListenAddress(), "")
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
 	defer os.RemoveAll(dir)
 
 	// the main difference in this test from the above one, is that this one throws an error during initial delivery.
@@ -274,7 +268,7 @@ func TestClientShipLogsOnError(t *testing.T) {
 	tp.Mutex.Lock()
 	tp.RaiseError = errors.New("welp")
 	tp.Mutex.Unlock()
-	time.Sleep(DefaultTickInterval * 2)
+	time.Sleep(defaultTickInterval * 2)
 	<-done
 	assert.Nil(t, c.Close())
 
@@ -286,8 +280,8 @@ func TestClientShipLogsOnError(t *testing.T) {
 	// we then setup a new client, which should immediately pick up the file and
 	// deliver it -- no additional work is required, the client does this on
 	// boot.
-	c, _, _ = setupClient(t, tp.ListenAddress(), dir)
-	time.Sleep(DefaultTickInterval * 2)
+	c, _, _ = setupClient(t, tp.ListenAddress(), dir, true)
+	time.Sleep(defaultTickInterval * 2)
 	defer c.Close()
 
 	// then we check the file. ha ha! data!
@@ -300,7 +294,6 @@ func TestClientShipLogsOnError(t *testing.T) {
 }
 
 func TestClientShipLogsOnErrorFlapper(t *testing.T) {
-	Heartbeat = true
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
 	f.Close()
@@ -312,7 +305,7 @@ func TestClientShipLogsOnErrorFlapper(t *testing.T) {
 	}()
 	defer tp.Close()
 
-	c, l, dir := setupClient(t, tp.ListenAddress(), "")
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
 	defer os.RemoveAll(dir)
 
 	done := make(chan struct{})
@@ -341,7 +334,7 @@ func TestClientShipLogsOnErrorFlapper(t *testing.T) {
 	go writeLogs(l, make(chan struct{}))
 
 	// we wait a little longer here because the message delivery slows down with the above mutex.
-	time.Sleep(DefaultTickInterval * 5)
+	time.Sleep(defaultTickInterval * 5)
 	close(done)
 	assert.Nil(t, c.Close())
 
@@ -353,8 +346,8 @@ func TestClientShipLogsOnErrorFlapper(t *testing.T) {
 	// we then setup a new client, which should immediately pick up the file and
 	// deliver it -- no additional work is required, the client does this on
 	// boot.
-	c, _, _ = setupClient(t, tp.ListenAddress(), dir)
-	time.Sleep(DefaultTickInterval * 2)
+	c, _, _ = setupClient(t, tp.ListenAddress(), dir, true)
+	time.Sleep(defaultTickInterval * 2)
 	defer c.Close()
 
 	// then we check the file. ha ha! data!
@@ -367,9 +360,7 @@ func TestClientShipLogsOnErrorFlapper(t *testing.T) {
 }
 
 func TestClientBasicError(t *testing.T) {
-	Heartbeat = false
-
-	c, l, dir := setupClient(t, "", "")
+	c, l, dir := setupClient(t, "", "", false)
 	defer os.RemoveAll(dir)
 
 	stderr := muteStderr(t)
@@ -391,8 +382,6 @@ func TestClientBasicError(t *testing.T) {
 }
 
 func TestClientBackoff(t *testing.T) {
-	Heartbeat = true
-
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
 	f.Close()
@@ -404,7 +393,7 @@ func TestClientBackoff(t *testing.T) {
 	}()
 	defer tp.Close()
 
-	c, l, dir := setupClient(t, tp.ListenAddress(), "")
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
 	defer os.RemoveAll(dir)
 
 	tp.Mutex.Lock()
