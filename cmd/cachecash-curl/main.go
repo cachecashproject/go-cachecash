@@ -11,6 +11,7 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/client"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/log"
 	"github.com/pkg/errors"
 
 	"go.opencensus.io/trace"
@@ -28,7 +29,7 @@ func main() {
 }
 
 func mainC() error {
-	l := common.NewCLILogger()
+	l := log.NewCLILogger("cachecash-curl")
 	flag.Parse()
 
 	if err := l.ConfigureLogger(); err != nil {
