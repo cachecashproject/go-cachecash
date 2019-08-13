@@ -29,7 +29,7 @@ func main() {
 }
 
 func mainC() error {
-	l := log.NewCLILogger("cachecash-curl")
+	l := log.NewCLILogger("cachecash-curl", log.CLIOpt{})
 	flag.Parse()
 
 	if err := l.ConfigureLogger(); err != nil {

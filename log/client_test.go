@@ -119,7 +119,7 @@ func setupClient(t *testing.T, listenAddress, dir string) (*Client, *logrus.Logg
 		assert.Nil(t, err)
 	}
 
-	c, err := NewClient(listenAddress, "test", dir)
+	c, err := NewClient(listenAddress, "test", dir, true)
 	assert.Nil(t, err)
 
 	l := logrus.New()

@@ -26,7 +26,7 @@ var (
 	Heartbeat = true
 
 	// BackoffCap is the maximum time we will wait before attempting to deliver logs
-	BackoffCap = time.Hour
+	BackoffCap = 5 * time.Minute
 
 	// BackoffGranularity is the granularity by which backoff is calcluated
 	BackoffGranularity = time.Second
@@ -58,7 +58,7 @@ type Client struct {
 }
 
 // NewClient creates a new client.
-func NewClient(serverAddress, service, logDir string) (*Client, error) {
+func NewClient(serverAddress, service, logDir string, debug bool) (*Client, error) {
 	if err := os.MkdirAll(logDir, 0700); err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func NewClient(serverAddress, service, logDir string) (*Client, error) {
 		ourLogger: logrus.New(),
 	}
 
-	if os.Getenv("DEBUG") != "" {
+	if debug {
 		c.ourLogger.SetLevel(logrus.DebugLevel)
 	}
 
