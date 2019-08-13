@@ -26,9 +26,10 @@ type ConfigFile struct {
 	Database   string             `json:"database"`
 }
 
+// FillDefaults fills in defaults in the config file.
 func (c *ConfigFile) FillDefaults() {
 	if c.LedgerProtocolAddr == "" {
-		c.LedgerProtocolAddr = ":9090"
+		c.LedgerProtocolAddr = ":7778"
 	}
 	if c.StatusAddr == "" {
 		c.StatusAddr = ":8100"

@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	ledgerAddr = flag.String("ledgerAddr", "localhost:9090", "Address of ledgerd instance")
+	ledgerAddr = flag.String("ledgerAddr", "localhost:7778", "Address of ledgerd instance")
 )
 
 func main() {

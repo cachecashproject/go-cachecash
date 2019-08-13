@@ -6,7 +6,7 @@ services:
     build: .
     command: ledgerd -logLevel debug
     ports:
-    - 9090:9090  # Ledger service
+    - 7778:7778  # Ledger service
     - 9091:8100  # Status
     environment:
     - LEDGER_DATABASE=host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable
