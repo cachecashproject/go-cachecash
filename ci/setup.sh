@@ -13,6 +13,7 @@ update_docker_compose() {
 start_db() {
 	while ! docker run --rm --net=cachecash postgres:11 psql 'host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable' -c 'select 1;'; do sleep 10; done
 	while ! docker run --rm --net=cachecash postgres:11 psql 'host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable' -c 'select 1;'; do sleep 10; done
+	while ! docker run --rm --net=cachecash postgres:11 psql 'host=kvstore-test port=5432 user=postgres dbname=kvstore sslmode=disable' -c 'select 1;'; do sleep 10; done
 }
 
 make dockerfiles
@@ -26,6 +27,7 @@ case "$BUILD_MODE" in
 		docker network create cachecash --opt com.docker.network.bridge.enable_ip_masquerade=false || true
 		time docker run -d -p 5433:5432 -e POSTGRES_DB=ledger --name ledger-db --net=cachecash postgres:11
 		time docker run -d -p 5434:5432 -e POSTGRES_DB=publisher --name publisher-db --net=cachecash postgres:11
+		time docker run -d -p 5435:5432 -e POSTGRES_DB=kvstore --name kvstore-test --net=cachecash postgres:11
 		time docker build -t cachecash-ci ci
 
 		# wait until the databases are up
