@@ -1,0 +1,6 @@
+# This configuration file is for sql-migrate.
+postgres:
+  dialect: postgres
+  datasource: "host=localhost port=9999 dbname=kvstore user=postgres sslmode=disable"
+  dir: "../migrations/"
+  table: migrations

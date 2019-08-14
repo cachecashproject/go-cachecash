@@ -1,0 +1,7 @@
+[psql]
+  port = 9999
+  host = "localhost"
+  user = "postgres"
+  dbname = "kvstore"
+  sslmode = "disable"
+  blacklist = ["migrations"]
