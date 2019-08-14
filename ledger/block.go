@@ -3,6 +3,7 @@ package ledger
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"math"
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ed25519"
@@ -79,7 +80,7 @@ func (block *Block) MerkleRoot() ([]byte, error) {
 	}
 
 	for len(dd) > 1 {
-		next := make([][]byte, len(txs)<<1)
+		next := make([][]byte, halfCeil(len(dd)))
 		for i := 0; i < len(next); i++ {
 			bi := i*2 + 1
 			if bi >= len(dd) {
@@ -95,4 +96,8 @@ func (block *Block) MerkleRoot() ([]byte, error) {
 	}
 
 	return dd[0], nil
+}
+
+func halfCeil(x int) int {
+	return int(math.Ceil((float64)(x) / 2.0))
 }
