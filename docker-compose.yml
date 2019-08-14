@@ -21,7 +21,7 @@ services:
   ledger:
     image: cachecash/go-cachecash
     build: .
-    command: ledgerd -logLevel debug
+    command: ledgerd -logLevel debug -mine-blocks -mine-interval 15
     ports:
     - 7778:7778  # Ledger service
     - 9091:8100  # Status

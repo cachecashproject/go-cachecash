@@ -71,7 +71,7 @@ func TestBlockTestSuite(t *testing.T) {
 }
 
 func (suite *BlockTestSuite) makeBlock(txQty int) *Block {
-	var txs []Transaction
+	var txs []*Transaction
 
 	for i := 0; i < txQty; i++ {
 		data := make([]byte, mockDataLen)
@@ -79,7 +79,7 @@ func (suite *BlockTestSuite) makeBlock(txQty int) *Block {
 			data[j] = (byte)(i)
 		}
 
-		txs = append(txs, Transaction{
+		txs = append(txs, &Transaction{
 			Body: &mockTransaction{data: data},
 		})
 	}

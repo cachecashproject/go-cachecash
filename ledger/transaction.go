@@ -39,7 +39,7 @@ type Transaction struct {
 	Body    TransactionBody
 }
 
-var _ protobufCustomType = Transaction{}
+var _ protobufCustomType = (*Transaction)(nil)
 var _ protobufCustomTypePtr = (*Transaction)(nil)
 
 func (tx Transaction) Marshal() ([]byte, error) {
@@ -112,7 +112,7 @@ func (tx *Transaction) Size() int {
 	return 4 + tx.Body.Size()
 }
 
-func (tx Transaction) MarshalJSON() ([]byte, error) {
+func (tx *Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(tx)
 }
 
