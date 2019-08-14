@@ -570,7 +570,7 @@ func testKvstoresSelect(t *testing.T) {
 }
 
 var (
-	kvstoreDBTypes = map[string]string{`Member`: `character varying`, `Key`: `character varying`, `Value`: `bytea`}
+	kvstoreDBTypes = map[string]string{`Member`: `character varying`, `Key`: `character varying`, `Value`: `bytea`, `Nonce`: `bytea`}
 	_              = bytes.MinRead
 )
 

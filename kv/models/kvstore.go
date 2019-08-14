@@ -26,6 +26,7 @@ type Kvstore struct {
 	Member string `boil:"member" json:"member" toml:"member" yaml:"member"`
 	Key    string `boil:"key" json:"key" toml:"key" yaml:"key"`
 	Value  []byte `boil:"value" json:"value" toml:"value" yaml:"value"`
+	Nonce  []byte `boil:"nonce" json:"nonce" toml:"nonce" yaml:"nonce"`
 
 	R *kvstoreR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L kvstoreL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -35,10 +36,12 @@ var KvstoreColumns = struct {
 	Member string
 	Key    string
 	Value  string
+	Nonce  string
 }{
 	Member: "member",
 	Key:    "key",
 	Value:  "value",
+	Nonce:  "nonce",
 }
 
 // Generated where
@@ -65,10 +68,12 @@ var KvstoreWhere = struct {
 	Member whereHelperstring
 	Key    whereHelperstring
 	Value  whereHelper__byte
+	Nonce  whereHelper__byte
 }{
 	Member: whereHelperstring{field: "\"kvstore\".\"member\""},
 	Key:    whereHelperstring{field: "\"kvstore\".\"key\""},
 	Value:  whereHelper__byte{field: "\"kvstore\".\"value\""},
+	Nonce:  whereHelper__byte{field: "\"kvstore\".\"nonce\""},
 }
 
 // KvstoreRels is where relationship names are stored.
@@ -88,8 +93,8 @@ func (*kvstoreR) NewStruct() *kvstoreR {
 type kvstoreL struct{}
 
 var (
-	kvstoreAllColumns            = []string{"member", "key", "value"}
-	kvstoreColumnsWithoutDefault = []string{"member", "key", "value"}
+	kvstoreAllColumns            = []string{"member", "key", "value", "nonce"}
+	kvstoreColumnsWithoutDefault = []string{"member", "key", "value", "nonce"}
 	kvstoreColumnsWithDefault    = []string{}
 	kvstorePrimaryKeyColumns     = []string{"member", "key"}
 )
