@@ -9,7 +9,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 	sqlite3
 
 ARG GO_VERSION=1.12.7
-RUN wget "https://dl.google.com/go/go$GO_VERSION.linux-amd64.tar.gz" \
+RUN wget --quiet "https://dl.google.com/go/go$GO_VERSION.linux-amd64.tar.gz" \
 	&& echo "66d83bfb5a9ede000e33c6579a91a29e6b101829ad41fffb5c5bb6c900e109d9  go$GO_VERSION.linux-amd64.tar.gz" | sha256sum -c - \
 	&& tar -C /usr/local -xzf go$GO_VERSION.linux-amd64.tar.gz
 
