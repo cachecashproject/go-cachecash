@@ -2,6 +2,7 @@ package log
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -24,6 +25,26 @@ const (
 	iters = 50
 	count = 100
 )
+
+func muteStderr(t *testing.T) *os.File {
+	// this hack allows us to swallow a lot of "hook failed" messages that are spit to stderr.
+	var (
+		r   *os.File
+		err error
+	)
+
+	stderr := os.Stderr
+	r, os.Stderr, err = os.Pipe()
+	assert.Nil(t, err)
+	go func() {
+		// make errcheck happy
+		if _, err := io.Copy(ioutil.Discard, r); err != nil {
+			fmt.Println(err)
+		}
+		r.Close()
+	}()
+	return stderr
+}
 
 func assertLogEqual(t *testing.T, filename string) {
 	r, err := NewReader(filename)
@@ -91,14 +112,17 @@ func getLogFile(t *testing.T, c *Client) string {
 	return path.Join(c.logDir, logFile)
 }
 
-func setupClient(t *testing.T, listenAddress, dir string) (*Client, *logrus.Logger, string) {
+func setupClient(t *testing.T, listenAddress, dir string, deliver bool) (*Client, *logrus.Logger, string) {
 	if dir == "" {
 		var err error
 		dir, err = ioutil.TempDir("", "")
 		assert.Nil(t, err)
 	}
 
-	c, err := NewClient(listenAddress, "test", dir)
+	config := DefaultConfig()
+	config.DeliverLogs = deliver
+
+	c, err := NewClient(listenAddress, "test", dir, true, config)
 	assert.Nil(t, err)
 
 	l := logrus.New()
@@ -108,10 +132,7 @@ func setupClient(t *testing.T, listenAddress, dir string) (*Client, *logrus.Logg
 }
 
 func TestClientBasic(t *testing.T) {
-	Heartbeat = false
-	defer func() { Heartbeat = true }()
-
-	c, l, dir := setupClient(t, "", "")
+	c, l, dir := setupClient(t, "", "", false)
 	defer os.RemoveAll(dir)
 
 	l.WithFields(logrus.Fields{"hi": "there", "number": 8675309}).Info("test")
@@ -139,10 +160,7 @@ func TestClientBasic(t *testing.T) {
 }
 
 func TestClientParallelWriters(t *testing.T) {
-	Heartbeat = false
-	defer func() { Heartbeat = true }()
-
-	c, l, dir := setupClient(t, "", "")
+	c, l, dir := setupClient(t, "", "", false)
 	defer os.RemoveAll(dir)
 
 	writeLogs(l, make(chan struct{}))
@@ -151,7 +169,6 @@ func TestClientParallelWriters(t *testing.T) {
 }
 
 func TestClientShipLogs(t *testing.T) {
-	Heartbeat = true
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
 	f.Close()
@@ -161,18 +178,13 @@ func TestClientShipLogs(t *testing.T) {
 	go func() {
 		assert.Nil(t, tp.Serve(":0"))
 	}()
-	// the func here is to assure the non-nilness of tp.l, which is the listener;
-	// and won't be ready until Serve boots.
-	defer func() {
-		tp.s.GracefulStop()
-		tp.l.Close()
-	}()
+	defer tp.Close()
 
-	c, l, dir := setupClient(t, tp.ListenAddress(), "")
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
 	defer os.RemoveAll(dir)
 
 	writeLogs(l, make(chan struct{}))
-	time.Sleep(TickInterval * 2)
+	time.Sleep(defaultTickInterval * 2)
 	c.Close()
 
 	fi, err := os.Stat(f.Name())
@@ -183,7 +195,6 @@ func TestClientShipLogs(t *testing.T) {
 }
 
 func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
-	Heartbeat = true
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
 	f.Close()
@@ -193,12 +204,9 @@ func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
 	go func() {
 		assert.Nil(t, tp.Serve(":0"))
 	}()
-	defer func() {
-		tp.s.GracefulStop()
-		tp.l.Close()
-	}()
+	defer tp.Close()
 
-	c, l, dir := setupClient(t, tp.ListenAddress(), "")
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
 	defer os.RemoveAll(dir)
 
 	// the main difference in this test is here. what we do instead of
@@ -210,7 +218,7 @@ func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
 	//
 	done := make(chan struct{})
 	go writeLogs(l, done)
-	time.Sleep(TickInterval / 2)
+	time.Sleep(defaultTickInterval / 2)
 	c.heartbeatCancel()
 	<-done // allow logging to finish
 	assert.Nil(t, c.Close())
@@ -225,8 +233,8 @@ func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
 	// we then setup a new client, which should immediately pick up the file and
 	// deliver it -- no additional work is required, the client does this on
 	// boot.
-	c, _, _ = setupClient(t, tp.ListenAddress(), dir)
-	time.Sleep(TickInterval * 2)
+	c, _, _ = setupClient(t, tp.ListenAddress(), dir, true)
+	time.Sleep(defaultTickInterval * 2)
 	defer c.Close()
 
 	// then we check the file again. ha ha! data!
@@ -239,7 +247,6 @@ func TestClientShipLogsIncompleteRedeliver(t *testing.T) {
 }
 
 func TestClientShipLogsOnError(t *testing.T) {
-	Heartbeat = true
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
 	f.Close()
@@ -249,12 +256,9 @@ func TestClientShipLogsOnError(t *testing.T) {
 	go func() {
 		assert.Nil(t, tp.Serve(":0"))
 	}()
-	defer func() {
-		tp.s.GracefulStop()
-		tp.l.Close()
-	}()
+	defer tp.Close()
 
-	c, l, dir := setupClient(t, tp.ListenAddress(), "")
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
 	defer os.RemoveAll(dir)
 
 	// the main difference in this test from the above one, is that this one throws an error during initial delivery.
@@ -264,7 +268,7 @@ func TestClientShipLogsOnError(t *testing.T) {
 	tp.Mutex.Lock()
 	tp.RaiseError = errors.New("welp")
 	tp.Mutex.Unlock()
-	time.Sleep(TickInterval * 2)
+	time.Sleep(defaultTickInterval * 2)
 	<-done
 	assert.Nil(t, c.Close())
 
@@ -276,8 +280,8 @@ func TestClientShipLogsOnError(t *testing.T) {
 	// we then setup a new client, which should immediately pick up the file and
 	// deliver it -- no additional work is required, the client does this on
 	// boot.
-	c, _, _ = setupClient(t, tp.ListenAddress(), dir)
-	time.Sleep(TickInterval * 2)
+	c, _, _ = setupClient(t, tp.ListenAddress(), dir, true)
+	time.Sleep(defaultTickInterval * 2)
 	defer c.Close()
 
 	// then we check the file. ha ha! data!
@@ -290,7 +294,6 @@ func TestClientShipLogsOnError(t *testing.T) {
 }
 
 func TestClientShipLogsOnErrorFlapper(t *testing.T) {
-	Heartbeat = true
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
 	f.Close()
@@ -300,12 +303,9 @@ func TestClientShipLogsOnErrorFlapper(t *testing.T) {
 	go func() {
 		assert.Nil(t, tp.Serve(":0"))
 	}()
-	defer func() {
-		tp.s.GracefulStop()
-		tp.l.Close()
-	}()
+	defer tp.Close()
 
-	c, l, dir := setupClient(t, tp.ListenAddress(), "")
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
 	defer os.RemoveAll(dir)
 
 	done := make(chan struct{})
@@ -334,7 +334,7 @@ func TestClientShipLogsOnErrorFlapper(t *testing.T) {
 	go writeLogs(l, make(chan struct{}))
 
 	// we wait a little longer here because the message delivery slows down with the above mutex.
-	time.Sleep(TickInterval * 5)
+	time.Sleep(defaultTickInterval * 5)
 	close(done)
 	assert.Nil(t, c.Close())
 
@@ -346,8 +346,8 @@ func TestClientShipLogsOnErrorFlapper(t *testing.T) {
 	// we then setup a new client, which should immediately pick up the file and
 	// deliver it -- no additional work is required, the client does this on
 	// boot.
-	c, _, _ = setupClient(t, tp.ListenAddress(), dir)
-	time.Sleep(TickInterval * 2)
+	c, _, _ = setupClient(t, tp.ListenAddress(), dir, true)
+	time.Sleep(defaultTickInterval * 2)
 	defer c.Close()
 
 	// then we check the file. ha ha! data!
@@ -360,12 +360,16 @@ func TestClientShipLogsOnErrorFlapper(t *testing.T) {
 }
 
 func TestClientBasicError(t *testing.T) {
-	Heartbeat = false
-
-	c, l, dir := setupClient(t, "", "")
+	c, l, dir := setupClient(t, "", "", false)
 	defer os.RemoveAll(dir)
 
-	go writeLogs(l, make(chan struct{}))
+	stderr := muteStderr(t)
+	defer func() {
+		os.Stderr.Close()
+		os.Stderr = stderr
+	}()
+	done := make(chan struct{})
+	go writeLogs(l, done)
 
 	c.errorMutex.Lock()
 	c.Error = errors.New("welp")
@@ -374,4 +378,49 @@ func TestClientBasicError(t *testing.T) {
 	assert.NotNil(t, l.Hooks.Fire(logrus.InfoLevel, logrus.NewEntry(l)))
 	assert.NotNil(t, c.Write(logrus.NewEntry(l)))
 	assert.NotNil(t, c.Close())
+	<-done // let logrus finish before moving forward
+}
+
+func TestClientBackoff(t *testing.T) {
+	f, err := ioutil.TempFile("", "")
+	assert.Nil(t, err)
+	f.Close()
+	defer os.Remove(f.Name())
+
+	tp := NewTestPipeServer(f.Name())
+	go func() {
+		assert.Nil(t, tp.Serve(":0"))
+	}()
+	defer tp.Close()
+
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true)
+	defer os.RemoveAll(dir)
+
+	tp.Mutex.Lock()
+	tp.RaiseError = errors.New("welp")
+	tp.Mutex.Unlock()
+
+	writeLogs(l, make(chan struct{}))
+	time.Sleep(5 * time.Second)
+
+	fi, err := os.Stat(f.Name())
+	assert.Nil(t, err)
+	assert.Empty(t, fi.Size())
+
+	tp.Mutex.Lock()
+	tp.RaiseError = nil
+	tp.Mutex.Unlock()
+	time.Sleep(time.Second)
+
+	fi, err = os.Stat(f.Name())
+	assert.Nil(t, err)
+	assert.Empty(t, fi.Size())
+
+	time.Sleep(2 * time.Second)
+
+	fi, err = os.Stat(f.Name())
+	assert.Nil(t, err)
+	assert.NotEmpty(t, fi.Size())
+
+	assert.Nil(t, c.Close())
 }

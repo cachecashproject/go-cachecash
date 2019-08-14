@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -18,42 +19,76 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Heartbeat -- if set to true, will attempt to deliver the logs every
-// TickInterval. Set this to false to not deliver logs at all, and instead just
-// write them. Useful for testing.
-var Heartbeat = true
+const (
+	defaultDeliver            = true
+	defaultBackoffCap         = 5 * time.Minute
+	defaultBackoffGranularity = time.Second
+	defaultTickInterval       = time.Second
+)
 
-// TickInterval is a singleton for how long to wait for a log file to fill
-// before delivering it.
-var TickInterval = time.Second
+// Config is the configuration of the background logging services.
+type Config struct {
+	// DeliverLogs indicates whether or not logs should be delivered at all
+	DeliverLogs bool
+	// BackoffCap determines the maximum amount of time to wait in an backoff scenario.
+	BackoffCap time.Duration
+	// BackoffGranularity determines the time interval to use for calculating new backoff values
+	BackoffGranularity time.Duration
+	// TickInterval is the minimum/default amount of time to wait before waking up to deliver logs.
+	TickInterval time.Duration
+}
+
+// DefaultConfig returns the default configuration
+func DefaultConfig() *Config {
+	return &Config{
+		DeliverLogs:        defaultDeliver,
+		BackoffCap:         defaultBackoffCap,
+		BackoffGranularity: defaultBackoffGranularity,
+		TickInterval:       defaultTickInterval,
+	}
+}
 
 // Client is a logging client that uses grpc to send a structured log.
 type Client struct {
-	service       string
-	logDir        string
-	logFile       *os.File
-	logLock       sync.Mutex
-	ticker        *time.Ticker
+	service string
+	logDir  string
+
+	logFile *os.File
+	logLock sync.Mutex
+
+	ourLogger *logrus.Logger
+
+	tickerMutex    sync.Mutex
+	tickerDuration time.Duration
+
 	logPipeClient LogPipeClient
 
 	heartbeatCancel context.CancelFunc
 
 	errorMutex sync.RWMutex
 	Error      error
+
+	config *Config
 }
 
 // NewClient creates a new client.
-func NewClient(serverAddress, service, logDir string) (*Client, error) {
+func NewClient(serverAddress, service, logDir string, debug bool, config *Config) (*Client, error) {
 	if err := os.MkdirAll(logDir, 0700); err != nil {
 		return nil, err
 	}
 
 	c := &Client{
-		service: service,
-		logDir:  logDir,
+		service:   service,
+		logDir:    logDir,
+		ourLogger: logrus.New(),
+		config:    config,
 	}
 
-	if Heartbeat {
+	if debug {
+		c.ourLogger.SetLevel(logrus.DebugLevel)
+	}
+
+	if c.config.DeliverLogs {
 		conn, err := common.GRPCDial(serverAddress)
 		if err != nil {
 			return nil, err
@@ -64,16 +99,24 @@ func NewClient(serverAddress, service, logDir string) (*Client, error) {
 		ctx, cancel := context.WithCancel(context.Background())
 		c.heartbeatCancel = cancel
 
-		c.ticker = time.NewTicker(TickInterval)
-
+		c.adjustTicker(c.config.TickInterval)
 		go c.heartbeat(ctx)
 	}
 
 	return c, c.makeLog(true)
 }
 
+func (c *Client) adjustTicker(dur time.Duration) {
+	c.tickerMutex.Lock()
+	defer c.tickerMutex.Unlock()
+	c.tickerDuration = dur
+}
+
 // Close closes any logfile and connections
 func (c *Client) Close() error {
+	c.tickerMutex.Lock()
+	defer c.tickerMutex.Unlock()
+
 	if c.heartbeatCancel != nil {
 		c.heartbeatCancel()
 	}
@@ -104,20 +147,47 @@ func (c *Client) Close() error {
 
 func (c *Client) heartbeat(ctx context.Context) {
 	for {
+		c.tickerMutex.Lock()
+		after := time.After(c.tickerDuration)
+		c.tickerMutex.Unlock()
 		select {
 		case <-ctx.Done():
 			return
-		case <-c.ticker.C:
+		case <-after:
 			if err := c.makeLog(true); err != nil {
 				c.errorMutex.Lock()
 				defer c.errorMutex.Unlock()
 				c.Error = errors.Errorf("Cannot make new log; canceling heartbeat. Please create a new client. Error: %v", err)
+				c.heartbeatCancel()
 				return
 			}
 
 			if err := c.deliverLog(ctx); err != nil {
-				logrus.Errorf("Received error while delivering log: %v\n", err)
+				c.tickerMutex.Lock()
+				newDuration := c.tickerDuration / c.config.BackoffGranularity
+				if newDuration == 1 {
+					newDuration++
+				} else {
+					newDuration = time.Duration(math.Pow(float64(newDuration), 2))
+				}
+				newDuration *= time.Second
+				if newDuration > c.config.BackoffCap {
+					newDuration = c.config.BackoffCap
+				}
+				c.tickerMutex.Unlock()
+
+				c.ourLogger.Errorf("Received error while delivering log, increasing time until next delivery to %v: %v", newDuration, err)
+				c.adjustTicker(newDuration)
 				continue
+			} else {
+				c.tickerMutex.Lock()
+				if c.tickerDuration != c.config.TickInterval {
+					c.tickerMutex.Unlock()
+					c.ourLogger.Infof("Delivery succeeded; resetting to default interval %v", c.config.TickInterval)
+					c.adjustTicker(c.config.TickInterval)
+				} else {
+					c.tickerMutex.Unlock()
+				}
 			}
 		}
 	}
@@ -125,6 +195,12 @@ func (c *Client) heartbeat(ctx context.Context) {
 
 func (c *Client) deliverLog(ctx context.Context) error {
 	return filepath.Walk(c.logDir, func(p string, fi os.FileInfo, err error) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if err != nil {
 			return err
 		}
@@ -135,13 +211,13 @@ func (c *Client) deliverLog(ctx context.Context) error {
 
 		if fi.IsDir() {
 			// we do not descend.
-			logrus.Debugf("Directory (%v) found in log dir, skipping\n", p)
+			c.ourLogger.Debugf("Directory (%v) found in log dir, skipping", p)
 			return filepath.SkipDir
 		}
 
 		if fi.Mode()&os.ModeType != 0 {
 			// irregular file, eject
-			logrus.Debugf("Irregular file (%v) found in log dir, skipping\n", p)
+			c.ourLogger.Debugf("Irregular file (%v) found in log dir, skipping", p)
 			return nil
 		}
 
@@ -155,9 +231,19 @@ func (c *Client) deliverLog(ctx context.Context) error {
 			c.logLock.Unlock()
 		}
 
-		if err := c.sendLog(ctx, p); err != nil {
-			logrus.Errorf("Could not deliver log bundle %v; will retry at next heartbeat. Error: %v", p, err)
+		if fi.Size() == 0 {
+			// it's not the current file so it's probably garbage
+			if err := os.Remove(p); err != nil {
+				c.ourLogger.Errorf("Could not remove empty file %q: %v", p, err)
+				return nil
+			}
+
 			return nil
+		}
+
+		if err := c.sendLog(ctx, p); err != nil {
+			c.ourLogger.Errorf("Could not deliver log bundle %v; will retry at next heartbeat. Error: %v", p, err)
+			return err
 		}
 
 		return nil
@@ -174,13 +260,13 @@ func (c *Client) sendLog(ctx context.Context, p string) (retErr error) {
 		// if we cannot send or otherwise operate, do not remove the file, just log
 		// the error and return; we will retry on the next heartbeat.
 		if retErr != nil {
-			logrus.Error(retErr)
+			c.ourLogger.Error(retErr)
 			return
 		}
 
 		// remove the file if we received no error so it can't be re-delivered.
 		if err := os.Remove(p); err != nil {
-			logrus.Error(err)
+			c.ourLogger.Error(err)
 		}
 	}()
 

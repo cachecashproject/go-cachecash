@@ -11,13 +11,14 @@ import (
 )
 
 func main() {
-	c, err := log.NewClient("localhost:1234", "monkeys", "/tmp/1234")
+	c, err := log.NewClient("localhost:9005", "monkeys", "/tmp/1234", true, log.DefaultConfig())
 	if err != nil {
 		panic(err)
 	}
 
-	logrus.AddHook(log.NewHook(c))
-	logrus.SetOutput(ioutil.Discard)
+	l := logrus.New()
+	l.SetOutput(ioutil.Discard)
+	l.AddHook(log.NewHook(c))
 
 	after := time.After(10 * time.Second)
 	var i int
@@ -26,7 +27,7 @@ func main() {
 		case <-after:
 			goto end
 		default:
-			logrus.WithField("count", i).Info("this is a message")
+			l.WithField("count", i).Info("this is a message")
 		}
 	}
 

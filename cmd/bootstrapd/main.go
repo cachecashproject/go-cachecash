@@ -8,6 +8,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/bootstrap"
 	"github.com/cachecashproject/go-cachecash/bootstrap/migrations"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/log"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
@@ -41,7 +42,7 @@ func main() {
 }
 
 func mainC() error {
-	l := common.NewCLILogger(common.LogOpt{JSON: true})
+	l := log.NewCLILogger("bootstrapd", log.CLIOpt{JSON: true})
 	flag.Parse()
 
 	if err := l.ConfigureLogger(); err != nil {

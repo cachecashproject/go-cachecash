@@ -11,6 +11,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/log"
 	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/publisher/migrations"
 	"github.com/pkg/errors"
@@ -48,7 +49,7 @@ func main() {
 }
 
 func mainC() error {
-	l := common.NewCLILogger(common.LogOpt{JSON: true})
+	l := log.NewCLILogger("publisherd", log.CLIOpt{JSON: true})
 	flag.Parse()
 
 	if err := l.ConfigureLogger(); err != nil {

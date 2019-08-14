@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/log"
 )
 
 func generateMessage() string {
@@ -29,7 +30,7 @@ func main() {
 }
 
 func mainC() error {
-	l := common.NewCLILogger(common.LogOpt{JSON: true})
+	l := log.NewCLILogger("test-log-generator", log.CLIOpt{JSON: true})
 	flag.Parse()
 
 	if err := l.ConfigureLogger(); err != nil {

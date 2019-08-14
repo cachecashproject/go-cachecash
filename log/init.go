@@ -1,4 +1,4 @@
-package common
+package log
 
 import (
 	"flag"
@@ -15,41 +15,44 @@ import (
 // LoggerConfig describes the configuration of logging for a program.
 type LoggerConfig struct {
 	logrus.Logger
+	LogAddress  string
+	LogSpoolDir string
 	LogLevelStr string
 	LogCaller   bool
 	LogFile     string
-	JSON        bool
+
+	options     CLIOpt
+	serviceName string
 }
 
-// LogOpt is used to parameterise NewCLILogger in an extensible fashion.
+// CLIOpt is used to parameterise NewCLILogger in an extensible fashion.
 // For instance, to make JSON logging the default:
 //
 // ```
-// NewCLILogger(LogOpt{Json:true})
+// NewCLILogger(CLIOpt{Json:true})
 // ```
-type LogOpt struct {
-	JSON bool
+type CLIOpt struct {
+	JSON  bool
+	Debug bool
 }
 
 // NewCLILogger creates a new CLI logger. Specifically this:
 // - adds CLI flags for configuring the logging system
 // - instantiates a Logrus logger
 // - returns a struct with CLI flags registered and ready to be parsed by flag.Parse
-func NewCLILogger(opts ...LogOpt) *LoggerConfig {
-	result := LoggerConfig{Logger: *logrus.New()}
+func NewCLILogger(serviceName string, opts CLIOpt) *LoggerConfig {
+	result := LoggerConfig{options: opts, Logger: *logrus.New(), serviceName: serviceName}
 	// Accumulate any options into a single struct
-	options := LogOpt{}
-	for _, opt := range opts {
-		if opt.JSON {
-			options.JSON = opt.JSON
-		}
-	}
+
 	// Use the accumulated options to override defaults for options where we have
 	// variability.
+	flag.StringVar(&result.LogAddress, "logAddress", "", "Address of remote logger")
+	flag.StringVar(&result.LogSpoolDir, "logSpoolDir", "/var/spool/logpipe", "Dir to spool remote logs queued for sending")
 	flag.StringVar(&result.LogLevelStr, "logLevel", "info", "Verbosity of log output")
 	flag.BoolVar(&result.LogCaller, "logCaller", false, "Enable method name logging")
 	flag.StringVar(&result.LogFile, "logFile", "", "Path where file should be logged")
-	flag.BoolVar(&result.LogCaller, "logJSON", options.JSON, "Log in JSON")
+	flag.BoolVar(&result.options.JSON, "logJSON", result.options.JSON, "Log in JSON")
+	flag.BoolVar(&result.options.Debug, "logDebug", result.options.Debug, "Debug the logger itself")
 	return &result
 }
 
@@ -65,7 +68,15 @@ func (c *LoggerConfig) ConfigureLogger() error {
 	l.SetLevel(logLevel)
 	l.SetReportCaller(c.LogCaller)
 
-	if c.JSON {
+	if c.LogAddress != "" {
+		client, err := NewClient(c.LogAddress, c.serviceName, c.LogSpoolDir, c.options.Debug, DefaultConfig())
+		if err != nil {
+			return err
+		}
+		l.AddHook(NewHook(client))
+	}
+
+	if c.options.JSON {
 		l.SetFormatter(&logrus.JSONFormatter{})
 	}
 
