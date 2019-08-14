@@ -5,6 +5,7 @@ import (
 
 	"github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/log"
 	"github.com/cachecashproject/go-cachecash/metricsproxy"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
@@ -35,7 +36,7 @@ func main() {
 }
 
 func mainC() error {
-	l := common.NewCLILogger(common.LogOpt{JSON: true})
+	l := log.NewCLILogger("metrics-proxy", log.CLIOpt{JSON: true})
 	flag.Parse()
 
 	if err := l.ConfigureLogger(); err != nil {
