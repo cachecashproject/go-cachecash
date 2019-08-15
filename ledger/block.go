@@ -68,6 +68,7 @@ func (block *Block) Size() int {
 	n += 4
 	n += len(block.Header.PreviousBlock)
 	n += len(block.Header.MerkleRoot)
+	n += len(block.Header.Signature)
 	n += 4
 
 	for _, tx := range block.Transactions {
@@ -84,7 +85,18 @@ func (block *Block) MarshalTo(data []byte) (int, error) {
 	n += 4
 
 	n += copy(data[n:], block.Header.PreviousBlock[:])
-	n += copy(data[n:], block.Header.MerkleRoot)
+	a := copy(data[n:], block.Header.MerkleRoot)
+	if a != 32 {
+		// XXX: MerkleRoot shouldn't be dynamic length
+		return 0, errors.New("MerkleRoot didn't write 32 bytes")
+	}
+	n += a
+	a = copy(data[n:], block.Header.Signature)
+	if a != ed25519.SignatureSize {
+		// XXX: Signature shouldn't be dynamic length
+		return 0, errors.New("Signature didn't write 64 bytes")
+	}
+	n += a
 
 	binary.LittleEndian.PutUint32(data[n:], block.Header.Timestamp)
 	n += 4
@@ -112,19 +124,48 @@ func (block *Block) Unmarshal(data []byte) error {
 func (block *Block) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
-	block.Header = &BlockHeader{}
+	block.Header = &BlockHeader{
+		MerkleRoot: make([]byte, 32),
+		Signature:  make([]byte, ed25519.SignatureSize),
+	}
+
+	if len(data[n:]) < 4 {
+		return 0, errors.New("incomplete Version field")
+	}
 	block.Header.Version = binary.LittleEndian.Uint32(data[n:])
 	n += 4
 
+	if len(data[n:]) < 32 {
+		return 0, errors.New("incomplete PreviousBlock field")
+	}
 	n += copy(block.Header.PreviousBlock[:], data[n:n+32])
+
+	if len(data[n:]) < 32 {
+		return 0, errors.New("incomplete MerkleRoot field")
+	}
 	n += copy(block.Header.MerkleRoot, data[n:n+32])
 
+	if len(data[n:]) < ed25519.SignatureSize {
+		return 0, errors.New("incomplete Signature field")
+	}
+	n += copy(block.Header.Signature, data[n:n+ed25519.SignatureSize])
+
+	if len(data[n:]) < 4 {
+		return 0, errors.New("incomplete Timestamp field")
+	}
 	block.Header.Timestamp = binary.LittleEndian.Uint32(data[n:])
 	n += 4
 
 	for len(data[n:]) > 0 {
+		if len(data[n:]) < 4 {
+			return 0, errors.New("incomplete tx length field")
+		}
 		b := int(binary.LittleEndian.Uint32(data[n:]))
 		n += 4
+
+		if len(data) < b {
+			return 0, errors.New("transaction length field exceeds remaining data")
+		}
 
 		tx := Transaction{}
 		err := tx.Unmarshal(data[n : n+b])

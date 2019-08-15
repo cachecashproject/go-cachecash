@@ -76,6 +76,10 @@ func (tx *Transaction) Unmarshal(data []byte) error {
 // N.B.: This is not strictly required for the protobuf interface, but it's useful for test code to be able to tell how
 // many bytes were consumed.
 func (tx *Transaction) UnmarshalFrom(data []byte) (int, error) {
+	if len(data) < 4 {
+		return 0, errors.New("incomplete transaction fields")
+	}
+
 	tx.Version = data[0]
 	if tx.Version != 1 {
 		return 0, errors.New("unexpected transaction version")
