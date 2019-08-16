@@ -88,3 +88,8 @@ gen-docs: pull-base-image
 modules:
 	GO111MODULE=on go mod tidy
 	GO111MODULE=on go mod vendor
+
+fuzz:
+	mkdir -p mkdir fuzz-workdir/corpus
+	go-fuzz-build github.com/cachecashproject/go-cachecash/ledger
+	go-fuzz -bin=./ledger-fuzz.zip -workdir=fuzz-workdir

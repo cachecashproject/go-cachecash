@@ -17,6 +17,12 @@ const (
 	TxTypeTransfer   TxType = 0x01
 	TxTypeGenesis    TxType = 0x02
 	TxTypeEscrowOpen TxType = 0x03
+
+	// XXX: this is an arbitrary limit to prevent a panic in make()
+	MAX_INPUTS  = 512
+	MAX_OUTPUTS = 512
+	// this limit is identical with bitcoin
+	MAX_FIELDLEN = 520
 )
 
 // In order to be used as a gogo/protobuf custom type, a struct must implement this interface...
@@ -302,6 +308,13 @@ func (tx *TransferTransaction) Unmarshal(data []byte) error {
 
 func (tx *TransferTransaction) UnmarshalFrom(data []byte) (int, error) {
 	inputQty, n := binary.Uvarint(data)
+	if n <= 0 {
+		return 0, errors.New("failed to read inputQty")
+	}
+
+	if inputQty > MAX_INPUTS {
+		return 0, errors.New("exceeded maximum number of inputs")
+	}
 	tx.Inputs = make([]TransactionInput, inputQty)
 	tx.Witnesses = make([]TransactionWitness, inputQty)
 
@@ -314,7 +327,14 @@ func (tx *TransferTransaction) UnmarshalFrom(data []byte) (int, error) {
 	}
 
 	outputQty, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("failed to read outputQty")
+	}
 	n += ni
+
+	if outputQty > MAX_OUTPUTS {
+		return 0, errors.New("exceeded maximum number of outputs")
+	}
 	tx.Outputs = make([]TransactionOutput, outputQty)
 
 	for i := 0; i < len(tx.Outputs); i++ {
@@ -464,16 +484,32 @@ func (ti *TransactionInput) MarshalTo(data []byte) (int, error) {
 func (ti *TransactionInput) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
+	if len(data[n:]) < TransactionIDSize+1 {
+		return 0, errors.New("TransactionInput is below minimum length")
+	}
+
 	n += copy(ti.PreviousTx[:], data[n:n+TransactionIDSize])
 
 	ti.Index = uint8(data[n])
 	n += 1
 
 	fieldLen, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("field to read fieldLen")
+	}
 	n += ni
+	if fieldLen > MAX_FIELDLEN {
+		return 0, errors.New("fieldLen exceeds MAX_FIELDLEN")
+	}
+	if len(data[n:]) < int(fieldLen) {
+		return 0, errors.New("fieldLen exceeds data buffer")
+	}
 	ti.ScriptSig = data[n : n+int(fieldLen)]
 	n += int(fieldLen)
 
+	if len(data[n:]) < 4 {
+		return 0, errors.New("failed to read SequenceNo")
+	}
 	ti.SequenceNo = binary.LittleEndian.Uint32(data[n:])
 	n += 4
 
@@ -500,11 +536,23 @@ func (to *TransactionOutput) MarshalTo(data []byte) (int, error) {
 }
 
 func (to *TransactionOutput) UnmarshalFrom(data []byte) (int, error) {
+	if len(data) < 4 {
+		return 0, errors.New("failed to read TransactionOutput value")
+	}
 	to.Value = binary.LittleEndian.Uint32(data)
 	n := 4
 
 	fieldLen, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("field to read fieldLen")
+	}
 	n += ni
+	if fieldLen > MAX_FIELDLEN {
+		return 0, errors.New("fieldLen exceeds MAX_FIELDLEN")
+	}
+	if len(data[n:]) < int(fieldLen) {
+		return 0, errors.New("fieldLen exceeds data buffer")
+	}
 	to.ScriptPubKey = data[n : n+int(fieldLen)]
 	n += int(fieldLen)
 
@@ -542,11 +590,23 @@ func (tw *TransactionWitness) MarshalTo(data []byte) (int, error) {
 
 func (tw *TransactionWitness) UnmarshalFrom(data []byte) (int, error) {
 	stackSize, n := binary.Uvarint(data)
+	if n <= 0 {
+		return 0, errors.New("field to read stackSize")
+	}
 
 	tw.Data = nil
 	for i := uint64(0); i < stackSize; i++ {
 		fieldLen, ni := binary.Uvarint(data[n:])
+		if ni <= 0 {
+			return 0, errors.New("field to read fieldLen")
+		}
 		n += ni
+		if fieldLen > MAX_FIELDLEN {
+			return 0, errors.New("fieldLen exceeds MAX_FIELDLEN")
+		}
+		if len(data[n:]) < int(fieldLen) {
+			return 0, errors.New("failed to read witness data")
+		}
 		tw.Data = append(tw.Data, data[n:n+int(fieldLen)])
 		n += int(fieldLen)
 	}
@@ -599,7 +659,14 @@ func (tx *GenesisTransaction) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
 	outputQty, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("field to read outputQty")
+	}
 	n += ni
+
+	if outputQty > MAX_OUTPUTS {
+		return 0, errors.New("exceeded maximum number of outputs")
+	}
 	tx.Outputs = make([]TransactionOutput, outputQty)
 
 	for i := 0; i < len(tx.Outputs); i++ {

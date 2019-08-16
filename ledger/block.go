@@ -163,7 +163,7 @@ func (block *Block) UnmarshalFrom(data []byte) (int, error) {
 		b := int(binary.LittleEndian.Uint32(data[n:]))
 		n += 4
 
-		if len(data) < b {
+		if len(data[n:]) < b {
 			return 0, errors.New("transaction length field exceeds remaining data")
 		}
 

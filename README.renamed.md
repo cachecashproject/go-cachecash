@@ -142,3 +142,14 @@ go test -v -race -tags="external_test sqlboiler_test" ./path/to/test/...
 CACHECASH_INSECURE can be set for any binary to disable TLS checking against the
 bootstrap/publisher/observability endpoints. Protocol cryptography is still
 secure.
+
+## Fuzzing
+
+There are fuzzing targets that can be used with [go-fuzz](https://github.com/dvyukov/go-fuzz).
+
+```
+# install dependencies
+go get -u github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build
+# start fuzzing
+make fuzz
+```
