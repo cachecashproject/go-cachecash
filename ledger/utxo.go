@@ -41,16 +41,27 @@ func (us *UTXOSet) Update(tx *Transaction) error {
 // same UTXO twice. Transactions added to the SpendingState are guaranteed to
 // be conflict free.
 type SpendingState struct {
-	spent map[OutpointKey]struct{}
-	txs   []*Transaction
-	size  int
+	TXs        []*Transaction
+	spentUTXOs map[OutpointKey]struct{}
+	newUTXOs   map[OutpointKey]TransactionOutput
+	size       int
 }
 
 func NewSpendingState() *SpendingState {
 	return &SpendingState{
-		spent: map[OutpointKey]struct{}{},
-		txs:   []*Transaction{},
-		size:  0,
+		TXs:        []*Transaction{},
+		spentUTXOs: map[OutpointKey]struct{}{},
+		newUTXOs:   map[OutpointKey]TransactionOutput{},
+		size:       0,
+	}
+}
+
+func (s *SpendingState) NewUnspent(key OutpointKey) *TransactionOutput {
+	utxo, ok := s.newUTXOs[key]
+	if ok {
+		return &utxo
+	} else {
+		return nil
 	}
 }
 
@@ -63,32 +74,52 @@ func (s *SpendingState) AddTx(tx *Transaction) error {
 	// validate inpoints aren't spent twice in this block
 	for _, ip := range tx.Inpoints() {
 		ipk := ip.Key()
-		_, alreadySpent := s.spent[ipk]
+		_, alreadySpent := s.spentUTXOs[ipk]
 		if alreadySpent {
 			return errors.New("input has been spent already")
 		}
 	}
 
-	// validation was successful, mark inpoints as spent
-	for _, ip := range tx.Inpoints() {
-		ipk := ip.Key()
-		s.spent[ipk] = struct{}{}
-	}
-
 	// add tx to backlog
-	s.txs = append(s.txs, tx)
-	s.size += tx.Size()
+	s.AcceptTransaction(tx)
 
 	return nil
 }
 
+func (s *SpendingState) AcceptTransaction(tx *Transaction) {
+	txid, err := tx.TXID()
+	if err != nil {
+		panic(err) // XXX: We should change TXID() so that it doesn't return an error.
+	}
+
+	// mark inpoints as spent
+	for _, ip := range tx.Inpoints() {
+		ipk := ip.Key()
+		s.spentUTXOs[ipk] = struct{}{}
+	}
+
+	// add outputs as spendable
+	for i, output := range tx.Outputs() {
+		op := Outpoint{
+			PreviousTx: txid,
+			Index:      uint8(i),
+		}
+		opk := op.Key()
+		s.newUTXOs[opk] = output
+	}
+
+	// add to backlog
+	s.TXs = append(s.TXs, tx)
+	s.size += tx.Size()
+}
+
 func (s *SpendingState) AcceptedTransactions() []*Transaction {
-	return s.txs
+	return s.TXs
 }
 
 func (s *SpendingState) SpentUTXOs() []OutpointKey {
-	spent := make([]OutpointKey, 0, len(s.spent))
-	for k := range s.spent {
+	spent := make([]OutpointKey, 0, len(s.spentUTXOs))
+	for k := range s.spentUTXOs {
 		spent = append(spent, k)
 	}
 	return spent

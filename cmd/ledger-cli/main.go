@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"math/rand"
+	"time"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
@@ -231,28 +232,42 @@ func (s *simulator) genOutputs(wallet *wallet) ([]ledger.TransactionOutput, map[
 	return outputs, utxos, nil
 }
 
-func (s *simulator) submit(tx ledger.Transaction, prevOutputs []ledger.TransactionOutput, wallet *wallet, height uint64) (uint64, error) {
+func (s *simulator) submit(tx ledger.Transaction, prevOutputs []ledger.TransactionOutput, wallet *wallet) error {
 	ctx := context.Background()
 
 	s.l.Info("sending transaction to ledgerd...")
 	_, err := s.grpcClient.PostTransaction(ctx, &ccmsg.PostTransactionRequest{Tx: tx})
 	if err != nil {
-		return height, errors.Wrap(err, "failed to post transaction")
+		return errors.Wrap(err, "failed to post transaction")
 	}
 	s.l.Info("block got accepted")
 
-	resp, err := s.grpcClient.GetBlocks(ctx, &ccmsg.GetBlocksRequest{
-		StartDepth: height,
-		Limit:      50,
-	})
-	if err != nil {
-		return height, errors.Wrap(err, "failed to get blocks")
+	return nil
+}
+
+func (s *simulator) pollBlock(height uint64) (uint64, error) {
+	ctx := context.Background()
+
+	for {
+		s.l.Info("polling for new block")
+		resp, err := s.grpcClient.GetBlocks(ctx, &ccmsg.GetBlocksRequest{
+			StartDepth: height,
+			Limit:      50,
+		})
+		if err != nil {
+			return height, errors.Wrap(err, "failed to get blocks")
+		}
+
+		blocks := uint64(len(resp.Blocks))
+		height = height + blocks
+		s.l.Info("current blocks height: ", height)
+
+		if blocks > 0 {
+			return height, nil
+		}
+
+		time.Sleep(2 * time.Second)
 	}
-
-	height = height + uint64(len(resp.Blocks))
-	s.l.Info("current blocks height: ", height)
-
-	return height, nil
 }
 
 func (s *simulator) run(rounds int) error {
@@ -300,11 +315,18 @@ func (s *simulator) run(rounds int) error {
 				s.wallets[key].addUTXO(utxo)
 			}
 
-			height, err = s.submit(tx, prevOutputs, wallet, height)
+			err = s.submit(tx, prevOutputs, wallet)
 			if err != nil {
 				return err
 			}
 		}
+
+		var err error
+		height, err = s.pollBlock(height)
+		if err != nil {
+			return err
+		}
+
 		s.l.Infof("ending round: %d/%d", i, rounds)
 	}
 

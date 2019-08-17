@@ -87,7 +87,7 @@ func (m *LedgerMiner) InitGenesisBlock(ctx context.Context, totalCoins uint32) (
 	return m.ApplyBlock(ctx, block, []ledger.OutpointKey{})
 }
 
-func (m *LedgerMiner) BuildBlock(ctx context.Context) (*ledger.Block, error) {
+func (m *LedgerMiner) GenerateBlock(ctx context.Context) (*ledger.Block, error) {
 	state := ledger.NewSpendingState()
 
 	mempoolTXs, err := models.MempoolTransactions().All(ctx, m.db)
@@ -95,44 +95,26 @@ func (m *LedgerMiner) BuildBlock(ctx context.Context) (*ledger.Block, error) {
 		return nil, err
 	}
 
-	if len(mempoolTXs) == 0 {
-		// no pending transactions
-		return nil, nil
-	}
-
-	for _, txRow := range mempoolTXs {
-		tx := ledger.Transaction{}
-		err := tx.Unmarshal(txRow.Raw)
+	modified := true
+	for modified {
+		mempoolTXs, modified, err = m.FillBlock(ctx, state, mempoolTXs)
 		if err != nil {
-			return nil, errors.New("found invalid transaction in mempool")
+			return nil, errors.Wrap(err, "failed to fill block")
 		}
-
-		err = m.ValidateTX(ctx, tx)
-		if err != nil {
-			m.l.Info("failed to validate tx, skipping: ", err)
-			continue
-		}
-
-		// try to add tx into block
-		err = state.AddTx(&tx)
-		if err != nil {
-			m.l.Warn("failed to add tx to block, possibly conflicts with other tx: ", err)
-		}
-
-		// XXX: if the block is almost full we're going to loop through all remaining transactions regardless
 	}
 
 	// TODO: start postgres transaction
 	txs := state.AcceptedTransactions()
 	m.l.Info("accepted txs into this block: ", len(txs))
+	if len(txs) == 0 {
+		return nil, nil
+	}
 
-	_, sigKey, err := ed25519.GenerateKey(nil)
 	previousBlock := ledger.BlockID{}
-
-	_ = err
+	copy(previousBlock[:], m.CurrentBlock.BlockID)
 
 	// write new block
-	block, err := ledger.NewBlock(sigKey, previousBlock, txs)
+	block, err := ledger.NewBlock(m.kp.PrivateKey, previousBlock, txs)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create block")
 	}
@@ -140,22 +122,51 @@ func (m *LedgerMiner) BuildBlock(ctx context.Context) (*ledger.Block, error) {
 	return m.ApplyBlock(ctx, block, state.SpentUTXOs())
 }
 
-func (m *LedgerMiner) ValidateTX(ctx context.Context, tx ledger.Transaction) error {
-	// validate there are enough inputs for the output amount
-	err := m.validateInputOutputSums(ctx, tx)
-	if err != nil {
-		return errors.Wrap(err, "failed to validate input and output sums")
+func (m *LedgerMiner) FillBlock(ctx context.Context, state *ledger.SpendingState, mempoolTXs []*models.MempoolTransaction) ([]*models.MempoolTransaction, bool, error) {
+	if len(mempoolTXs) == 0 {
+		// no pending transactions
+		m.l.Debug("no pending transactions in mempool")
+		return nil, false, nil
+	}
+	m.l.Debug("found transactions in mempool: ", len(mempoolTXs))
+
+	unaccepted := []*models.MempoolTransaction{}
+	modified := false
+	for _, txRow := range mempoolTXs {
+		tx := ledger.Transaction{}
+		err := tx.Unmarshal(txRow.Raw)
+		if err != nil {
+			return nil, false, errors.New("found invalid transaction in mempool")
+		}
+
+		err = m.ValidateTX(ctx, tx, state)
+		if err != nil {
+			m.l.Info("failed to validate tx, skipping: ", err)
+			unaccepted = append(unaccepted, txRow)
+			continue
+		}
+
+		// try to add tx into block
+		err = state.AddTx(&tx)
+		if err != nil {
+			m.l.Warn("failed to add tx to block, possibly conflicts with other tx: ", err)
+			unaccepted = append(unaccepted, txRow)
+			continue
+		}
+
+		m.l.Info("added tx to block", tx)
+		modified = true
+		// XXX: if the block is almost full we're going to loop through all remaining transactions regardless
 	}
 
-	// verify all inputs are unspent
-	var prevOuts []*models.Utxo
-	for _, inpoint := range tx.Inpoints() {
-		utxo, err := m.GetUtxo(ctx, inpoint.Key())
-		if err != nil {
-			return errors.Wrap(err, "failed to get utxo, input probably already spent")
-		}
-		// input sum and output sum is already verified at this point
-		prevOuts = append(prevOuts, utxo)
+	return unaccepted, modified, nil
+}
+
+func (m *LedgerMiner) ValidateTX(ctx context.Context, tx ledger.Transaction, state *ledger.SpendingState) error {
+	// validate there are enough inputs for the output amount
+	prevOuts, err := m.validateInputOutputSums(ctx, tx, state)
+	if err != nil {
+		return errors.Wrap(err, "failed to validate input and output sums")
 	}
 
 	// Check that all script pairs execute correctly.
@@ -166,7 +177,7 @@ func (m *LedgerMiner) ValidateTX(ctx context.Context, tx ledger.Transaction) err
 			return errors.Wrap(err, "failed to parse input script")
 		}
 
-		outScr, err := txscript.ParseScript(prevOuts[i].ScriptPubkey)
+		outScr, err := txscript.ParseScript(prevOuts[i].ScriptPubKey)
 		if err != nil {
 			return errors.Wrap(err, "failed to parse output script")
 		}
@@ -179,20 +190,40 @@ func (m *LedgerMiner) ValidateTX(ctx context.Context, tx ledger.Transaction) err
 	return nil
 }
 
-func (m *LedgerMiner) GetUtxo(ctx context.Context, outpoint ledger.OutpointKey) (*models.Utxo, error) {
-	txid := outpoint[:32]
-	output_idx := outpoint[32]
+func (m *LedgerMiner) GetUtxo(ctx context.Context, outpoint ledger.OutpointKey, state *ledger.SpendingState) (*ledger.TransactionOutput, error) {
+	// check spending state first
+	utxo := state.NewUnspent(outpoint)
+	if utxo != nil {
+		return utxo, nil
+	}
 
-	m.l.Debugf("fetching utxo from database, txid: %v, output_idx: %v", txid, output_idx)
-	utxo, err := models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid}, output_idx)).One(ctx, m.db)
+	// fall back to database afterwards
+	txid := outpoint[:32]
+	outputIdx := outpoint[32]
+
+	m.l.Debugf("fetching utxo from database, txid: %v, output_idx: %v", txid, outputIdx)
+	model, err := models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid}, outputIdx)).One(ctx, m.db)
 	if err != nil {
 		return nil, err
 	}
 
-	return utxo, nil
+	return &ledger.TransactionOutput{
+		Value:        uint32(model.Value),
+		ScriptPubKey: model.ScriptPubkey,
+	}, nil
 }
 
 func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spentUtxos []ledger.OutpointKey) (*ledger.Block, error) {
+	var err error
+
+	block.Header.MerkleRoot, err = block.MerkleRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate MerkleRoot")
+	}
+
+	// TODO: sign actual data
+	block.Header.Signature = ed25519.Sign(m.kp.PrivateKey, []byte{})
+
 	// TODO: use a transaction, if something in here fails, revert
 	blockBytes, err := block.Marshal()
 	if err != nil {
@@ -219,18 +250,6 @@ func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spent
 	err = blockModel.Insert(ctx, m.db, boil.Infer())
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to insert new block to database")
-	}
-
-	// mark utxos as spent
-	m.l.Info("marking utxos as spent")
-	for _, outpoint := range spentUtxos {
-		txid := types.BytesArray{0: outpoint[:32]}
-		outputIdx := outpoint[32]
-
-		_, err = models.Utxos(qm.Where("txid=? and output_idx=?", txid, outputIdx)).DeleteAll(ctx, m.db)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to remove spent UTXOs")
-		}
 	}
 
 	for _, tx := range block.Transactions {
@@ -264,6 +283,18 @@ func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spent
 			if err != nil {
 				return nil, err
 			}
+		}
+	}
+
+	// mark utxos as spent
+	m.l.Info("marking utxos as spent")
+	for _, outpoint := range spentUtxos {
+		txid := types.BytesArray{0: outpoint[:32]}
+		outputIdx := outpoint[32]
+
+		_, err = models.Utxos(qm.Where("txid=? and output_idx=?", txid, outputIdx)).DeleteAll(ctx, m.db)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to remove spent UTXOs")
 		}
 	}
 
@@ -301,7 +332,8 @@ func safeAddU64(base, next uint64) (uint64, error) {
 
 // XXX: transactions that depend on outputs of transactions we haven't mined are rejected
 // TODO: if height is 0, accept genesis blocks with arbitrary outpus, else reject all genesis blocks
-func (m *LedgerMiner) validateInputOutputSums(ctx context.Context, tx ledger.Transaction) error {
+func (m *LedgerMiner) validateInputOutputSums(ctx context.Context, tx ledger.Transaction, state *ledger.SpendingState) ([]*ledger.TransactionOutput, error) {
+	var prevOuts []*ledger.TransactionOutput
 	inputSum := uint64(0)
 	outputSum := uint64(0)
 
@@ -309,38 +341,39 @@ func (m *LedgerMiner) validateInputOutputSums(ctx context.Context, tx ledger.Tra
 	case *ledger.TransferTransaction:
 		for _, input := range v.Inputs {
 			m.l.Info("verifying utxo: ", input.Key())
-			utxo, err := m.GetUtxo(ctx, input.Key())
+			utxo, err := m.GetUtxo(ctx, input.Key(), state)
 			if err != nil {
-				return errors.Wrap(err, "could not find utxo")
+				return nil, errors.Wrap(err, "failed to get utxo, input probably already spent")
 			}
 			inputSum += uint64(utxo.Value)
+			prevOuts = append(prevOuts, utxo)
 		}
 
 		for _, output := range v.Outputs {
 			var err error
 			outputSum, err = safeAddU64(outputSum, uint64(output.Value))
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		// XXX: there are no fees yet
 		if outputSum != inputSum {
-			return errors.New("output sum and input sum doesn't match")
+			return nil, errors.New("output sum and input sum doesn't match")
 		}
 	case *ledger.GenesisTransaction:
 		if m.CurrentBlock != nil {
-			return errors.New("only the first block can be a genesis block")
+			return nil, errors.New("only the first block can be a genesis block")
 		}
 	}
 
-	return nil
+	return prevOuts, nil
 }
 
 func (m *LedgerMiner) Run(ctx context.Context) {
 	for {
 		m.l.Debug("checking for new transactions in mempool")
-		block, err := m.BuildBlock(ctx)
+		block, err := m.GenerateBlock(ctx)
 		if err != nil {
 			m.l.Error("failed to create block: ", err)
 		} else if block != nil {
