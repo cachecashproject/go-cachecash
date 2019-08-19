@@ -84,7 +84,7 @@ var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 
 func newClientProtocolServer(l *logrus.Logger, conf *ConfigFile) (*clientProtocolServer, *grpcMetricsProxyServer, error) {
 	grpcServer := common.NewGRPCServer()
-	metricsServer := &grpcMetricsProxyServer{l: l, metrics: make(map[string]*metrics.Scrape)}
+	metricsServer := newGRPCMetricsProxyServer(l)
 	metrics.RegisterMetricsServer(grpcServer, metricsServer)
 	grpc_prometheus.Register(grpcServer)
 

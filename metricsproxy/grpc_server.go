@@ -21,14 +21,25 @@ import (
 type grpcMetricsProxyServer struct {
 	l *logrus.Logger
 	// cache pubkey -> protobuf of metrics
-	metrics map[string]*metrics.Scrape
+	metrics map[string]*scrapeStatus
 	lock    sync.Mutex
+	// incremented when polled
+	generation int64
+}
+
+type scrapeStatus struct {
+	generation int64
+	scrape     *metrics.Scrape
 }
 
 var _ metrics.MetricsServer = (*grpcMetricsProxyServer)(nil)
 
 // var _ prometheus.Collector = (*grpcMetricsProxyServer)(nil)
 var _ prometheus.Gatherer = (*grpcMetricsProxyServer)(nil)
+
+func newGRPCMetricsProxyServer(l *logrus.Logger) *grpcMetricsProxyServer {
+	return &grpcMetricsProxyServer{l: l, metrics: make(map[string]*scrapeStatus)}
+}
 
 // MetricsPoller collects metrics from caches and surfaces them to Prometheus
 // To minimise the attack area, complex processing is deferred to actual scrapes by prometheus.
@@ -82,7 +93,13 @@ func (s *grpcMetricsProxyServer) MetricsPoller(srv metrics.Metrics_MetricsPoller
 		func() {
 			s.lock.Lock()
 			defer s.lock.Unlock()
-			s.metrics[(string)(clientkey)] = scrape
+			status, ok := s.metrics[(string)(clientkey)]
+			if !ok {
+				status = &scrapeStatus{}
+				s.metrics[(string)(clientkey)] = status
+			}
+			status.generation = s.generation
+			status.scrape = scrape
 		}()
 	}
 }
@@ -90,26 +107,38 @@ func (s *grpcMetricsProxyServer) MetricsPoller(srv metrics.Metrics_MetricsPoller
 // func (s *grpcMetricsProxyServer) Collect(output chan<- prometheus.Metric) {
 func (s *grpcMetricsProxyServer) Gather() ([]*dto.MetricFamily, error) {
 	var result []*dto.MetricFamily
-	// Simple way to garbage collect disconnected clients; a generation counter
-	// or other means can be swapped in in future.
-	metrics := func() map[string]*metrics.Scrape {
+	generation := func() int64 {
 		s.lock.Lock()
 		defer s.lock.Unlock()
-		result := s.metrics
-		s.metrics = make(map[string]*metrics.Scrape)
-		return result
+		s.generation++
+		return s.generation - 1
 	}()
 
-	for clientkey, scrape := range metrics {
+	for clientkey, scrape := range s.metrics {
+		if generation-scrape.generation > 10 {
+			// Discard very old scrapes to save memory
+			// We could preserve the clientkey to report up=0 metrics
+			if func() bool {
+				s.lock.Lock()
+				defer s.lock.Unlock()
+				if generation-s.metrics[clientkey].generation <= 10 {
+					return false
+				}
+				delete(s.metrics, clientkey)
+				return true
+			}() {
+				continue
+			}
+		}
 		key := (ed25519.PublicKey)(clientkey)
 		hexkey := hex.EncodeToString([]byte(clientkey[:]))
 		labelname := "clientkey"
-		if !ed25519.Verify(key, scrape.Data, scrape.Signature) {
+		if !ed25519.Verify(key, scrape.scrape.Data, scrape.scrape.Signature) {
 			// incorrectly signed scrape.
 			// TODO: track this in a metric
 			continue
 		}
-		dec := expfmt.NewDecoder(bytes.NewBuffer(scrape.Data), expfmt.FmtProtoDelim)
+		dec := expfmt.NewDecoder(bytes.NewBuffer(scrape.scrape.Data), expfmt.FmtProtoDelim)
 		var err error
 		for {
 			d := dto.MetricFamily{}
@@ -123,6 +152,7 @@ func (s *grpcMetricsProxyServer) Gather() ([]*dto.MetricFamily, error) {
 			// TODO: build a whitelist of metric features (name-types, label characteristics)that we want to collect)
 			// TODO: consider rejecting caches not participating in the network
 			// add an enforced label identifying the client to all the things
+			// TODO: add an 'up' series for caches where is within 1? 2? of generation
 			for _, m := range d.Metric {
 				m.Label = append(m.Label, &dto.LabelPair{Name: &labelname, Value: &hexkey})
 			}
