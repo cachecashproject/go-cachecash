@@ -96,12 +96,12 @@ func (a *application) Shutdown(ctx context.Context) error {
 }
 
 type clientProtocolServer struct {
-	l          *logrus.Logger
-	conf       *ConfigFile
-	cache      *Cache
-	grpcServer *grpc.Server
-	httpServer *http.Server
-	quitCh     chan bool
+	l              *logrus.Logger
+	conf           *ConfigFile
+	cache          *Cache
+	grpcServer     *grpc.Server
+	httpServer     *http.Server
+	cancelFunction context.CancelFunc
 }
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
@@ -188,7 +188,7 @@ func (s *clientProtocolServer) Start() error {
 		}
 	}()
 
-	quit := make(chan bool, 1)
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		for {
 			stats := bootstrap.NewCacheStats()
@@ -211,7 +211,7 @@ func (s *clientProtocolServer) Start() error {
 
 			select {
 			// if a shutdown has been requested close the go channel
-			case <-quit:
+			case <-ctx.Done():
 				return
 			// after we waited for a shutdown request for x minutes, announce the cache again
 			case <-time.After(1 * time.Minute):
@@ -219,7 +219,7 @@ func (s *clientProtocolServer) Start() error {
 			}
 		}
 	}()
-	s.quitCh = quit
+	s.cancelFunction = cancel
 
 	s.l.Info("clientProtocolServer - Start - exit")
 	return nil
@@ -227,7 +227,7 @@ func (s *clientProtocolServer) Start() error {
 
 func (s *clientProtocolServer) Shutdown(ctx context.Context) error {
 	// stop announcing our cache
-	s.quitCh <- true
+	s.cancelFunction()
 
 	// TODO: Should use `GracefulStop` until context expires, and then fall back on `Stop`.
 	s.grpcServer.Stop()

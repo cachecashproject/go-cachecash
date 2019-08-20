@@ -82,12 +82,12 @@ func (a *application) Shutdown(ctx context.Context) error {
 }
 
 type publisherServer struct {
-	l          *logrus.Logger
-	conf       *ConfigFile
-	publisher  *ContentPublisher
-	grpcServer *grpc.Server
-	httpServer *http.Server
-	quitCh     chan bool
+	l              *logrus.Logger
+	conf           *ConfigFile
+	publisher      *ContentPublisher
+	grpcServer     *grpc.Server
+	httpServer     *http.Server
+	cancelFunction context.CancelFunc
 }
 
 var _ common.StarterShutdowner = (*publisherServer)(nil)
@@ -156,11 +156,9 @@ func (s *publisherServer) Start() error {
 		}
 	}()
 
-	quit := make(chan bool, 1)
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		for {
-			ctx := context.Background()
-
 			caches, err := bootstrapClient.FetchCaches(ctx)
 			if err != nil {
 				s.l.Error("Failed to fetch caches: ", err)
@@ -178,7 +176,7 @@ func (s *publisherServer) Start() error {
 
 			select {
 			// if a shutdown has been requested close the go channel
-			case <-quit:
+			case <-ctx.Done():
 				return
 			// after we waited for a shutdown request for x minutes, announce the cache again
 			case <-time.After(1 * time.Minute):
@@ -186,7 +184,7 @@ func (s *publisherServer) Start() error {
 			}
 		}
 	}()
-	s.quitCh = quit
+	s.cancelFunction = cancel
 
 	s.l.Info("publisherServer - Start - exit")
 	return nil
@@ -194,7 +192,7 @@ func (s *publisherServer) Start() error {
 
 func (s *publisherServer) Shutdown(ctx context.Context) error {
 	// stop fetching caches
-	s.quitCh <- true
+	s.cancelFunction()
 
 	// TODO: Should use `GracefulStop` until context expires, and then fall back on `Stop`.
 	s.grpcServer.Stop()

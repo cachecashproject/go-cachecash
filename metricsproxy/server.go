@@ -77,7 +77,6 @@ type clientProtocolServer struct {
 	l          *logrus.Logger
 	conf       *ConfigFile
 	grpcServer *grpc.Server
-	quitCh     chan bool
 }
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
@@ -109,19 +108,11 @@ func (s *clientProtocolServer) Start() error {
 			s.l.WithError(err).Error("failed to serve clientProtocolServer(grpc)")
 		}
 	}()
-
-	quit := make(chan bool, 1)
-	s.quitCh = quit
-
 	s.l.Info("clientProtocolServer - Start - exit")
 	return nil
 }
 
 func (s *clientProtocolServer) Shutdown(ctx context.Context) error {
-	// stop announcing our cache
-	s.quitCh <- true
-
-	// TODO: Should use `GracefulStop` until context expires, and then fall back on `Stop`.
 	s.grpcServer.Stop()
 
 	return nil
