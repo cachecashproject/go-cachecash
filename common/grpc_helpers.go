@@ -13,7 +13,7 @@ func GRPCDial(target string, insecure bool, opts ...grpc.DialOption) (*grpc.Clie
 		grpc.WithStreamInterceptor(grpc_prometheus.StreamClientInterceptor),
 		grpc.WithStatsHandler(&ocgrpc.ClientHandler{})},
 		opts...)
-	if insecure || true { // disabled until config is rolled out
+	if insecure {
 		opts = append(opts, grpc.WithInsecure())
 	}
 	return grpc.Dial(target, opts...)
