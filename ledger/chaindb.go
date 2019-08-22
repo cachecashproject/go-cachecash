@@ -183,7 +183,7 @@ func (cdb *simpleChainDatabase) Unspent(cc *ChainContext, op Outpoint) (bool, er
 	return unspent, nil
 }
 
-// TransactionValid determines whether a gievn transaction is valid at a particular place in the block-graph.
+// TransactionValid determines whether a given transaction is valid at a particular place in the block-graph.
 //
 // A transfer transaction is valid iff
 // - it is well-formed (has no obvious syntactic/validity issues);
