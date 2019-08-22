@@ -3,6 +3,7 @@ package ledger
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -91,10 +92,11 @@ func (transactions *Transactions) Size() int {
 type TxType uint8
 
 const (
-	TxTypeUnknown    TxType = 0x00 // Not valid in serialized transactions.
-	TxTypeTransfer   TxType = 0x01
-	TxTypeGenesis    TxType = 0x02
-	TxTypeEscrowOpen TxType = 0x03
+	TxTypeUnknown      TxType = 0x00 // Not valid in serialized transactions.
+	TxTypeTransfer     TxType = 0x01
+	TxTypeGenesis      TxType = 0x02
+	TxTypeGlobalConfig TxType = 0x03
+	TxTypeEscrowOpen   TxType = 0x10
 
 	// XXX: this is an arbitrary limit to prevent a panic in make()
 	MAX_INPUTS  = 512
@@ -180,6 +182,8 @@ func (tx *Transaction) UnmarshalFrom(data []byte) (int, error) {
 		tx.Body = &TransferTransaction{}
 	case TxTypeGenesis:
 		tx.Body = &GenesisTransaction{}
+	case TxTypeGlobalConfig:
+		tx.Body = &GlobalConfigTransaction{}
 	case TxTypeEscrowOpen:
 		tx.Body = &EscrowOpenTransaction{}
 	default:
@@ -784,4 +788,289 @@ func (tx *GenesisTransaction) TxOutputs() []TransactionOutput {
 
 func (tx *GenesisTransaction) TxWitnesses() []TransactionWitness {
 	return nil
+}
+
+// A GlobalConfigTransaction creates coins from thin air.  They are only valid in the genesis block (block 0).  Because
+// we do not have coinbase transactions, we need an explicit way to get coins into the system.
+type GlobalConfigTransaction struct {
+	// The changes described in this transaction become effective starting _after_ a block with the indicated height is
+	// mined.
+	//
+	// TODO: We should set both minimum and maximum deltas between this and the height of the block in which this
+	// transaction appears.  There will be a special case for the GlobalConfigTransaction that appears in the genesis
+	// block.
+	ActivationBlockHeight uint64
+
+	ScalarUpdates []GlobalConfigScalarUpdate
+
+	ListUpdates []GlobalConfigListUpdate
+
+	// SigPublicKey is a 32-byte Ed25519 public key.  Must be one of the keys listed in theGCP `GlobalConfigKeys`.
+	SigPublicKey []byte
+
+	// Signature is a 64-byte Ed25519 signature over the transaction produced by the private key corresponding to
+	// SigPublicKey.
+	Signature []byte
+}
+
+var _ TransactionBody = (*GlobalConfigTransaction)(nil)
+
+func (tx *GlobalConfigTransaction) Size() int {
+	n := 8 // ActivationBlockHeight
+
+	n += UvarintSize(uint64(len(tx.ScalarUpdates)))
+	for _, u := range tx.ScalarUpdates {
+		n += u.Size()
+	}
+
+	n += UvarintSize(uint64(len(tx.ListUpdates)))
+	for _, u := range tx.ListUpdates {
+		n += u.Size()
+	}
+
+	n += 96 // SigPublicKey and Signature
+
+	return n
+}
+
+func (tx *GlobalConfigTransaction) TxType() TxType {
+	return TxTypeGlobalConfig
+}
+
+func (tx *GlobalConfigTransaction) MarshalTo(data []byte) (int, error) {
+	var n int
+
+	binary.LittleEndian.PutUint64(data, tx.ActivationBlockHeight)
+	n += 8
+
+	n += binary.PutUvarint(data[n:], uint64(len(tx.ScalarUpdates)))
+	for _, u := range tx.ScalarUpdates {
+		ni, err := u.MarshalTo(data[n:])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to marshal GlobalConfigScalarUpdate")
+		}
+		n += ni
+	}
+
+	n += binary.PutUvarint(data[n:], uint64(len(tx.ListUpdates)))
+	for _, u := range tx.ListUpdates {
+		ni, err := u.MarshalTo(data[n:])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to marshal GlobalConfigListUpdate")
+		}
+		n += ni
+	}
+
+	// TODO: Do better length checking here, or (ideally) change struct member types.
+	n += copy(data[n:], tx.SigPublicKey)
+	n += copy(data[n:], tx.Signature)
+
+	return n, nil
+}
+
+func (tx *GlobalConfigTransaction) Unmarshal(data []byte) error {
+	_, err := tx.UnmarshalFrom(data)
+	return err
+}
+
+func (tx *GlobalConfigTransaction) UnmarshalFrom(data []byte) (int, error) {
+	var n int
+
+	tx.ActivationBlockHeight = binary.LittleEndian.Uint64(data[n:])
+	n += 8
+
+	scalarQty, ni := binary.Uvarint(data[n:])
+	n += ni
+	tx.ScalarUpdates = make([]GlobalConfigScalarUpdate, scalarQty)
+
+	for i := 0; i < len(tx.ScalarUpdates); i++ {
+		ni, err := tx.ScalarUpdates[i].UnmarshalFrom(data[n:])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to unmarshal GloalConfigScalarUpdate")
+		}
+		n += ni
+	}
+
+	listQty, ni := binary.Uvarint(data[n:])
+	n += ni
+	tx.ListUpdates = make([]GlobalConfigListUpdate, listQty)
+
+	for i := 0; i < len(tx.ListUpdates); i++ {
+		ni, err := tx.ListUpdates[i].UnmarshalFrom(data[n:])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to unmarshal GloalConfigListUpdate")
+		}
+		n += ni
+	}
+
+	if len(data) < (n + 96) {
+		// If this error is returned, it's likely due to a a bug in Size.
+		return 0, fmt.Errorf("unexpected remainder for SigPublicKey and Signature; %v byte(s) left, expected >=96", len(data)-n)
+	}
+	tx.SigPublicKey = data[n : n+32]
+	tx.Signature = data[n+32 : n+96]
+	n += 96
+
+	return n, nil
+}
+
+func (tx *GlobalConfigTransaction) Inpoints() []Outpoint {
+	return nil
+}
+
+func (tx *GlobalConfigTransaction) OutputCount() uint8 {
+	return 0
+}
+
+func (tx *GlobalConfigTransaction) TxInputs() []TransactionInput {
+	return nil
+}
+
+func (tx *GlobalConfigTransaction) TxOutputs() []TransactionOutput {
+	return nil
+}
+
+func (tx *GlobalConfigTransaction) TxWitnesses() []TransactionWitness {
+	return nil
+}
+
+// A GlobalConfigScalarUpdate indicates that the scalar gloal configuration parameter (GCP) Key has been set to Value.
+// An empty (zero-byte) value is semantically identical to a Key that does not exist, so an update to an empty Value is
+// equivalent to a deletion.  Values are opaque byte arrays.
+type GlobalConfigScalarUpdate struct {
+	Key   string
+	Value []byte
+}
+
+func (u *GlobalConfigScalarUpdate) Size() int {
+	var n int
+
+	n += UvarintSize(uint64(len(u.Key))) + len(u.Key)
+	n += UvarintSize(uint64(len(u.Value))) + len(u.Value)
+
+	return n
+}
+
+func (u *GlobalConfigScalarUpdate) MarshalTo(data []byte) (int, error) {
+	var n int
+
+	n += binary.PutUvarint(data[n:], uint64(len(u.Key)))
+	n += copy(data[n:], []byte(u.Key))
+
+	n += binary.PutUvarint(data[n:], uint64(len(u.Value)))
+	n += copy(data[n:], u.Value)
+
+	return n, nil
+}
+
+func (u *GlobalConfigScalarUpdate) UnmarshalFrom(data []byte) (int, error) {
+	var n int
+
+	keyLen, ni := binary.Uvarint(data[n:])
+	n += ni
+	u.Key = string(data[n : n+int(keyLen)])
+	n += int(keyLen)
+
+	valueLen, ni := binary.Uvarint(data[n:])
+	n += ni
+	u.Value = data[n : n+int(valueLen)]
+	n += int(valueLen)
+
+	return n, nil
+}
+
+// A GlobalConfigListUpdate describes changes to the list global configuration parameter (GCP) Key.  Deletions are
+// processed first, followed by insertions.  If a Key has not been previously set, it is treated as the empty list.
+// Individual list elements are opaque byte arrays.
+type GlobalConfigListUpdate struct {
+	Key string
+	// Deletions is a list of indices.  Its elements must be in increasing order; duplicates are not allowed.  The
+	// indices given refer to elements in the original list, before any of the deletions are processed.  For example, [0
+	// 1] would delete the first two elements, not the first and third.
+	Deletions []uint64
+	// Insertions is a list of (Index, Value) pairs.  The given Value is inserted before the list element with the given
+	// Index.  For example, an Index of 0 causes Value to be prepended to the list.  An Index equal to the length of the
+	// list causes Value to be appended.  Larger values of Index are not valid.  Duplicate Values are valid.
+	Insertions []GlobalConfigListInsertion
+}
+
+func (u *GlobalConfigListUpdate) Size() int {
+	var n int
+
+	n += UvarintSize(uint64(len(u.Key))) + len(u.Key)
+
+	n += UvarintSize(uint64(len(u.Deletions)))
+	for _, i := range u.Deletions {
+		n += UvarintSize(i)
+	}
+
+	n += UvarintSize(uint64(len(u.Insertions)))
+	for _, ins := range u.Insertions {
+		n += UvarintSize(ins.Index)
+		n += UvarintSize(uint64(len(ins.Value))) + len(ins.Value)
+	}
+
+	return n
+}
+
+func (u *GlobalConfigListUpdate) MarshalTo(data []byte) (int, error) {
+	var n int
+
+	n += binary.PutUvarint(data[n:], uint64(len(u.Key)))
+	n += copy(data[n:], []byte(u.Key))
+
+	n += binary.PutUvarint(data[n:], uint64(len(u.Deletions)))
+	for _, i := range u.Deletions {
+		n += binary.PutUvarint(data[n:], i)
+	}
+
+	n += binary.PutUvarint(data[n:], uint64(len(u.Insertions)))
+	for _, ins := range u.Insertions {
+		n += binary.PutUvarint(data[n:], ins.Index)
+
+		n += binary.PutUvarint(data[n:], uint64(len(ins.Value)))
+		n += copy(data[n:], ins.Value)
+	}
+
+	return n, nil
+}
+
+func (u *GlobalConfigListUpdate) UnmarshalFrom(data []byte) (int, error) {
+	var n int
+
+	keyLen, ni := binary.Uvarint(data[n:])
+	n += ni
+	u.Key = string(data[n : n+int(keyLen)])
+	n += int(keyLen)
+
+	delQty, ni := binary.Uvarint(data[n:])
+	n += ni
+	u.Deletions = make([]uint64, delQty)
+
+	for i := 0; i < len(u.Deletions); i++ {
+		u.Deletions[i], ni = binary.Uvarint(data[n:])
+		n += ni
+	}
+
+	insQty, ni := binary.Uvarint(data[n:])
+	n += ni
+	u.Insertions = make([]GlobalConfigListInsertion, insQty)
+
+	for i := 0; i < len(u.Insertions); i++ {
+		u.Insertions[i].Index, ni = binary.Uvarint(data[n:])
+		n += ni
+
+		valueLen, ni := binary.Uvarint(data[n:])
+		n += ni
+		u.Insertions[i].Value = data[n : n+int(valueLen)]
+		n += int(valueLen)
+	}
+
+	return n, nil
+}
+
+// A GlobalConfigListInsertion describes an insertion into a list global configuration parameter (GCP).
+type GlobalConfigListInsertion struct {
+	Index uint64
+	Value []byte
 }
