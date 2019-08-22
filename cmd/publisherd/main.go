@@ -27,8 +27,11 @@ var (
 
 func loadConfigFile(l *logrus.Logger, path string) (*publisher.ConfigFile, error) {
 	conf := publisher.ConfigFile{}
-	p := common.NewConfigParser(l, "publisher")
-	err := p.ReadFile(path)
+	p, err := common.NewConfigParser(l, "publisher")
+	if err != nil {
+		return nil, err
+	}
+	err = p.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +43,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*publisher.ConfigFile, error
 
 	conf.UpstreamURL = p.GetString("upstream", "")
 	conf.Database = p.GetString("database", "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable")
+	conf.Insecure = p.GetInsecure()
 
 	return &conf, nil
 }
@@ -52,17 +56,18 @@ func mainC() error {
 	l := log.NewCLILogger("publisherd", log.CLIOpt{JSON: true})
 	flag.Parse()
 
-	if err := l.ConfigureLogger(); err != nil {
+	cf, err := loadConfigFile(&l.Logger, *configPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to load configuration file")
+	}
+
+	if err := l.ConfigureLogger(cf.Insecure); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash publisherd ", cachecash.CurrentVersion)
 
 	defer common.SetupTracing(*traceAPI, "cachecash-publisherd", &l.Logger).Flush()
 
-	cf, err := loadConfigFile(&l.Logger, *configPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to load configuration file")
-	}
 	kp, err := keypair.LoadOrGenerate(&l.Logger, *keypairPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to get keypair")

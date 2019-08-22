@@ -5,7 +5,8 @@
 ## Cloning the git repository
 
 This repository uses `git-lfs` for test data artifacts, among other things; you'll need to install it:
-```
+
+```bash
 # Ubuntu
 apt-get install git-lfs
 
@@ -20,12 +21,14 @@ Download from https://git-lfs.github.com/
 ```
 
 Next, clone the cachecash repo:
-```
+
+```bash
 git clone git@github.com:cachecashproject/go-cachecash.git "$(go env GOPATH)/src/github.com/cachecashproject/go-cachecash"
 ```
 
 And initialize git-lfs in that repo:
-```
+
+```bash
 cd "$(go env GOPATH)/src/github.com/cachecashproject/go-cachecash"
 git lfs install
 git lfs fetch
@@ -36,12 +39,14 @@ git lfs checkout
 
 The easiest way to get cachecash up and running is starting the test network with docker-compose. The first step is
 building all images:
-```
+
+```bash
 docker-compose build
 ```
 
 Next, bring up the network:
-```
+
+```bash
 docker-compose up
 ```
 
@@ -55,7 +60,7 @@ In this case we're going to use the `cachecash-curl` program at this publisher t
 
 The `-logLevel` option can be changed to control output verbosity for each program.
 
-```
+```bash
 make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug -trace http://localhost:14268 cachecash://localhost:7070/file0.bin
 diff output.bin testdata/content/file0.bin
 ```
@@ -67,25 +72,26 @@ diff output.bin testdata/content/file0.bin
 You will need a working Go toolchain.  We tend to stay on the latest stable version.
 
 You will also need some extra code generation tools:
-```
+
+```bash
 make dev-setup
 ```
 
 To generate source from proto files:
 
-```
+```bash
 make gen
 ```
 
 To generate documentation from the proto files:
 
-```
+```bash
 make gen-docs
 ```
 
 ## Running tests
 
-```
+```bash
 # Remove cached results.  (Should not normally be necessary, but can be useful while working on the test suite.)
 go clean -testcache
 
@@ -106,3 +112,9 @@ docker run --name db-hostname -p 5432:5432 -d -e POSTGRES_DB=dbname postgres:11
 PSQL_USER=postgres PSQL_SSLMODE=disable PSQL_HOST=localhost PSQL_DBNAME=dbname \
 go test -v -race -tags="external_test sqlboiler_test" ./path/to/test/...
 ```
+
+## Environment variables
+
+CACHECASH_INSECURE can be set for any binary to disable TLS checking against the
+bootstrap/publisher/observability endpoints. Protocol cryptography is still
+secure.

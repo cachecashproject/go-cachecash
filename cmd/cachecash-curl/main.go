@@ -32,7 +32,13 @@ func mainC() error {
 	l := log.NewCLILogger("cachecash-curl", log.CLIOpt{})
 	flag.Parse()
 
-	if err := l.ConfigureLogger(); err != nil {
+	p, err := common.NewConfigParser(&l.Logger, "cachecash-curl")
+	if err != nil {
+		return err
+	}
+	insecure := p.GetInsecure()
+
+	if err := l.ConfigureLogger(insecure); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 
@@ -75,7 +81,7 @@ func mainC() error {
 		}
 	}()
 
-	cl, err := client.New(&l.Logger, publisherAddr) // e.g. "localhost:7070"
+	cl, err := client.New(&l.Logger, publisherAddr, insecure) // e.g. "localhost:7070"
 	if err != nil {
 		return errors.Wrap(err, "failed to create client")
 	}

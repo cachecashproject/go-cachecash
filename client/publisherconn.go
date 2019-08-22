@@ -34,8 +34,8 @@ type publisherConnection interface {
 
 var _ publisherConnection = (*publisherGrpc)(nil)
 
-func newPublisherConnection(l *logrus.Logger, addr string) (*publisherGrpc, error) {
-	conn, err := common.GRPCDial(addr)
+func newPublisherConnection(l *logrus.Logger, addr string, insecure bool) (*publisherGrpc, error) {
+	conn, err := common.GRPCDial(addr, insecure)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial")
 	}

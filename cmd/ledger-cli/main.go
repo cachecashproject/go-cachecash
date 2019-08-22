@@ -23,6 +23,11 @@ func main() {
 
 func mainC() error {
 	l := logrus.New()
+	p, err := common.NewConfigParser(l, "ledger-cli")
+	if err != nil {
+		return err
+	}
+	insecure := p.GetInsecure()
 	ctx := context.Background()
 
 	txBytes := make([]byte, 8)
@@ -35,7 +40,7 @@ func mainC() error {
 
 	l.WithFields(logrus.Fields{"tx": txdata}).Info("generated new faux-transaction")
 
-	conn, err := common.GRPCDial(*ledgerAddr)
+	conn, err := common.GRPCDial(*ledgerAddr, insecure)
 	if err != nil {
 		return errors.Wrap(err, "failed to dial ledger service")
 	}

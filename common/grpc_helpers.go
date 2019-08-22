@@ -6,16 +6,17 @@ import (
 	"google.golang.org/grpc"
 )
 
-// XXX: No transport security!
 // GRPCDial creates a client connection to the given target.
-func GRPCDial(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	return grpc.Dial(target,
-		append([]grpc.DialOption{
-			grpc.WithUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
-			grpc.WithStreamInterceptor(grpc_prometheus.StreamClientInterceptor),
-			grpc.WithStatsHandler(&ocgrpc.ClientHandler{}),
-			grpc.WithInsecure()},
-			opts...)...)
+func GRPCDial(target string, insecure bool, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	opts = append([]grpc.DialOption{
+		grpc.WithUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
+		grpc.WithStreamInterceptor(grpc_prometheus.StreamClientInterceptor),
+		grpc.WithStatsHandler(&ocgrpc.ClientHandler{})},
+		opts...)
+	if insecure || true { // disabled until config is rolled out
+		opts = append(opts, grpc.WithInsecure())
+	}
+	return grpc.Dial(target, opts...)
 }
 
 func NewGRPCServer(opt ...grpc.ServerOption) *grpc.Server {

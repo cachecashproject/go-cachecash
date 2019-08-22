@@ -49,7 +49,8 @@ type chunkGroup struct {
 
 // What if one chunk is a member of multiple chunk-groups?
 type client struct {
-	l *logrus.Logger
+	l        *logrus.Logger
+	insecure bool
 
 	publicKey  ed25519.PublicKey
 	privateKey ed25519.PrivateKey
@@ -70,19 +71,20 @@ var _ Client = (*client)(nil)
 
 // New creates a new client connecting to the supplied publisher with a
 // lazy-connecting grpc client.
-func New(l *logrus.Logger, addr string) (Client, error) {
+func New(l *logrus.Logger, addr string, insecure bool) (Client, error) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate keypair")
 	}
 
-	pc, err := newPublisherConnection(l, addr)
+	pc, err := newPublisherConnection(l, addr, insecure)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to publisher")
 	}
 
 	return &client{
 		l:          l,
+		insecure:   insecure,
 		publicKey:  pub,
 		privateKey: priv,
 

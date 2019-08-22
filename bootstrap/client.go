@@ -17,10 +17,10 @@ type Client struct {
 	grpcClient ccmsg.NodeBootstrapdClient
 }
 
-func NewClient(l *logrus.Logger, addr string) (*Client, error) {
+func NewClient(l *logrus.Logger, addr string, insecure bool) (*Client, error) {
 	// XXX: Should not create a new connection for each attempt.
 	l.Info("dialing bootstrap service: ", addr)
-	conn, err := common.GRPCDial(addr)
+	conn, err := common.GRPCDial(addr, insecure)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial bootstrap service")
 	}

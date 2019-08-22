@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	c, err := log.NewClient("localhost:9005", "monkeys", "/tmp/1234", true, log.DefaultConfig())
+	c, err := log.NewClient("localhost:9005", "monkeys", "/tmp/1234", true, true, log.DefaultConfig())
 	if err != nil {
 		panic(err)
 	}

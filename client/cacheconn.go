@@ -66,7 +66,9 @@ type DownloadResult struct {
 var _ cacheConnection = (*cacheGrpc)(nil)
 
 func newCacheConnection(l *logrus.Logger, addr string, pubkey ed25519.PublicKey) (*cacheGrpc, error) {
-	conn, err := common.GRPCDial(addr)
+	// Cache security is currently delivered solely via the cachecash crypto
+	// guarantees. TLS certs will be added in future.
+	conn, err := common.GRPCDial(addr, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial")
 	}

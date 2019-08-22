@@ -68,6 +68,7 @@ type Cache struct {
 	Storage     *CacheStorage
 	StoragePath string
 	StartupTime time.Time
+	Config      *ConfigFile
 }
 
 func NewCache(l *logrus.Logger, db *sql.DB, cf *ConfigFile, kp *keypair.KeyPair) (*Cache, error) {
@@ -87,6 +88,7 @@ func NewCache(l *logrus.Logger, db *sql.DB, cf *ConfigFile, kp *keypair.KeyPair)
 		Storage:     s,
 		StoragePath: cf.BadgerDirectory,
 		StartupTime: time.Now(),
+		Config:      cf,
 	}, nil
 }
 
@@ -131,7 +133,7 @@ func (c *Cache) getChunk(ctx context.Context, escrowID common.EscrowID, objectID
 
 		// XXX: Should not create a new connection for each attempt.
 		c.l.Info("dialing publishers service: ", escrow.PublisherAddr())
-		conn, err := common.GRPCDial(escrow.PublisherAddr())
+		conn, err := common.GRPCDial(escrow.PublisherAddr(), c.Config.Insecure)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to dial")
 		}

@@ -24,8 +24,11 @@ var (
 
 func loadConfigFile(l *logrus.Logger, path string) (*ledgerservice.ConfigFile, error) {
 	conf := ledgerservice.ConfigFile{}
-	p := common.NewConfigParser(l, "ledger")
-	err := p.ReadFile(path)
+	p, err := common.NewConfigParser(l, "ledger")
+	if err != nil {
+		return nil, err
+	}
+	err = p.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -33,6 +36,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*ledgerservice.ConfigFile, e
 	conf.LedgerProtocolAddr = p.GetString("ledger_addr", ":8080")
 	conf.StatusAddr = p.GetString("status_addr", ":8100")
 	conf.Database = p.GetString("database", "host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable")
+	conf.Insecure = p.GetInsecure()
 
 	return &conf, nil
 }
@@ -45,17 +49,17 @@ func mainC() error {
 	l := log.NewCLILogger("ledgerd", log.CLIOpt{JSON: true})
 	flag.Parse()
 
-	if err := l.ConfigureLogger(); err != nil {
+	cf, err := loadConfigFile(&l.Logger, *configPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to load configuration file")
+	}
+
+	if err := l.ConfigureLogger(cf.Insecure); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash ledgerd ", cachecash.CurrentVersion)
 
 	defer common.SetupTracing(*traceAPI, "cachecash-ledgerd", &l.Logger).Flush()
-
-	cf, err := loadConfigFile(&l.Logger, *configPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to load configuration file")
-	}
 
 	db, err := sql.Open("postgres", cf.Database)
 	if err != nil {

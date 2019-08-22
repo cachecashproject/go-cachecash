@@ -27,6 +27,7 @@ type ConfigFile struct {
 	StatusAddr           string
 	BootstrapAddr        string
 	DefaultCacheDuration time.Duration
+	Insecure             bool
 
 	UpstreamURL string `json:"upstreamURL"`
 	Database    string `json:"database"`
@@ -137,7 +138,7 @@ func (s *publisherServer) Start() error {
 	}
 
 	// TODO: BootstrapAddr should be optional
-	bootstrapClient, err := bootstrap.NewClient(s.l, s.conf.BootstrapAddr)
+	bootstrapClient, err := bootstrap.NewClient(s.l, s.conf.BootstrapAddr, s.conf.Insecure)
 	if err != nil {
 		return errors.Wrap(err, "failed to create bootstrap client")
 	}

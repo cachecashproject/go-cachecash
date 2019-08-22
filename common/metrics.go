@@ -20,6 +20,7 @@ import (
 type MetricsPusher struct {
 	l        *logrus.Logger
 	endpoint string
+	insecure bool
 	kp       *keypair.KeyPair
 
 	client metrics.MetricsClient
@@ -27,8 +28,8 @@ type MetricsPusher struct {
 }
 
 // NewMetricsPusher creates a new MetricsPusher
-func NewMetricsPusher(l *logrus.Logger, endpoint string, kp *keypair.KeyPair) *MetricsPusher {
-	return &MetricsPusher{endpoint: endpoint, l: l, kp: kp}
+func NewMetricsPusher(l *logrus.Logger, endpoint string, insecure bool, kp *keypair.KeyPair) *MetricsPusher {
+	return &MetricsPusher{endpoint: endpoint, insecure: insecure, l: l, kp: kp}
 }
 
 // Start sending metrics
@@ -39,7 +40,7 @@ func (mp *MetricsPusher) Start() error {
 	mp.l.Infof("Pushing metrics to %s", mp.endpoint)
 	// Lazy dial - subconnections will reconnect over time; this will error
 	// synchronously if the endpoint is syntactically incorrect.
-	conn, err := GRPCDial(mp.endpoint)
+	conn, err := GRPCDial(mp.endpoint, mp.insecure)
 	if err != nil {
 		return errors.Wrap(err, "failed to dial metrics service")
 	}

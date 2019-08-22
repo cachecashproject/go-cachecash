@@ -39,7 +39,9 @@ func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, p
 		"addr": addr,
 	})
 	l.Info("dialing cache back")
-	conn, err := common.GRPCDial(addr)
+	// Cache security is currently delivered solely via the cachecash crypto
+	// guarantees. TLS certs will be added in future.
+	conn, err := common.GRPCDial(addr, true)
 	if err != nil {
 		l.Error("failed to dial cache address")
 		return errors.Wrap(err, "failed to dial cache address")

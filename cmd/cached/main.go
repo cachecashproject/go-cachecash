@@ -26,8 +26,11 @@ var (
 
 func loadConfigFile(l *logrus.Logger, path string) (*cache.ConfigFile, error) {
 	conf := cache.ConfigFile{}
-	p := common.NewConfigParser(l, "cache")
-	err := p.ReadFile(path)
+	p, err := common.NewConfigParser(l, "cache")
+	if err != nil {
+		return nil, err
+	}
+	err = p.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +44,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*cache.ConfigFile, error) {
 	conf.Database = p.GetString("database", "cache.db")
 	conf.ContactUrl = p.GetString("contact_url", "")
 	conf.MetricsEndpoint = p.GetString("metrics_endpoint", "")
+	conf.Insecure = p.GetInsecure()
 
 	return &conf, nil
 }
@@ -53,17 +57,18 @@ func mainC() error {
 	l := log.NewCLILogger("cached", log.CLIOpt{JSON: true})
 	flag.Parse()
 
-	if err := l.ConfigureLogger(); err != nil {
+	cf, err := loadConfigFile(&l.Logger, *configPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to load configuration file")
+	}
+
+	if err := l.ConfigureLogger(cf.Insecure); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash cached ", cachecash.CurrentVersion)
 
 	defer common.SetupTracing(*traceAPI, "cachecash-cached", &l.Logger).Flush()
 
-	cf, err := loadConfigFile(&l.Logger, *configPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to load configuration file")
-	}
 	kp, err := keypair.LoadOrGenerate(&l.Logger, *keypairPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to get keypair")

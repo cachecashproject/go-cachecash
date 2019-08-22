@@ -19,14 +19,18 @@ var (
 
 func loadConfigFile(l *logrus.Logger, path string) (*metricsproxy.ConfigFile, error) {
 	conf := metricsproxy.ConfigFile{}
-	p := common.NewConfigParser(l, "metrics-proxy")
-	err := p.ReadFile(path)
+	p, err := common.NewConfigParser(l, "metrics-proxy")
+	if err != nil {
+		return nil, err
+	}
+	err = p.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
 	conf.MetricsGRPCAddr = p.GetString("grpc_addr", ":8000")
 	conf.StatusAddr = p.GetString("status_addr", ":8100")
+	conf.Insecure = p.GetInsecure()
 
 	return &conf, nil
 }
@@ -39,17 +43,18 @@ func mainC() error {
 	l := log.NewCLILogger("metrics-proxy", log.CLIOpt{JSON: true})
 	flag.Parse()
 
-	if err := l.ConfigureLogger(); err != nil {
-		return errors.Wrap(err, "failed to configure logger")
-	}
-	l.Info("Starting CacheCash metrics proxy ", cachecash.CurrentVersion)
-
-	defer common.SetupTracing(*traceAPI, "cachecash-metrics proxy", &l.Logger).Flush()
-
 	cf, err := loadConfigFile(&l.Logger, *configPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
+
+	if err := l.ConfigureLogger(cf.Insecure); err != nil {
+		return errors.Wrap(err, "failed to configure logger")
+	}
+
+	l.Info("Starting CacheCash metrics proxy ", cachecash.CurrentVersion)
+
+	defer common.SetupTracing(*traceAPI, "cachecash-metrics proxy", &l.Logger).Flush()
 
 	app, err := metricsproxy.NewApplication(&l.Logger, cf)
 	if err != nil {

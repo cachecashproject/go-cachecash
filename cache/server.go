@@ -35,6 +35,7 @@ type ConfigFile struct {
 	Database        string `json:"database"`
 	ContactUrl      string `json:"contact_url"`
 	MetricsEndpoint string `json:"metrics_endpoint"`
+	Insecure        bool   `json:"insecure"`
 }
 
 type application struct {
@@ -59,7 +60,7 @@ func NewApplication(l *logrus.Logger, c *Cache, conf *ConfigFile, kp *keypair.Ke
 		return nil, errors.Wrap(err, "failed to create status server")
 	}
 
-	metricsPush := common.NewMetricsPusher(l, conf.MetricsEndpoint, kp)
+	metricsPush := common.NewMetricsPusher(l, conf.MetricsEndpoint, conf.Insecure, kp)
 
 	return &application{
 		l:                    l,
@@ -169,7 +170,7 @@ func (s *clientProtocolServer) Start() error {
 	}
 
 	// TODO: BootstrapAddr should be optional
-	bootstrapClient, err := bootstrap.NewClient(s.l, s.conf.BootstrapAddr)
+	bootstrapClient, err := bootstrap.NewClient(s.l, s.conf.BootstrapAddr, s.conf.Insecure)
 	if err != nil {
 		return errors.Wrap(err, "failed to create bootstrap client")
 	}

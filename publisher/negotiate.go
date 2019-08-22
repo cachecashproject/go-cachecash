@@ -127,7 +127,9 @@ func CreateEscrow(ctx context.Context, publisher *ContentPublisher, cacheDescrip
 func OfferEscrow(ctx context.Context, l *logrus.Logger, offerRequest *ccmsg.EscrowOfferRequest, descr *ccmsg.CacheDescription) (*ParticipatingCache, error) {
 	addr := addrFromCacheDescription(descr)
 	l.Info("Offering escrow to ", addr)
-	conn, err := common.GRPCDial(addr)
+	// Cache security is currently delivered solely via the cachecash crypto
+	// guarantees. TLS certs will be added in future.
+	conn, err := common.GRPCDial(addr, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to dial bootstrap service")
 	}

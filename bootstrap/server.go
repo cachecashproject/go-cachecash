@@ -23,6 +23,7 @@ type ConfigFile struct {
 	Database      string `json:"database"`
 	StatusAddr    string `json:"status_addr"`
 	ProxyProtocol bool   `json:"proxy_protocol"`
+	Insecure      bool   `json:"insecure"`
 }
 
 type application struct {

@@ -72,7 +72,7 @@ type Client struct {
 }
 
 // NewClient creates a new client.
-func NewClient(serverAddress, service, logDir string, debug bool, config *Config) (*Client, error) {
+func NewClient(serverAddress, service, logDir string, debug bool, insecure bool, config *Config) (*Client, error) {
 	if err := os.MkdirAll(logDir, 0700); err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func NewClient(serverAddress, service, logDir string, debug bool, config *Config
 	}
 
 	if c.config.DeliverLogs {
-		conn, err := common.GRPCDial(serverAddress)
+		conn, err := common.GRPCDial(serverAddress, insecure)
 		if err != nil {
 			return nil, err
 		}

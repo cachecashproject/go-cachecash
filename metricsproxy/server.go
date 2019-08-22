@@ -23,6 +23,7 @@ type Application interface {
 type ConfigFile struct {
 	MetricsGRPCAddr string
 	StatusAddr      string
+	Insecure        bool
 }
 
 type application struct {

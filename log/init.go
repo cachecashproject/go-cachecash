@@ -57,7 +57,10 @@ func NewCLILogger(serviceName string, opts CLIOpt) *LoggerConfig {
 }
 
 // ConfigureLogger configures logging from command line parameters.
-func (c *LoggerConfig) ConfigureLogger() error {
+// XXX insecure would perhaps be better grabbed from the ConfigParser directly,
+// but the patch introducing it was getting too large; deferring that for future
+// refactoring.
+func (c *LoggerConfig) ConfigureLogger(insecure bool) error {
 	l := &c.Logger
 	log.SetFlags(0)
 
@@ -69,7 +72,7 @@ func (c *LoggerConfig) ConfigureLogger() error {
 	l.SetReportCaller(c.LogCaller)
 
 	if c.LogAddress != "" {
-		client, err := NewClient(c.LogAddress, c.serviceName, c.LogSpoolDir, c.options.Debug, DefaultConfig())
+		client, err := NewClient(c.LogAddress, c.serviceName, c.LogSpoolDir, c.options.Debug, insecure, DefaultConfig())
 		if err != nil {
 			return err
 		}

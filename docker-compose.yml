@@ -5,6 +5,8 @@ services:
     image: cachecash/go-cachecash
     build: .
     command: logpiped -spooldir /var/spool/logpiped -esconfig /config/esconfig.json test
+    environment:
+    - CACHECASH_INSECURE=true
     ports:
     - 9005:9005
     volumes:
@@ -19,6 +21,7 @@ services:
     - 7778:7778  # Ledger service
     - 9091:8100  # Status
     environment:
+    - CACHECASH_INSECURE=true
     - LEDGER_DATABASE=host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable
 
   ledger-db:
@@ -75,6 +78,7 @@ services:
     # status
     - 8100:8100
     environment:
+    - CACHECASH_INSECURE=true
     - PUBLISHER_PUBLISHER_ADDR=publisher:7070
     - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
     - PUBLISHER_BOOTSTRAP_ADDR=bootstrapd:7777
@@ -93,6 +97,8 @@ services:
     image: cachecash/go-cachecash
     build: .
     command: bootstrapd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+    environment:
+    - CACHECASH_INSECURE=true
     ports:
     - 7777:7777
     # status
@@ -110,6 +116,7 @@ services:
     # status
     - 7100:9100
     environment:
+    - CACHECASH_INSECURE=true
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
@@ -125,6 +132,7 @@ services:
     # status
     - 7101:9100
     environment:
+    - CACHECASH_INSECURE=true
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
@@ -140,6 +148,7 @@ services:
     # status
     - 7102:9100
     environment:
+    - CACHECASH_INSECURE=true
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
@@ -154,6 +163,7 @@ services:
     - 9446:9443
     - 7103:9100
     environment:
+    - CACHECASH_INSECURE=true
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
@@ -169,6 +179,7 @@ services:
     # status
     - 7104:9100
     environment:
+    - CACHECASH_INSECURE=true
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
@@ -203,6 +214,8 @@ services:
     image: cachecash/go-cachecash
     build: .
     command: metrics-proxy -logLevel debug -trace http://jaeger:14268
+    environment:
+    - CACHECASH_INSECURE=true
     ports:
     - 8000:8000
     - 8102:8100

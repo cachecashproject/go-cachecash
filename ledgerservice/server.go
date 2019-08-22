@@ -24,6 +24,7 @@ type ConfigFile struct {
 
 	PrivateKey ed25519.PrivateKey `json:"privateKey"`
 	Database   string             `json:"database"`
+	Insecure   bool               `json:"insecure"`
 }
 
 // FillDefaults fills in defaults in the config file.

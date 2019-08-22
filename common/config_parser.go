@@ -13,17 +13,20 @@ type ConfigParser struct {
 	l *logrus.Logger
 }
 
-func NewConfigParser(l *logrus.Logger, prefix string) *ConfigParser {
+func NewConfigParser(l *logrus.Logger, prefix string) (*ConfigParser, error) {
 	v := viper.New()
 	v.SetConfigType("toml")
 
 	v.SetEnvPrefix(prefix)
 	v.AutomaticEnv()
+	if err := v.BindEnv("insecure", "CACHECASH_INSECURE"); err != nil {
+		return nil, err
+	}
 
 	return &ConfigParser{
 		v: v,
 		l: l,
-	}
+	}, nil
 }
 
 func (p *ConfigParser) ReadFile(path string) error {
@@ -55,4 +58,13 @@ func (p *ConfigParser) GetString(key string, fallback string) string {
 func (p *ConfigParser) GetInt64(key string, fallback int64) int64 {
 	p.v.SetDefault(key, fallback)
 	return p.v.GetInt64(key)
+}
+
+// GetInsecure returns the well known insecure setting, logging it for
+// diagnostics. Insecure disables TLS checking on
+// bootstrap/publisher/observability endpoints.
+func (p *ConfigParser) GetInsecure() bool {
+	insecure := p.GetBool("insecure", false)
+	p.l.Info("Insecure mode", insecure)
+	return insecure
 }
