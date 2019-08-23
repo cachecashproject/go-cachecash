@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"crypto"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -28,6 +30,8 @@ const (
 
 // Config is the configuration of the background logging services.
 type Config struct {
+	// ShowOurLogs determines whether or not to show our own diagnostic information.
+	ShowOurLogs bool
 	// DeliverLogs indicates whether or not logs should be delivered at all
 	DeliverLogs bool
 	// BackoffCap determines the maximum amount of time to wait in an backoff scenario.
@@ -41,6 +45,7 @@ type Config struct {
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
 	return &Config{
+		ShowOurLogs:        true,
 		DeliverLogs:        defaultDeliver,
 		BackoffCap:         defaultBackoffCap,
 		BackoffGranularity: defaultBackoffGranularity,
@@ -50,6 +55,8 @@ func DefaultConfig() *Config {
 
 // Client is a logging client that uses grpc to send a structured log.
 type Client struct {
+	kp *keypair.KeyPair
+
 	service string
 	logDir  string
 
@@ -72,7 +79,7 @@ type Client struct {
 }
 
 // NewClient creates a new client.
-func NewClient(serverAddress, service, logDir string, debug bool, insecure bool, config *Config) (*Client, error) {
+func NewClient(serverAddress, service, logDir string, debug, insecure bool, config *Config, kp *keypair.KeyPair) (*Client, error) {
 	if err := os.MkdirAll(logDir, 0700); err != nil {
 		return nil, err
 	}
@@ -82,10 +89,15 @@ func NewClient(serverAddress, service, logDir string, debug bool, insecure bool,
 		logDir:    logDir,
 		ourLogger: logrus.New(),
 		config:    config,
+		kp:        kp,
 	}
 
 	if debug {
 		c.ourLogger.SetLevel(logrus.DebugLevel)
+	}
+
+	if !config.ShowOurLogs {
+		c.ourLogger.SetOutput(ioutil.Discard)
 	}
 
 	if c.config.DeliverLogs {
@@ -277,6 +289,10 @@ func (c *Client) sendLog(ctx context.Context, p string) (retErr error) {
 
 	buf := make([]byte, 2*1024*1024)
 
+	if err := client.Send(&LogData{PubKey: c.kp.PublicKey}); err != nil {
+		return err
+	}
+
 	for {
 		n, err := f.Read(buf)
 		if err != nil {
@@ -289,7 +305,12 @@ func (c *Client) sendLog(ctx context.Context, p string) (retErr error) {
 			}
 		}
 
-		if err := client.Send(&LogData{Data: buf[:n]}); err != nil {
+		signature, err := c.kp.PrivateKey.Sign(nil, buf[:n], crypto.Hash(0))
+		if err != nil {
+			return err
+		}
+
+		if err := client.Send(&LogData{Signature: signature, Data: buf[:n]}); err != nil {
 			return err
 		}
 	}
@@ -299,6 +320,17 @@ func (c *Client) makeLog(takeLock bool) error {
 	if takeLock {
 		c.logLock.Lock()
 		defer c.logLock.Unlock()
+	}
+
+	if c.logFile != nil {
+		fi, err := c.logFile.Stat()
+		if err != nil {
+			return err
+		}
+		if fi.Size() == 0 {
+			// empty log; just return, we don't need to swap
+			return nil
+		}
 	}
 
 	f, err := ioutil.TempFile(c.logDir, "")
@@ -357,7 +389,7 @@ func (c *Client) Write(e *logrus.Entry) error {
 	defer c.logLock.Unlock()
 
 	if c.logFile == nil {
-		if err := c.makeLog(true); err != nil {
+		if err := c.makeLog(false); err != nil {
 			return err
 		}
 	}

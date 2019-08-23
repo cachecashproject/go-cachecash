@@ -38,7 +38,7 @@ func mainC() error {
 	}
 	insecure := p.GetInsecure()
 
-	if err := l.ConfigureLogger(insecure); err != nil {
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 

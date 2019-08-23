@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/client9/reopen"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -57,10 +58,10 @@ func NewCLILogger(serviceName string, opts CLIOpt) *LoggerConfig {
 }
 
 // ConfigureLogger configures logging from command line parameters.
-// XXX insecure would perhaps be better grabbed from the ConfigParser directly,
-// but the patch introducing it was getting too large; deferring that for future
-// refactoring.
-func (c *LoggerConfig) ConfigureLogger(insecure bool) error {
+func (c *LoggerConfig) ConfigureLogger() error {
+	// XXX insecure would perhaps be better grabbed from the ConfigParser directly,
+	// but the patch introducing it was getting too large; deferring that for future
+	// refactoring.
 	l := &c.Logger
 	log.SetFlags(0)
 
@@ -70,14 +71,6 @@ func (c *LoggerConfig) ConfigureLogger(insecure bool) error {
 	}
 	l.SetLevel(logLevel)
 	l.SetReportCaller(c.LogCaller)
-
-	if c.LogAddress != "" {
-		client, err := NewClient(c.LogAddress, c.serviceName, c.LogSpoolDir, c.options.Debug, insecure, DefaultConfig())
-		if err != nil {
-			return err
-		}
-		l.AddHook(NewHook(client))
-	}
 
 	if c.options.JSON {
 		l.SetFormatter(&logrus.JSONFormatter{})
@@ -104,6 +97,19 @@ func (c *LoggerConfig) ConfigureLogger(insecure bool) error {
 				}
 			}()
 		}
+	}
+
+	return nil
+}
+
+// Connect to a logpipe endpoint to accept logs remotely.
+func (c *LoggerConfig) Connect(insecure bool, kp *keypair.KeyPair) error {
+	if c.LogAddress != "" && kp != nil {
+		client, err := NewClient(c.LogAddress, c.serviceName, c.LogSpoolDir, c.options.Debug, insecure, DefaultConfig(), kp)
+		if err != nil {
+			return err
+		}
+		(&c.Logger).AddHook(NewHook(client))
 	}
 
 	return nil

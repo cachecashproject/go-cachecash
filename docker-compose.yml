@@ -13,10 +13,15 @@ services:
     - ./data/logpiped:/var/spool/logpiped
     - ./testdata/config:/config
 
+  kvstore-db:
+    image: postgres:11
+    environment:
+    - POSTGRES_DB=kvstore
+
   ledger:
     image: cachecash/go-cachecash
     build: .
-    command: ledgerd -logLevel debug -logAddress logpiped:9005
+    command: ledgerd -logLevel debug
     ports:
     - 7778:7778  # Ledger service
     - 9091:8100  # Status
@@ -71,7 +76,7 @@ services:
   publisher:
     image: cachecash/go-cachecash
     build: .
-    command: publisherd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+    command: publisherd -logLevel debug -trace http://jaeger:14268
     ports:
     - 7070:7070
     - 8043:8043
@@ -96,7 +101,7 @@ services:
   bootstrapd:
     image: cachecash/go-cachecash
     build: .
-    command: bootstrapd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+    command: bootstrapd -logLevel debug -trace http://jaeger:14268
     environment:
     - CACHECASH_INSECURE=true
     ports:

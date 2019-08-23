@@ -61,17 +61,17 @@ func mainC() error {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
 
-	if err := l.ConfigureLogger(cf.Insecure); err != nil {
+	kp, err := keypair.LoadOrGenerate(&l.Logger, *keypairPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to get keypair")
+	}
+
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash publisherd ", cachecash.CurrentVersion)
 
 	defer common.SetupTracing(*traceAPI, "cachecash-publisherd", &l.Logger).Flush()
-
-	kp, err := keypair.LoadOrGenerate(&l.Logger, *keypairPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to get keypair")
-	}
 
 	upstream, err := catalog.NewHTTPUpstream(&l.Logger, cf.UpstreamURL, cf.DefaultCacheDuration)
 	if err != nil {
