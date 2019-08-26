@@ -1,0 +1,62 @@
+syntax = "proto3";
+package ccmsg;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "common.proto";
+
+// ------------------------
+// Client<->Cache protocol
+// ------------------------
+
+service ClientCache {
+    rpc GetChunk(ClientCacheRequest) returns (ClientCacheResponseData) {}
+    rpc ExchangeTicketL1(ClientCacheRequest) returns (ClientCacheResponseL1) {}
+    rpc ExchangeTicketL2(ClientCacheRequest) returns (ClientCacheResponseL2) {}
+}
+
+// --- old-style messages below this line ---
+
+message ClientCacheRequest {
+    uint64 sequence_no = 8;
+
+    TicketBundleRemainder bundle_remainder = 1;
+
+    oneof ticket {
+        TicketRequest ticket_request = 5;
+        TicketL1 ticket_l1 = 6;
+        TicketL2Info ticket_l2 = 7;
+    }
+
+    // Together, these fields allow the cache to verify that the request is authorized.
+    TicketBundleSubdigests ticket_bundle_subdigests = 2;
+    BatchSignature bundle_sig = 3;
+    Certificate bundle_signer_cert = 4;
+
+}
+
+// XXX: Remove me!  This is not used over the wire; it's used only in the `cache` package.
+message ClientCacheResponse {
+    // Identifies the request that this message is a response to.
+    uint64 request_sequence_no = 1;
+
+    oneof msg {
+        Error error = 2;
+        ClientCacheResponseData data_response = 3;
+        ClientCacheResponseL1 l1_response = 4;
+        ClientCacheResponseL2 l2_response = 5;
+    }
+}
+
+message ClientCacheResponseData {
+    bytes data = 1;
+}
+
+message ClientCacheResponseL1 {
+    // contains the outer key
+    BlockKey outer_key = 1;
+}
+
+message ClientCacheResponseL2 {
+    // Deliberately empty (?)
+}
+

@@ -1,0 +1,38 @@
+syntax = "proto3";
+package ccmsg;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "common.proto";
+
+// ------------------------
+// Ledger protocol
+// ------------------------
+
+service Ledger {
+    rpc PostTransaction(PostTransactionRequest) returns (PostTransactionResponse) {}
+    rpc GetBlocks(GetBlocksRequest) returns (GetBlocksResponse) {}
+    // rpc GetTransactionStatus ?
+}
+
+message PostTransactionRequest {
+    bytes tx = 1 [
+        (gogoproto.nullable) = false,
+        (gogoproto.customtype) = "github.com/cachecashproject/go-cachecash/ledger.Transaction"
+    ];
+}
+
+message PostTransactionResponse {
+    Error error = 1;
+}
+
+message GetBlocksRequest {
+    uint64 start_depth = 1;
+    uint64 limit = 2;
+}
+
+message GetBlocksResponse {
+    bytes prev_block_id = 1;
+    repeated bytes block = 2;
+}
+
+// ------------------------

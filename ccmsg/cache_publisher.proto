@@ -1,0 +1,49 @@
+syntax = "proto3";
+package ccmsg;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "common.proto";
+
+// ------------------------
+// Cache<->Publisher protocol
+// ------------------------
+
+service CachePublisher {
+    rpc CacheMiss(CacheMissRequest) returns (CacheMissResponse) {}
+}
+
+// XXX: See similarities to ContentRequest.
+message CacheMissRequest {
+    // In chunks.
+    // XXX: This was formerly in bytes.  Was there a good reason for that?
+    uint64 range_begin = 2;
+    uint64 range_end = 3;
+
+    bytes object_id = 4;
+}
+
+message CacheMissResponse {
+    ObjectMetadata metadata = 1;
+    repeated Chunk chunks = 2;
+
+    // XXX: We probably need batch_sig and etc. once we want to use this as part of a proof-of-cheating.
+}
+
+message Chunk {
+    uint64 slot_idx = 1;
+
+    oneof source {
+        ChunkSourceHTTP http = 10;
+        ChunkSourceInline inline = 20;
+    }
+}
+
+message ChunkSourceHTTP {
+    string url = 1;
+    uint64 range_begin = 2;
+    uint64 range_end = 3;
+}
+
+message ChunkSourceInline {
+    repeated bytes chunk = 1;
+}
