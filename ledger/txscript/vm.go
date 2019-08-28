@@ -63,8 +63,17 @@ func ExecuteVerify(inScr, outScr *Script, witData [][]byte, tx SigHashable, txId
 
 	// XXX: This should be better-encapsulated.  These two values are consumed during the process where scriptSig is
 	// generated (which the VM knows to do because the address is a P2WPKH address).
+	keyHash, _ := vm.stack.PopBytes()
 	_, _ = vm.stack.PopBytes()
-	_, _ = vm.stack.PopBytes()
+
+	if len(witData) < 2 {
+		return errors.New("witness data is missing public key")
+	}
+
+	witnessKeyHash := Hash160Sum(witData[1])
+	if string(keyHash) != string(witnessKeyHash) {
+		return errors.New("incorrect public key in witness data")
+	}
 
 	vm.PushWitnessData(witData)
 	if err := vm.Execute(outScr); err != nil {

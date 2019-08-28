@@ -192,7 +192,7 @@ func (m *LedgerMiner) ValidateTX(ctx context.Context, tx ledger.Transaction, sta
 
 func (m *LedgerMiner) GetUtxo(ctx context.Context, outpoint ledger.OutpointKey, state *ledger.SpendingState) (*ledger.TransactionOutput, error) {
 	// check spending state first
-	utxo := state.NewUnspent(outpoint)
+	utxo := state.IsNewUnspent(outpoint)
 	if utxo != nil {
 		return utxo, nil
 	}
@@ -201,7 +201,10 @@ func (m *LedgerMiner) GetUtxo(ctx context.Context, outpoint ledger.OutpointKey, 
 	txid := outpoint[:32]
 	outputIdx := outpoint[32]
 
-	m.l.Debugf("fetching utxo from database, txid: %v, output_idx: %v", txid, outputIdx)
+	m.l.WithFields(logrus.Fields{
+		"txid":      txid,
+		"outputIdx": outputIdx,
+	}).Debugf("fetching utxo from database")
 	model, err := models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid}, outputIdx)).One(ctx, m.db)
 	if err != nil {
 		return nil, err
@@ -298,7 +301,7 @@ func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spent
 		}
 	}
 
-	// transaction completed, uptdating our struct
+	// transaction completed, updating our struct
 	m.CurrentBlock = blockModel
 
 	return block, nil

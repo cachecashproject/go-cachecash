@@ -56,7 +56,7 @@ func NewSpendingState() *SpendingState {
 	}
 }
 
-func (s *SpendingState) NewUnspent(key OutpointKey) *TransactionOutput {
+func (s *SpendingState) IsNewUnspent(key OutpointKey) *TransactionOutput {
 	utxo, ok := s.newUTXOs[key]
 	if ok {
 		return &utxo

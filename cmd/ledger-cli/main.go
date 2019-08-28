@@ -60,36 +60,6 @@ func getFirstGenesisTransaction(ctx context.Context, l *logrus.Logger, grpcClien
 	return &txid, block.Transactions[0].Outputs(), nil
 }
 
-func makeOutputScript(pubkey ed25519.PublicKey) ([]byte, error) {
-	pubKeyHash := txscript.Hash160Sum(pubkey)
-	scriptPubKey, err := txscript.MakeP2WPKHOutputScript(pubKeyHash)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create scriptPubKey")
-	}
-
-	scriptBytes, err := scriptPubKey.Marshal()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal output script")
-	}
-
-	return scriptBytes, nil
-}
-
-func makeInputScript(pubkey ed25519.PublicKey) ([]byte, error) {
-	pubKeyHash := txscript.Hash160Sum(pubkey)
-	scriptPubKey, err := txscript.MakeP2WPKHInputScript(pubKeyHash)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create scriptPubKey")
-	}
-
-	scriptBytes, err := scriptPubKey.Marshal()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal input script")
-	}
-
-	return scriptBytes, nil
-}
-
 type wallet struct {
 	l     *logrus.Logger
 	kp    *keypair.KeyPair
@@ -111,7 +81,7 @@ func (w *wallet) spendUtxos() ([]ledger.TransactionInput, []ledger.TransactionOu
 	for _, utxo := range w.utxos {
 		w.l.Info("spending utxo: ", utxo.value)
 
-		inputScriptBytes, err := makeOutputScript(w.kp.PublicKey)
+		inputScriptBytes, err := txscript.MakeOutputScript(w.kp.PublicKey)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to create output script")
 		}
@@ -210,7 +180,7 @@ func (s *simulator) genOutputs(wallet *wallet) ([]ledger.TransactionOutput, map[
 
 		s.l.Infof("sending %d coins to %v", amount, wallet)
 
-		outputScriptBytes, err := makeInputScript(wallet)
+		outputScriptBytes, err := txscript.MakeInputScript(wallet)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to create input script")
 		}
