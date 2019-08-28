@@ -22,7 +22,9 @@ type Application interface {
 	common.StarterShutdowner
 }
 
+// ConfigFile is the file the publisher is configured from.
 type ConfigFile struct {
+	Origin               string
 	GrpcAddr             string
 	StatusAddr           string
 	BootstrapAddr        string
@@ -43,8 +45,9 @@ type application struct {
 
 var _ Application = (*application)(nil)
 
-// XXX: Should this take p as an argument, or be responsible for setting it up?
+// NewApplication constructs a new publisher application.
 func NewApplication(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (Application, error) {
+	// XXX: Should this take p as an argument, or be responsible for setting it up?
 	publisherServer, err := newPublisherServer(l, p, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create publisher server")
@@ -99,7 +102,7 @@ func newPublisherServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile)
 	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcPublisherServer{publisher: p})
 	grpc_prometheus.Register(grpcServer)
 
-	httpServer := wrapGrpc(grpcServer)
+	httpServer := wrapGrpc(grpcServer, conf)
 
 	return &publisherServer{
 		l:          l,
@@ -110,8 +113,20 @@ func newPublisherServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile)
 	}, nil
 }
 
-func wrapGrpc(grpcServer *grpc.Server) *http.Server {
-	wrappedServer := grpcweb.WrapServer(grpcServer)
+func wrapGrpc(grpcServer *grpc.Server, conf *ConfigFile) *http.Server {
+	options := []grpcweb.Option{}
+
+	if conf.Origin != "" {
+		options = append(options, grpcweb.WithOriginFunc(func(origin string) bool {
+			return origin == conf.Origin
+		}))
+
+		options = append(options, grpcweb.WithWebsocketOriginFunc(func(r *http.Request) bool {
+			return r.Header.Get("Access-Control-Allow-Origin") == conf.Origin
+		}))
+	}
+
+	wrappedServer := grpcweb.WrapServer(grpcServer, options...)
 
 	handler := func(resp http.ResponseWriter, req *http.Request) {
 		wrappedServer.ServeHTTP(resp, req)

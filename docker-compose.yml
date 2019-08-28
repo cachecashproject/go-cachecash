@@ -86,6 +86,7 @@ services:
     - 8100:8100
     environment:
     - CACHECASH_INSECURE=true
+    - PUBLISHER_ORIGIN=cachecash.local
     - PUBLISHER_PUBLISHER_ADDR=publisher:7070
     - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
     - PUBLISHER_BOOTSTRAP_ADDR=bootstrapd:7777
