@@ -1,0 +1,61 @@
+syntax = "proto3";
+package ccmsg;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "common.proto";
+
+// ------------------------
+// Client<->Publisher protocol
+// ------------------------
+
+service ClientPublisher {
+    rpc GetContent(ContentRequest) returns (ContentResponse) {}
+}
+
+// Client-to-publisher
+message ContentRequest {
+    // TODO: This does not actually need to be repeated with each request, if we are using a connection-oriented
+    // transport.
+    PublicKey client_public_key  = 1;
+
+    string path = 2;
+
+    // In bytes; the publisher can map that to chunks however it pleases.  range_begin is inclusive and range_end is
+    // exclusive.  A value of zero for range_end means "the end of the object".
+    uint64 range_begin = 5;
+    uint64 range_end = 6;
+
+    uint64 sequence_no = 4; // XXX: I'm not sure that this is required.  It's a unique-per-client value fed into the keyed PRF used to derive inner keys.
+
+    message ClientCacheStatus {
+        uint64 backlog_depth = 1;
+        enum Status {
+            // No special information from the client about the cache
+            DEFAULT = 0;
+            // The client cannot use the cache, at this time we're not
+            // discriminating why but possible reasons include cannot establish
+            // TLS connections, routing failures, PMTUd black holes, or
+            // potentially some form of fraud detection (but thats hard!). The
+            // publisher cannot trust this enum to make value judgements about
+            // the cache, but must honour it as far as delivering service to the
+            // client.
+            UNUSABLE = 1;
+        }
+        Status status = 2;
+    }
+    // keyed by cache public key
+    map<string, ClientCacheStatus> cache_status = 7;
+
+}
+
+// Response to a ContentRequest.
+message ContentResponse {
+    // Identifies the request that this message is a response to.
+    uint64 request_sequence_no = 1;
+
+    // Exactly one of these fields may be present.
+    Error error = 2;
+    repeated TicketBundle bundles = 3;
+}
+
+

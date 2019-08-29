@@ -1,0 +1,59 @@
+syntax = "proto3";
+package ccmsg;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+// ------------------------
+// (Cache/Publisher)<->Bootstrapd protocol
+// ------------------------
+
+service NodeBootstrapd {
+    rpc AnnounceCache(CacheAnnounceRequest) returns (CacheAnnounceResponse) {}
+    rpc FetchCaches(CacheFetchRequest) returns (CacheFetchResponse) {}
+}
+
+message CacheAnnounceRequest {
+    // TODO: there's no proof the public_key belongs to us
+    bytes public_key = 1;
+    string version = 2;
+
+    uint64 free_memory = 3;
+    uint64 total_memory = 4;
+
+    uint64 free_disk = 5;
+    uint64 total_disk = 6;
+
+    int64 startup_time = 7;
+    string contact_url = 8;
+
+    uint32 port = 9;
+}
+
+message CacheAnnounceResponse {
+    // nothing in here
+}
+
+message CacheFetchRequest {
+    // nothing in here
+}
+
+message CacheDescription {
+    bytes public_key = 1;
+    string version = 2;
+
+    uint64 free_memory = 3;
+    uint64 total_memory = 4;
+
+    uint64 free_disk = 5;
+    uint64 total_disk = 6;
+
+    int64 startup_time = 7;
+    string contact_url = 8;
+
+    string external_ip = 9;
+    uint32 port = 10;
+}
+
+message CacheFetchResponse {
+    repeated CacheDescription caches = 1;
+}
