@@ -10,7 +10,7 @@ GIT_VERSION:=$(or \
 GEN_PROTO_DIRS=./ccmsg/... ./log/... ./metrics/...
 GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
 GEN_PROTO_FILE=${GEN_CONTAINER_DIR}/ccmsg/cachecash.proto 
-GEN_DOCKER=docker run -it -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} cachecash-gen
+GEN_DOCKER=docker run --rm -it -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} cachecash-gen
 
 .PHONY: dockerfiles clean lint lint-fix \
 	dev-setup gen gen-image gen-docs modules
