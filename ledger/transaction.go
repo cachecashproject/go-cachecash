@@ -103,6 +103,10 @@ const (
 	MAX_OUTPUTS = 512
 	// this limit is identical with bitcoin
 	MAX_FIELDLEN = 520
+
+	MAX_CONFIGS  = 128
+	MAX_KEYLEN   = 256
+	MAX_VALUELEN = 512
 )
 
 // In order to be used as a gogo/protobuf custom type, a struct must implement this interface...
@@ -875,15 +879,27 @@ func (tx *GlobalConfigTransaction) Unmarshal(data []byte) error {
 
 func (tx *GlobalConfigTransaction) UnmarshalFrom(data []byte) (int, error) {
 	var n int
+	if len(data[n:]) < 8 {
+		return 0, errors.New("failed to read ActivationBlockHeight")
+	}
 
 	tx.ActivationBlockHeight = binary.LittleEndian.Uint64(data[n:])
 	n += 8
 
 	scalarQty, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("failed to read scalarQty")
+	}
 	n += ni
+	if scalarQty > MAX_CONFIGS {
+		return 0, errors.New("scalarQty is exceeding maximum")
+	}
 	tx.ScalarUpdates = make([]GlobalConfigScalarUpdate, scalarQty)
 
 	for i := 0; i < len(tx.ScalarUpdates); i++ {
+		if len(data) <= n {
+			return 0, errors.New("scalar list is exceeding buffer size")
+		}
 		ni, err := tx.ScalarUpdates[i].UnmarshalFrom(data[n:])
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to unmarshal GloalConfigScalarUpdate")
@@ -892,10 +908,19 @@ func (tx *GlobalConfigTransaction) UnmarshalFrom(data []byte) (int, error) {
 	}
 
 	listQty, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("failed to read listQty")
+	}
 	n += ni
+	if listQty > MAX_CONFIGS {
+		return 0, errors.New("listQty is exceeding maximum")
+	}
 	tx.ListUpdates = make([]GlobalConfigListUpdate, listQty)
 
 	for i := 0; i < len(tx.ListUpdates); i++ {
+		if len(data) <= n {
+			return 0, errors.New("update list is exceeding buffer size")
+		}
 		ni, err := tx.ListUpdates[i].UnmarshalFrom(data[n:])
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to unmarshal GloalConfigListUpdate")
@@ -967,12 +992,30 @@ func (u *GlobalConfigScalarUpdate) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
 	keyLen, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("failed to read keyLen")
+	}
 	n += ni
+	if keyLen > MAX_KEYLEN {
+		return 0, errors.New("key length is exceeding maximum")
+	}
+	if len(data[n:]) < int(keyLen) {
+		return 0, errors.New("key length is exceeding buffer size")
+	}
 	u.Key = string(data[n : n+int(keyLen)])
 	n += int(keyLen)
 
 	valueLen, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("failed to read valueLen")
+	}
 	n += ni
+	if valueLen > MAX_VALUELEN {
+		return 0, errors.New("value length is exceeding maximum")
+	}
+	if len(data[n:]) < int(valueLen) {
+		return 0, errors.New("valueLen is exceeding buffer size")
+	}
 	u.Value = data[n : n+int(valueLen)]
 	n += int(valueLen)
 
@@ -1039,29 +1082,65 @@ func (u *GlobalConfigListUpdate) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
 	keyLen, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("failed to read keyLen")
+	}
 	n += ni
+	if keyLen > MAX_KEYLEN {
+		return 0, errors.New("keyLen is exceeding maximum")
+	}
+	if len(data[n:]) < int(keyLen) {
+		return 0, errors.New("keyLen is exceeding buffer size")
+	}
 	u.Key = string(data[n : n+int(keyLen)])
 	n += int(keyLen)
 
 	delQty, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("failed to read delQty")
+	}
 	n += ni
+	if delQty > MAX_CONFIGS {
+		return 0, errors.New("delQty is exceeding maximum")
+	}
 	u.Deletions = make([]uint64, delQty)
 
 	for i := 0; i < len(u.Deletions); i++ {
 		u.Deletions[i], ni = binary.Uvarint(data[n:])
+		if ni <= 0 {
+			return 0, errors.New("failed to read Deletion")
+		}
 		n += ni
 	}
 
 	insQty, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("failed to read insQty")
+	}
 	n += ni
+	if insQty > MAX_CONFIGS {
+		return 0, errors.New("insQty is exceeding maximum")
+	}
 	u.Insertions = make([]GlobalConfigListInsertion, insQty)
 
 	for i := 0; i < len(u.Insertions); i++ {
 		u.Insertions[i].Index, ni = binary.Uvarint(data[n:])
+		if ni <= 0 {
+			return 0, errors.New("failed to read Insertion")
+		}
 		n += ni
 
 		valueLen, ni := binary.Uvarint(data[n:])
+		if ni <= 0 {
+			return 0, errors.New("failed to read valueLen")
+		}
 		n += ni
+		if valueLen > MAX_VALUELEN {
+			return 0, errors.New("valueLen is exceeding maximum")
+		}
+		if len(data[n:]) < int(valueLen) {
+			return 0, errors.New("valueLen is exceeding buffer size")
+		}
 		u.Insertions[i].Value = data[n : n+int(valueLen)]
 		n += int(valueLen)
 	}
