@@ -2,7 +2,6 @@ package ledgerservice
 
 import (
 	"context"
-	"database/sql"
 	"encoding/hex"
 	"math"
 	"time"
@@ -15,34 +14,50 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/null"
-	"github.com/volatiletech/sqlboiler/boil"
-	"github.com/volatiletech/sqlboiler/queries/qm"
 	"github.com/volatiletech/sqlboiler/types"
 	"golang.org/x/crypto/ed25519"
 )
 
 type LedgerMiner struct {
-	l  *logrus.Logger
-	db *sql.DB
-	kp *keypair.KeyPair
+	l       *logrus.Logger
+	storage LedgerStorage
+	kp      *keypair.KeyPair
 
 	NewTxChan    chan struct{}
 	Interval     time.Duration
 	CurrentBlock *models.Block
 }
 
-func NewLedgerMiner(l *logrus.Logger, db *sql.DB, kp *keypair.KeyPair) (*LedgerMiner, error) {
+func NewLedgerMiner(l *logrus.Logger, storage LedgerStorage, kp *keypair.KeyPair) (*LedgerMiner, error) {
 	newTxChan := make(chan struct{}, 8)
 
 	m := &LedgerMiner{
-		l:  l,
-		db: db,
-		kp: kp,
+		l:       l,
+		storage: storage,
+		kp:      kp,
 
 		NewTxChan: newTxChan,
 	}
 
 	return m, nil
+}
+
+func (m *LedgerMiner) QueueTX(ctx context.Context, tx *ledger.Transaction) error {
+	txBytes, err := tx.Marshal()
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal tx into bytes")
+	}
+
+	txid, err := tx.TXID()
+	if err != nil {
+		return errors.Wrap(err, "failed to get txid")
+	}
+	txidBytes := types.BytesArray{0: txid[:]}
+
+	return m.storage.QueueTX(ctx, &models.MempoolTransaction{
+		Txid: txidBytes,
+		Raw:  txBytes,
+	})
 }
 
 func (m *LedgerMiner) InitGenesisBlock(ctx context.Context, totalCoins uint32) (*ledger.Block, error) {
@@ -90,7 +105,7 @@ func (m *LedgerMiner) InitGenesisBlock(ctx context.Context, totalCoins uint32) (
 func (m *LedgerMiner) GenerateBlock(ctx context.Context) (*ledger.Block, error) {
 	state := ledger.NewSpendingState()
 
-	mempoolTXs, err := models.MempoolTransactions().All(ctx, m.db)
+	mempoolTXs, err := m.storage.MempoolTXs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -198,14 +213,11 @@ func (m *LedgerMiner) GetUtxo(ctx context.Context, outpoint ledger.OutpointKey, 
 	}
 
 	// fall back to database afterwards
-	txid := outpoint[:32]
-	outputIdx := outpoint[32]
-
 	m.l.WithFields(logrus.Fields{
-		"txid":      txid,
-		"outputIdx": outputIdx,
+		"txid":      outpoint.TXID(),
+		"outputIdx": outpoint.Idx(),
 	}).Debugf("fetching utxo from database")
-	model, err := models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid}, outputIdx)).One(ctx, m.db)
+	model, err := m.storage.Utxo(ctx, outpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +262,7 @@ func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spent
 		"blockID": hex.EncodeToString(blockModel.BlockID),
 		"height":  blockModel.Height,
 	}).Info("adding block to database")
-	err = blockModel.Insert(ctx, m.db, boil.Infer())
+	err = m.storage.InsertBlock(ctx, blockModel)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to insert new block to database")
 	}
@@ -260,16 +272,15 @@ func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spent
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get txid from transaction")
 		}
-		dbTxID := types.BytesArray{0: txid[:]}
 
 		// delete transactions from mempool
-		_, err = models.MempoolTransactions(qm.Where("txid=?", dbTxID)).DeleteAll(ctx, m.db)
+		err = m.storage.DeleteMempoolTX(ctx, txid)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to remove executed TXs")
 		}
 
 		// update auditlog
-		_, err = models.TransactionAuditlogs(qm.Where("txid=?", dbTxID)).UpdateAll(ctx, m.db, models.M{"status": models.TransactionStatusMined})
+		err = m.storage.UpdateAuditLog(ctx, txid, models.TransactionStatusMined)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to update transaction status in audit log")
 		}
@@ -292,10 +303,7 @@ func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spent
 	// mark utxos as spent
 	m.l.Info("marking utxos as spent")
 	for _, outpoint := range spentUtxos {
-		txid := types.BytesArray{0: outpoint[:32]}
-		outputIdx := outpoint[32]
-
-		_, err = models.Utxos(qm.Where("txid=? and output_idx=?", txid, outputIdx)).DeleteAll(ctx, m.db)
+		err = m.storage.DeleteUtxo(ctx, outpoint)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to remove spent UTXOs")
 		}
@@ -311,13 +319,13 @@ func (m *LedgerMiner) AddOutputsToDatabase(ctx context.Context, txid ledger.TXID
 	for idx, output := range outputs {
 		dbTxID := types.BytesArray{0: txid[:]}
 
-		utxo := models.Utxo{
+		utxo := &models.Utxo{
 			Txid:         dbTxID,
 			OutputIdx:    idx,
 			Value:        int(output.Value), // TODO: review and/or fix type
 			ScriptPubkey: output.ScriptPubKey,
 		}
-		err := utxo.Insert(ctx, m.db, boil.Infer())
+		err := m.storage.InsertUtxo(ctx, utxo)
 		if err != nil {
 			return errors.Wrap(err, "Failed to insert new utxo to database")
 		}

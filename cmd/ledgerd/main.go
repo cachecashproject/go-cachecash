@@ -103,7 +103,8 @@ func mainC() error {
 
 	newTxChan := (*chan struct{})(nil)
 	if *mineBlocks {
-		lm, err := ledgerservice.NewLedgerMiner(&l.Logger, db, kp)
+		storage := ledgerservice.NewLedgerDatabase(db)
+		lm, err := ledgerservice.NewLedgerMiner(&l.Logger, storage, kp)
 		if err != nil {
 			return errors.Wrap(err, "failed to create ledger miner")
 		}

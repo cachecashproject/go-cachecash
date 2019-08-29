@@ -439,8 +439,6 @@ type Outpoint struct {
 	Index      uint8 // (of output in PreviousTx) // TODO: type
 }
 
-type OutpointKey [33]byte
-
 func (a Outpoint) Equal(b Outpoint) bool {
 	return a.PreviousTx.Equal(b.PreviousTx) && a.Index == b.Index
 }
@@ -450,6 +448,28 @@ func (o *Outpoint) Key() OutpointKey {
 	copy(k[:], o.PreviousTx[:])
 	k[32] = o.Index
 	return k
+}
+
+type OutpointKey [33]byte
+
+func NewOutpointKey(txid []byte, idx byte) (*OutpointKey, error) {
+	if len(txid) != 32 {
+		return nil, errors.New("txid has wrong length")
+	}
+
+	outpoint := OutpointKey{}
+	copy(outpoint[:], txid)
+	outpoint[32] = idx
+
+	return &outpoint, nil
+}
+
+func (o *OutpointKey) TXID() []byte {
+	return o[:32]
+}
+
+func (o *OutpointKey) Idx() byte {
+	return o[32]
 }
 
 type TransactionInput struct {
