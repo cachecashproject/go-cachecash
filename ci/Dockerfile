@@ -1,25 +1,8 @@
-# we use ubuntu 19.04 since it ships a fairly recent postgres
 # we can't use alpine for this because of a bug in -race on musl
-FROM ubuntu:19.04
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-	git \
-	wget \
+FROM cachecash/go-cachecash-build:latest
+RUN apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 	postgresql-client \
-	build-essential \
 	sqlite3
-
-ARG GO_VERSION=1.12.7
-RUN wget --quiet "https://dl.google.com/go/go$GO_VERSION.linux-amd64.tar.gz" \
-	&& echo "66d83bfb5a9ede000e33c6579a91a29e6b101829ad41fffb5c5bb6c900e109d9  go$GO_VERSION.linux-amd64.tar.gz" | sha256sum -c - \
-	&& tar -C /usr/local -xzf go$GO_VERSION.linux-amd64.tar.gz
-
-ENV GOPATH=/go PATH="/go/bin:$PATH:/usr/local/go/bin"
-RUN go get github.com/golangci/golangci-lint/cmd/golangci-lint
-RUN go get golang.org/x/tools/cmd/cover
-RUN go get github.com/mattn/goveralls
-RUN go get github.com/wadey/gocovmerge
-RUN go install $GOPATH/src/github.com/wadey/gocovmerge
-RUN go get github.com/rubenv/sql-migrate/...
 
 # # For once we switch to modules; ensure that golangci-lint is vendored first.
 # - go install -mod vendor github.com/golangci/golangci-lint/cmd/golangci-lint
