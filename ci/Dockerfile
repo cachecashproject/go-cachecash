@@ -15,6 +15,10 @@ RUN wget --quiet "https://dl.google.com/go/go$GO_VERSION.linux-amd64.tar.gz" \
 
 ENV GOPATH=/go PATH="/go/bin:$PATH:/usr/local/go/bin"
 RUN go get github.com/golangci/golangci-lint/cmd/golangci-lint
+RUN go get golang.org/x/tools/cmd/cover
+RUN go get github.com/mattn/goveralls
+RUN go get github.com/wadey/gocovmerge
+RUN go install $GOPATH/src/github.com/wadey/gocovmerge
 RUN go get github.com/rubenv/sql-migrate/...
 
 # # For once we switch to modules; ensure that golangci-lint is vendored first.

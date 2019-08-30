@@ -17,18 +17,30 @@ case "$BUILD_MODE" in
 		# each sqlboiler suite is in its own invocation to connect to a
 		# separate DB and DB server because the image forces PSQL
 		# endpoints today.
-		run_test ./...
-		run_test -tags=sqlboiler_test ./cache/...
-		run_test -tags=sqlboiler_test ./bootstrap/...
+		rm -f *.prof
+		run_test ./... --coverprofile=default.prof
+		run_test -tags=sqlboiler_test ./cache/... \
+			--coverprofile=cache.prof
+		run_test -tags=sqlboiler_test ./bootstrap/... \
+			--coverprofile=bootstrap.prof
 		PSQL_HOST=publisher-db PSQL_DBNAME=publisher \
-			run_test -tags=sqlboiler_test ./publisher/...
+			run_test -tags=sqlboiler_test ./publisher/... \
+			--coverprofile=publisher.prof
 		PSQL_HOST=ledger-db PSQL_DBNAME=ledger \
-			run_test -tags=sqlboiler_test ./ledgerservice/...
+			run_test -tags=sqlboiler_test ./ledgerservice/... \
+			--coverprofile=ledger.prof
 		PSQL_HOST=kvstore-test PSQL_DBNAME=kvstore \
-			run_test -tags "external_test sqlboiler_test" ./kv/...
+			run_test -tags "external_test sqlboiler_test" ./kv/... \
+			--coverprofile=kv.prof
 
 		# Linting is non-fatal right now.  See `.golangci.yml` for configuration.
-		time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --network=cachecash cachecash-ci golangci-lint run --deadline 5m
+		time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
+			--rm --network=cachecash cachecash-ci golangci-lint run --deadline 5m
+		time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
+			--rm cachecash-ci gocovmerge *.prof > coverage.out
+		time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
+			--rm cachecash-ci goveralls -coverprofile=coverage.out \
+			-service=travis-pro -repotoken "$COVERALLS_TOKEN"
 		;;
 	docker)
 		docker-compose build

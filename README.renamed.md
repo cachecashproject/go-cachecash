@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.com/cachecashproject/go-cachecash.svg?token=utLK2DGqpJaDNkKeJ4fh&branch=master)](https://travis-ci.com/cachecashproject/go-cachecash)
 
+[![Coverage Status](https://coveralls.io/repos/github/cachecashproject/go-cachecash/badge.svg?t=0cosgH)](https://coveralls.io/github/cachecashproject/go-cachecash)
+
 ## Cloning the git repository
 
 This repository uses `git-lfs` for test data artifacts, among other things; you'll need to install it:
