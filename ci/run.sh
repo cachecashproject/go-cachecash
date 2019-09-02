@@ -38,8 +38,12 @@ case "$BUILD_MODE" in
       --rm --network=cachecash cachecash-ci golangci-lint run --deadline 5m
     time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
       --rm cachecash-ci gocovmerge *.prof > coverage.out
+    # Disabled while we are working in the org repo: each dev branch shows as a
+    # separate project branch erroneously.
+    #  -e TRAVIS_BRANCH="$TRAVIS_BRANCH" \
     time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
-      --rm cachecash-ci goveralls -coverprofile=coverage.out \
+      --rm -e TRAVIS_JOB_ID="$TRAVIS_JOB_ID" \
+      cachecash-ci goveralls -coverprofile=coverage.out \
       -service=travis-pro -repotoken "$COVERALLS_TOKEN"
     ;;
   docker)
