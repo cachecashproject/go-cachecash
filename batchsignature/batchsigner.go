@@ -9,7 +9,17 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+// BatchSigner is a scalable message signing interface. Batch signatures include
+// the path and adjacent values from a merkle tree plus the root of the tree -
+// the batch residue. This permits that single message to be verified without
+// the rest of the batch, and for signing to have performed a single asymmetric
+// signing operation that signed all of the messages in the batch. Each signed
+// message receives its own distinct batch signature, as it has a unique batch
+// residue.
 type BatchSigner interface {
+	// BatchSign signs single message `d`. Implementations may block for
+	// (slightly) longer than a regular signing in order to batch up multiple
+	// signature requests.
 	BatchSign(d []byte) (*ccmsg.BatchSignature, error)
 }
 
@@ -19,7 +29,9 @@ type trivialBatchSigner struct {
 
 var _ BatchSigner = (*trivialBatchSigner)(nil)
 
-// NewTrivialBatchSigner returns a BatchSigner that individually signs each message as a single-element batch.
+// NewTrivialBatchSigner constructs a BatchSigner which signs messages using the
+// given private key. TrivialBatchSigner always uses a batch size of 1 (and so
+// never blocks to gather more items for the batch).
 func NewTrivialBatchSigner(signer ed25519.PrivateKey) (BatchSigner, error) {
 	return &trivialBatchSigner{signer: signer}, nil
 }
