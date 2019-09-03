@@ -114,6 +114,21 @@ services:
     volumes:
     - ./data/bootstrapd:/data
 
+  faucetd:
+    image: cachecash/go-cachecash
+    build: .
+    #command: faucetd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+    command: faucetd -logLevel debug -keypair /ledger/ledger.keypair.json
+    environment:
+    - CACHECASH_INSECURE=true
+    - FAUCET_LEDGER_ADDR=ledger:7778
+    ports:
+    - 7781:7781
+    volumes:
+    - ./data/faucetd:/data
+    # mount ledger keypair
+    - ./data/ledger:/ledger
+
   cache-0:
     image: cachecash/go-cachecash
     build: .

@@ -1,0 +1,3 @@
+[sqlite3]
+  dbname = "./wallet.db"
+  blacklist = ["migrations"]

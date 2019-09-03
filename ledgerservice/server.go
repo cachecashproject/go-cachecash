@@ -10,7 +10,6 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc"
 )
 
@@ -22,9 +21,8 @@ type ConfigFile struct {
 	LedgerProtocolAddr string
 	StatusAddr         string
 
-	PrivateKey ed25519.PrivateKey `json:"privateKey"`
-	Database   string             `json:"database"`
-	Insecure   bool               `json:"insecure"`
+	Database string `json:"database"`
+	Insecure bool   `json:"insecure"`
 }
 
 // FillDefaults fills in defaults in the config file.
