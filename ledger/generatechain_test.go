@@ -198,14 +198,14 @@ func (suite *GenerateChainTestSuite) testChainDatabase(blocks []*Block) {
 	assert.False(t, unspent)
 
 	// Test that GetTransaction fetches transactions correctly.
-	result, err := cdb.GetTransaction(ccEnd, txid)
+	tx, err = cdb.GetTransaction(ccEnd, txid)
 	assert.Nil(t, err)
-	assert.NotNil(t, result)
+	assert.NotNil(t, tx)
 
 	// Test what happens when GetTransaction does not find the transaction.
-	result, err = cdb.GetTransaction(ccEnd, mustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"))
+	tx, err = cdb.GetTransaction(ccEnd, mustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"))
 	assert.Nil(t, err)
-	assert.Nil(t, result)
+	assert.Nil(t, tx)
 
 	_ = cdb
 }

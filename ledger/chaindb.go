@@ -166,6 +166,7 @@ func (cdb *simpleChainDatabase) Unspent(cc *ChainContext, op Outpoint) (bool, er
 
 		for _, ip := range vtx.Inpoints() {
 			if op.Equal(ip) {
+				// we found the transaction but the input has been spent
 				found, unspent = true, false
 				return false, nil
 			}

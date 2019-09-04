@@ -15,7 +15,7 @@ GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
 GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto
 GEN_DOCKER=docker run --rm -it -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} ${BASE_IMAGE}
 
-.PHONY: dockerfiles clean lint lint-fix \
+.PHONY: dockerfiles clean lint lint-fix fuzz \
 	dev-setup gen gen-docs modules \
 	base-image pull-base-image push-base-image \
 	restart stop build start

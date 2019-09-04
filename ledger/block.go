@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+// BlockHeader of a block containing metadata and a signature
 type BlockHeader struct {
 	Version       uint32
 	PreviousBlock BlockID // CanonicalDigest of previous block (32 bytes)
@@ -22,11 +23,13 @@ type BlockHeader struct {
 	Signature []byte
 }
 
+// Block of the blockchain containing transactions
 type Block struct {
 	Header       *BlockHeader
 	Transactions []*Transaction
 }
 
+// NewBlock creates a new block containing the given transactions and sign it
 func NewBlock(sigKey ed25519.PrivateKey, previousBlock BlockID, txs []*Transaction) (*Block, error) {
 	b := &Block{
 		Header: &BlockHeader{
@@ -49,6 +52,7 @@ func NewBlock(sigKey ed25519.PrivateKey, previousBlock BlockID, txs []*Transacti
 	return b, nil
 }
 
+// Marshal the block into bytes
 func (block *Block) Marshal() ([]byte, error) {
 	s := block.Size()
 	data := make([]byte, s)
@@ -62,13 +66,14 @@ func (block *Block) Marshal() ([]byte, error) {
 	return data, nil
 }
 
+// Size of the marshalled block
 func (block *Block) Size() int {
 	var n int
 
 	n += 4
-	n += len(block.Header.PreviousBlock)
-	n += len(block.Header.MerkleRoot)
-	n += len(block.Header.Signature)
+	n += BlockIDSize           // len(block.Header.PreviousBlock)
+	n += 32                    // len(block.Header.MerkleRoot)
+	n += ed25519.SignatureSize // len(block.Header.Signature)
 	n += 4
 
 	for _, tx := range block.Transactions {
@@ -78,6 +83,7 @@ func (block *Block) Size() int {
 	return n
 }
 
+// MarshalTo marshals the block into a byte slice
 func (block *Block) MarshalTo(data []byte) (int, error) {
 	var n int
 
@@ -114,13 +120,13 @@ func (block *Block) MarshalTo(data []byte) (int, error) {
 	return n, nil
 }
 
+// Unmarshal a block from a byte slice
 func (block *Block) Unmarshal(data []byte) error {
 	_, err := block.UnmarshalFrom(data)
 	return err
 }
 
-// N.B.: This is not strictly required for the protobuf interface, but it's useful for test code to be able to tell how
-// many bytes were consumed.
+// UnmarshalFrom is strictly required for the protobuf interface and returns how many the bytes were consumed
 func (block *Block) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
@@ -180,6 +186,7 @@ func (block *Block) UnmarshalFrom(data []byte) (int, error) {
 	return n, nil
 }
 
+// BlockID of the block header
 func (block *Block) BlockID() BlockID {
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, block.Header.Version)
@@ -194,6 +201,7 @@ func (block *Block) BlockID() BlockID {
 	return BlockID(d)
 }
 
+// CanonicalDigest of the block header
 func (block *Block) CanonicalDigest() []byte {
 	var n int
 	buf := make([]byte, 4+len(block.Header.PreviousBlock)+len(block.Header.MerkleRoot)+4)
@@ -209,6 +217,7 @@ func (block *Block) CanonicalDigest() []byte {
 	return d[:]
 }
 
+// MerkleRoot  returns a hash of all transactions
 func (block *Block) MerkleRoot() ([]byte, error) {
 	txs := block.Transactions
 
