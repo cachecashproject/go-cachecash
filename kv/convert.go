@@ -44,18 +44,18 @@ func (c *Client) CreateUint64(key string, out uint64) ([]byte, error) {
 }
 
 // GetUint64 retrieves the marshaled data for key and then converts it to uint64.
-func (c *Client) GetUint64(key string) (uint64, error) {
-	out, err := c.driver.Get(c.member, key)
+func (c *Client) GetUint64(key string) (uint64, []byte, error) {
+	out, nonce, err := c.driver.Get(c.member, key)
 	if err != nil {
-		return 0, err
+		return 0, nonce, err
 	}
 
 	u, left := binary.Uvarint(out)
 	if left <= 0 {
-		return 0, ErrUnmarshal
+		return 0, nonce, ErrUnmarshal
 	}
 
-	return u, nil
+	return u, nonce, nil
 }
 
 // SetUint64 sets a uint64 to key.
@@ -94,18 +94,18 @@ func (c *Client) CreateInt64(key string, out int64) ([]byte, error) {
 }
 
 // GetInt64 retrieves the marshaled data for key and then converts it to int64.
-func (c *Client) GetInt64(key string) (int64, error) {
-	out, err := c.driver.Get(c.member, key)
+func (c *Client) GetInt64(key string) (int64, []byte, error) {
+	out, nonce, err := c.driver.Get(c.member, key)
 	if err != nil {
-		return 0, err
+		return 0, nonce, err
 	}
 
 	v, left := binary.Varint(out)
 	if left <= 0 {
-		return 0, ErrUnmarshal
+		return 0, nonce, ErrUnmarshal
 	}
 
-	return v, nil
+	return v, nonce, nil
 }
 
 // SetInt64 sets a int64 to key.
@@ -138,13 +138,13 @@ func (c *Client) CreateString(key, value string) ([]byte, error) {
 }
 
 // GetString retrieves the marshaled data for key and then converts it to string.
-func (c *Client) GetString(key string) (string, error) {
-	out, err := c.driver.Get(c.member, key)
+func (c *Client) GetString(key string) (string, []byte, error) {
+	out, nonce, err := c.driver.Get(c.member, key)
 	if err != nil {
-		return "", err
+		return "", nonce, err
 	}
 
-	return string(out), nil
+	return string(out), nonce, nil
 }
 
 // SetString sets a string to a key.
@@ -163,13 +163,13 @@ func (c *Client) CreateFloat64(key string, out float64) ([]byte, error) {
 }
 
 // GetFloat64 retrieves the marshaled data for key and then converts it to float64.
-func (c *Client) GetFloat64(key string) (float64, error) {
-	u, err := c.GetUint64(key)
+func (c *Client) GetFloat64(key string) (float64, []byte, error) {
+	u, nonce, err := c.GetUint64(key)
 	if err != nil {
-		return 0, err
+		return 0, nonce, err
 	}
 
-	return math.Float64frombits(u), nil
+	return math.Float64frombits(u), nonce, nil
 }
 
 // SetFloat64 sets a float64 to a key.

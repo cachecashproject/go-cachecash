@@ -47,20 +47,20 @@ func (db *DBDriver) reapTx(tx *sql.Tx) {
 }
 
 // tx free get
-func (db *DBDriver) get(tx *sql.Tx, member, key string) ([]byte, error) {
+func (db *DBDriver) get(tx *sql.Tx, member, key string) ([]byte, []byte, error) {
 	record, err := models.Kvstores(
 		models.KvstoreWhere.Member.EQ(member),
 		models.KvstoreWhere.Key.EQ(key),
 	).One(db.ctx, tx)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrUnsetValue
+			return nil, nil, ErrUnsetValue
 		}
 
-		return nil, err
+		return nil, nil, err
 	}
 
-	return []byte(record.Value), nil
+	return []byte(record.Value), record.Nonce, nil
 }
 
 // Delete removes a key. If a nonce is provided, it will be checked.
@@ -132,10 +132,10 @@ func (db *DBDriver) Create(member, key string, value []byte) ([]byte, error) {
 
 // Get retrieves an item from the store. Users must pass a pointer to the out
 // argument so it can be filled by json.Marshal.
-func (db *DBDriver) Get(member, key string) ([]byte, error) {
+func (db *DBDriver) Get(member, key string) ([]byte, []byte, error) {
 	tx, err := db.db.BeginTx(db.ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer db.reapTx(tx)
 
@@ -194,12 +194,14 @@ func (db *DBDriver) CAS(member, key string, nonce, origValue, value []byte) ([]b
 		models.KvstoreWhere.Value.EQ(origValue),
 		models.KvstoreWhere.Nonce.EQ(nonce),
 	).UpdateAll(db.ctx, tx, models.M{"value": value, "nonce": buf})
-
 	if err != nil {
 		return nil, err
 	}
 
 	if count == 0 {
+		if _, _, err := db.get(tx, member, key); err != nil {
+			return nil, err
+		}
 		return nil, ErrNotEqual
 	}
 

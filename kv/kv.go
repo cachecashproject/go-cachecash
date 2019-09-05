@@ -7,7 +7,7 @@ package kv
 type Driver interface {
 	Create(string, string, []byte) ([]byte, error)
 	Delete(string, string, []byte) error
-	Get(string, string) ([]byte, error)
+	Get(string, string) ([]byte, []byte, error)
 	Set(string, string, []byte) ([]byte, error)
 	CAS(string, string, []byte, []byte, []byte) ([]byte, error)
 }
@@ -29,9 +29,14 @@ func (c *Client) Delete(key string, nonce []byte) error {
 	return c.driver.Delete(c.member, key, nonce)
 }
 
+// CreateBytes creates a key for the k/v store as raw bytes.
+func (c *Client) CreateBytes(key string, value []byte) ([]byte, error) {
+	return c.driver.Create(c.member, key, value)
+}
+
 // GetBytes retrieves a key for the k/v store as marshaled data. The `out` argument
 // must be a non-nil byte array.
-func (c *Client) GetBytes(key string) ([]byte, error) {
+func (c *Client) GetBytes(key string) ([]byte, []byte, error) {
 	return c.driver.Get(c.member, key)
 }
 
