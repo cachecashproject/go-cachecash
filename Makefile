@@ -7,13 +7,18 @@ GIT_VERSION:=$(or \
 	$(shell printf "0.0.0.r%s.%s" "$(shell git rev-list --count HEAD)" "$(shell git rev-parse --short HEAD)") \
 )
 
+BASE_IMAGE=cachecash/go-cachecash-build:latest
+
 GEN_PROTO_DIRS=./ccmsg/... ./log/... ./metrics/...
 GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
-GEN_PROTO_FILE=${GEN_CONTAINER_DIR}/ccmsg/cachecash.proto 
-GEN_DOCKER=docker run --rm -it -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} cachecash-gen
+GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
+GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto
+GEN_DOCKER=docker run --rm -it -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} ${BASE_IMAGE}
 
 .PHONY: dockerfiles clean lint lint-fix \
-	dev-setup gen gen-image gen-docs modules
+	dev-setup gen gen-docs modules \
+	base-image pull-base-image push-base-image \
+	restart stop build start
 
 all:
 	GO111MODULE=on GOBIN=$(PREFIX)/bin go install -mod=vendor \
@@ -21,6 +26,17 @@ all:
 		-asmflags="all=-trimpath=${GOPATH}" \
 		-ldflags="-X github.com/cachecashproject/go-cachecash.CurrentVersion=$(GIT_VERSION)" \
 		./cmd/...
+
+restart: stop build start
+
+stop:
+	docker-compose rm -f
+
+build:
+	docker-compose build
+
+start: build
+	docker-compose up
 
 dockerfiles:
 	cat deploy/dockerfiles/autogen-warning.txt \
@@ -51,17 +67,23 @@ dev-setup:
 	go get -u github.com/volatiletech/sqlboiler-sqlite3/...
 	go get -u github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/...
 
-gen: gen-image
+base-image:
+	docker build --pull --no-cache -t cachecash/go-cachecash-build:latest -f Dockerfile.base .
+
+push-base-image: base-image
+	docker push cachecash/go-cachecash-build:latest
+
+pull-base-image:
+	docker pull cachecash/go-cachecash-build:latest
+
+gen: pull-base-image
 	$(GEN_DOCKER) \
 		go generate ${GEN_PROTO_DIRS}
 
-gen-docs:
+gen-docs: pull-base-image
 	mkdir -p docs-gen
 	$(GEN_DOCKER) \
-		protoc --doc_out=${GEN_CONTAINER_DIR}/docs-gen --doc_opt=html,index.html --proto_path=/go/src ${GEN_PROTO_FILE}
-
-gen-image:
-	docker build -t cachecash-gen -f Dockerfile.gen .
+		bash -c "protoc --doc_out=${GEN_CONTAINER_DIR}/docs-gen --doc_opt=html,index.html ${GEN_DOCS_FLAGS} -I. -I/go/src $$(eval echo ${GEN_PROTO_FILES})"
 
 modules:
 	GO111MODULE=on go mod tidy

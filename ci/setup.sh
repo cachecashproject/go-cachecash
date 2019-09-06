@@ -22,6 +22,16 @@ if ! git diff --quiet; then
 	exit 1
 fi
 
+# check the build image's dockerfile; if it's been altered, build it.
+if git diff --stat master..HEAD | head -n -1 | awk '{ print $1 }' | grep -q Dockerfile.base 
+then
+  make base-image
+else
+  make pull-base-image
+fi
+
+make build
+
 case "$BUILD_MODE" in
 	test)
 		docker network create cachecash --opt com.docker.network.bridge.enable_ip_masquerade=false || true

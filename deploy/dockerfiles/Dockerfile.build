@@ -4,7 +4,7 @@
 # --------------------
 # Build stage
 # --------------------
-FROM golang:1.12-stretch as build
+FROM cachecash/go-cachecash-build:latest as build
 WORKDIR $GOPATH/src/github.com/cachecashproject/go-cachecash
 COPY . .
 RUN make PREFIX=/artifacts all

@@ -24,7 +24,7 @@ for x in upstream{,-apache,-lighttpd,-caddy,-python}; do
 	diff -q output.bin testdata/content/file1.bin
 	echo "[+] Success"
 
-	time docker-compose down
+	time make stop
 done
 
 echo "[+] All tests finished successfully"

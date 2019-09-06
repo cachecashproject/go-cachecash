@@ -4,7 +4,7 @@
 # --------------------
 # Build stage
 # --------------------
-FROM golang:1.12-stretch as build
+FROM cachecash/go-cachecash-build:latest as build
 WORKDIR $GOPATH/src/github.com/cachecashproject/go-cachecash
 COPY . .
 RUN make PREFIX=/artifacts all
@@ -15,7 +15,7 @@ FROM docker.elastic.co/beats/filebeat:6.6.2 as filebeat
 # --------------------
 # Omnibus stage
 # --------------------
-FROM debian:stretch
+FROM debian:buster
 
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends logrotate cron runit sqlite3 ca-certificates \
