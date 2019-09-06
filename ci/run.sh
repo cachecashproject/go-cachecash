@@ -30,7 +30,7 @@ case "$BUILD_MODE" in
       run_test -tags=sqlboiler_test ./ledgerservice/... \
       --coverprofile=ledger.prof
     PSQL_HOST=kvstore-test PSQL_DBNAME=kvstore \
-      run_test -tags "external_test sqlboiler_test" ./kv/... \
+      run_test -p 1 -tags "external_test sqlboiler_test" ./kv/... \
       --coverprofile=kv.prof
 
     # Linting is non-fatal right now.  See `.golangci.yml` for configuration.

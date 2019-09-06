@@ -103,12 +103,11 @@ func (md *MemoryDriver) Delete(member, key string, nonce []byte) error {
 }
 
 // Get retrieves a value from the k/v store.
-func (md *MemoryDriver) Get(member, key string) ([]byte, error) {
+func (md *MemoryDriver) Get(member, key string) ([]byte, []byte, error) {
 	md.mutex.Lock()
 	defer md.mutex.Unlock()
 
-	value, _, err := md.get(member, key)
-	return value, err
+	return md.get(member, key)
 }
 
 // Set sets the value in the k/v store.
@@ -120,7 +119,7 @@ func (md *MemoryDriver) Set(member, key string, value []byte) ([]byte, error) {
 }
 
 // CAS implements compare-and-swap for the k/v store.
-func (md *MemoryDriver) CAS(member, key string, origSentinel, origValue, value []byte) ([]byte, error) {
+func (md *MemoryDriver) CAS(member, key string, origNonce, origValue, value []byte) ([]byte, error) {
 	md.mutex.Lock()
 	defer md.mutex.Unlock()
 
@@ -129,8 +128,8 @@ func (md *MemoryDriver) CAS(member, key string, origSentinel, origValue, value [
 		return nil, err
 	}
 
-	if !bytes.Equal(out, origValue) || !bytes.Equal(nonce, origSentinel) {
-		return nil, ErrNotEqual
+	if !bytes.Equal(out, origValue) || !bytes.Equal(nonce, origNonce) {
+		return nonce, ErrNotEqual
 	}
 
 	return md.set(member, key, false, value)

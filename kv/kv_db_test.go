@@ -90,13 +90,13 @@ func TestDBBasic(t *testing.T) {
 
 	c := NewClient("basic", NewDBDriver(db, logrus.New()))
 
-	_, err = c.GetUint64("one")
+	_, _, err = c.GetUint64("one")
 	assert.Equal(t, err, ErrUnsetValue)
 
 	_, err = c.SetUint64("one", 1)
 	assert.Nil(t, err)
 
-	out, err := c.GetUint64("one")
+	out, _, err := c.GetUint64("one")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), out)
 
@@ -104,7 +104,7 @@ func TestDBBasic(t *testing.T) {
 
 	_, err = c.SetUint64("one", 2)
 	assert.Nil(t, err)
-	out, err = c.GetUint64("one")
+	out, _, err = c.GetUint64("one")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(2), out)
 
@@ -118,7 +118,7 @@ func TestDBBasic(t *testing.T) {
 
 	_, err = c.CASUint64("two", nonce, 1, 2)
 	assert.Nil(t, err)
-	out, err = c.GetUint64("two")
+	out, _, err = c.GetUint64("two")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(2), out)
 }
@@ -199,7 +199,7 @@ func TestDBCASConcurrentCounter(t *testing.T) {
 	}
 
 end:
-	out, err := c.GetUint64("check")
+	out, _, err := c.GetUint64("check")
 	assert.Nil(t, err)
 	assert.Equal(t, out, routines)
 	assert.Equal(t, routines, i)
@@ -213,26 +213,26 @@ func TestDBMember(t *testing.T) {
 
 	c := NewClient("member1", NewDBDriver(db, logrus.New()))
 
-	_, err = c.GetUint64("one")
+	_, _, err = c.GetUint64("one")
 	assert.Equal(t, err, ErrUnsetValue)
 	_, err = c.SetUint64("one", 1)
 	assert.Nil(t, err)
 
-	out, err := c.GetUint64("one")
+	out, _, err := c.GetUint64("one")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), out)
 
 	c2 := NewClient("member2", NewDBDriver(db, logrus.New()))
-	_, err = c2.GetUint64("one")
+	_, _, err = c2.GetUint64("one")
 	assert.Equal(t, err, ErrUnsetValue)
 	_, err = c2.SetUint64("one", 2)
 	assert.Nil(t, err)
 
-	out, err = c2.GetUint64("one")
+	out, _, err = c2.GetUint64("one")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(2), out)
 
-	out, err = c.GetUint64("one")
+	out, _, err = c.GetUint64("one")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), out)
 }
