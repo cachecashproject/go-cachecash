@@ -10,3 +10,6 @@ var ErrSpoolFull = errors.New("the spool is full, please retry later")
 
 // ErrTooManyConnections is thrown when the server is overloaded
 var ErrTooManyConnections = errors.New("too many connections, please retry later")
+
+// ErrTooMuchData indicates when too much data has been sent.
+var ErrTooMuchData = errors.New("too much data sent; please retry later")

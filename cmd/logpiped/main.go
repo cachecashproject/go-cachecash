@@ -1,28 +1,31 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"flag"
 	"io/ioutil"
-	"net"
-	"runtime"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/kv/migrations"
 	"github.com/cachecashproject/go-cachecash/log"
+	"github.com/cachecashproject/go-cachecash/log/server"
 	es "github.com/elastic/go-elasticsearch/v7"
+	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 var (
-	spoolDir        = flag.String("spooldir", "", "Base path to spool files to on disk")
-	listenAddress   = flag.String("listenaddress", ":9005", "Listening address")
-	maxLogSize      = flag.Int64("maxlogsize", log.DefaultLogSize, "Maximum size of log bundle to accept")
-	maxConnections  = flag.Int("maxconnections", 0, "Maximum number of connections (default 0, unlimited)")
-	maxSpoolDirSize = flag.Int64("maxspooldirsize", 0, "Maximum size in bytes of spool dir contents (default 0, unlimited)")
-	processors      = flag.Int("processors", runtime.NumCPU()*4, "Total number of queue processors")
-	esConfig        = flag.String("esconfig", "", "Path to elasticsearch configuration")
+	spoolDir      = flag.String("spooldir", "", "Base path to spool files to on disk")
+	listenAddress = flag.String("listenaddress", ":9005", "Listening address")
+	maxLogSize    = flag.Uint64("maxlogsize", server.DefaultLogSize, "Maximum size of log bundle to accept")
+	esConfig      = flag.String("esconfig", "", "Path to elasticsearch configuration")
+	dbDSN         = flag.String("dsn", "host=kvstore-db dbname=kvstore port=5432 user=postgres sslmode=disable", "DSN to connect to postgres")
 )
 
 func main() {
@@ -30,7 +33,12 @@ func main() {
 }
 
 func mainC() error {
+	cl := log.NewCLILogger("logpiped", log.CLIOpt{JSON: true})
 	flag.Parse()
+
+	if err := cl.ConfigureLogger(); err != nil {
+		return err
+	}
 
 	if len(flag.Args()) != 1 {
 		return errors.New("Please provide an index name for elasticsearch")
@@ -61,21 +69,56 @@ func mainC() error {
 		realESConfig = es.Config{Addresses: []string{"http://127.0.0.1:9200"}}
 	}
 
-	ps, err := log.NewPipeServer(flag.Args()[0], *processors, *spoolDir, realESConfig)
+	hostname, err := os.Hostname()
 	if err != nil {
 		return err
 	}
 
-	ps.MaxLogSize = *maxLogSize
-	ps.MaxConnections = *maxConnections
-	ps.MaxSpoolDirSize = *maxSpoolDirSize
-
-	s := grpc.NewServer()
-	log.RegisterLogPipeServer(s, ps)
-
-	l, err := net.Listen("tcp", *listenAddress)
+retry:
+	db, err := sql.Open("postgres", *dbDSN)
 	if err != nil {
 		return err
 	}
-	return s.Serve(l)
+
+	if err := db.Ping(); err != nil {
+		cl.Warnf("Database is down or unavailable, retrying connection in 1s")
+		time.Sleep(time.Second)
+		db.Close()
+		goto retry
+	}
+
+	_, err = migrate.Exec(db, "postgres", migrations.Migrations, migrate.Up)
+	if err != nil {
+		return err
+	}
+
+	config := server.Config{
+		KVStoreDB:     db,
+		Logger:        &cl.Logger,
+		KVMember:      hostname,
+		IndexName:     flag.Args()[0],
+		MaxLogSize:    *maxLogSize,
+		SpoolDir:      *spoolDir,
+		ListenAddress: *listenAddress,
+		ElasticSearch: realESConfig,
+	}
+
+	ps, err := server.NewLogPipe(config)
+	if err != nil {
+		return err
+	}
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-signalChan
+		if err := ps.Close(30 * time.Second); err != nil {
+			logrus.Errorf("Error during shutdown: %v", err)
+			os.Exit(1)
+		}
+
+		os.Exit(0)
+	}()
+
+	return ps.Boot(make(chan struct{}))
 }

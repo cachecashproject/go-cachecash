@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
@@ -122,7 +123,9 @@ func setupClient(t *testing.T, listenAddress, dir string, deliver bool) (*Client
 	config := DefaultConfig()
 	config.DeliverLogs = deliver
 
-	c, err := NewClient(listenAddress, "test", dir, true, true, config)
+	kp, err := keypair.Generate()
+	assert.Nil(t, err)
+	c, err := NewClient(listenAddress, "test", dir, true, true, config, kp)
 	assert.Nil(t, err)
 
 	l := logrus.New()

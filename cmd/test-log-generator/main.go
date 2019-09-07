@@ -33,7 +33,7 @@ func mainC() error {
 	l := log.NewCLILogger("test-log-generator", log.CLIOpt{JSON: true})
 	flag.Parse()
 
-	if err := l.ConfigureLogger(true); err != nil {
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("ready to spew test log messages")

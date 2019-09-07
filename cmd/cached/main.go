@@ -62,17 +62,21 @@ func mainC() error {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
 
-	if err := l.ConfigureLogger(cf.Insecure); err != nil {
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 	l.Info("Starting CacheCash cached ", cachecash.CurrentVersion)
-
-	defer common.SetupTracing(*traceAPI, "cachecash-cached", &l.Logger).Flush()
 
 	kp, err := keypair.LoadOrGenerate(&l.Logger, *keypairPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to get keypair")
 	}
+
+	if err := l.Connect(cf.Insecure, kp); err != nil {
+		return errors.Wrap(err, "failed to connect to logpipe")
+	}
+
+	defer common.SetupTracing(*traceAPI, "cachecash-cached", &l.Logger).Flush()
 
 	db, err := sql.Open("sqlite3", cf.Database)
 	if err != nil {

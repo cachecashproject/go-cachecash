@@ -48,7 +48,7 @@ func mainC() error {
 		return errors.Wrap(err, "failed to load configuration file")
 	}
 
-	if err := l.ConfigureLogger(cf.Insecure); err != nil {
+	if err := l.ConfigureLogger(); err != nil {
 		return errors.Wrap(err, "failed to configure logger")
 	}
 
