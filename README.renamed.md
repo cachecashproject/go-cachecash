@@ -91,6 +91,28 @@ To generate documentation from the proto files:
 make gen-docs
 ```
 
+## Using the base image
+
+To get the base image we use for building our software, type `make
+pull-base-image` to receive it. It will be used for all operations around
+building and running the software in our development environment.
+
+To build the image yourself:
+
+```shell
+$ make base-image
+```
+
+If you have write access to our repositories on docker hub, you can also push
+an updated image:
+
+```shell
+$ make push-base-image
+```
+
+This is recommended whenever your changes land in the `master` branch, but
+**not before then**.
+
 ## Running tests
 
 ```bash
