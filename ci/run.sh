@@ -47,6 +47,9 @@ case "$BUILD_MODE" in
     time sed -i '/\.pb\.go/d' coverage.out
     # Ignore sqlboiler generated packages
     time sed -i '/\/models\//d' coverage.out
+    # Ignore test mock helpers: they have to implement entire interfaces even
+    # if only a fraction is exercised by the test needing the mock
+    time sed -i '/_mock\.go/d' coverage.out
     # Disabled while we are working in the org repo: each dev branch shows as a
     # separate project branch erroneously.
     #  -e TRAVIS_BRANCH="$TRAVIS_BRANCH" \
