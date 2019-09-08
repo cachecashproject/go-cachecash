@@ -38,6 +38,15 @@ case "$BUILD_MODE" in
       --rm --network=cachecash cachecash-ci golangci-lint run --deadline 5m
     time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
       --rm cachecash-ci gocovmerge *.prof > coverage.out
+    # Coverage exclusions.
+    # Short term hack; longer term cross referencing with generated-file
+    # metadata would be better, as it would be maintenance free and not suffer
+    # defects such as someone putting manual code alongside a generated file
+    # and having it excluded.
+    # Ignore protobuf generated files
+    time sed -i '/\.pb\.go/d' coverage.out
+    # Ignore sqlboiler generated packages
+    time sed -i '/\/models\//d' coverage.out
     # Disabled while we are working in the org repo: each dev branch shows as a
     # separate project branch erroneously.
     #  -e TRAVIS_BRANCH="$TRAVIS_BRANCH" \
