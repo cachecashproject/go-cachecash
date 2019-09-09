@@ -9,6 +9,11 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+const (
+	merkleRootByteLength = 32
+	blockIDByteLength    = 32
+)
+
 // BlockHeader of a block containing metadata and a signature
 type BlockHeader struct {
 	Version       uint32
@@ -70,11 +75,11 @@ func (block *Block) Marshal() ([]byte, error) {
 func (block *Block) Size() int {
 	var n int
 
-	n += 4
+	n += 4                     // version uint32
 	n += BlockIDSize           // len(block.Header.PreviousBlock)
-	n += 32                    // len(block.Header.MerkleRoot)
+	n += merkleRootByteLength  // len(block.Header.MerkleRoot)
 	n += ed25519.SignatureSize // len(block.Header.Signature)
-	n += 4
+	n += 4                     // timestamp uint32
 
 	for _, tx := range block.Transactions {
 		n += 4 + tx.Size()
@@ -92,7 +97,7 @@ func (block *Block) MarshalTo(data []byte) (int, error) {
 
 	n += copy(data[n:], block.Header.PreviousBlock[:])
 	a := copy(data[n:], block.Header.MerkleRoot)
-	if a != 32 {
+	if a != merkleRootByteLength {
 		// XXX: MerkleRoot shouldn't be dynamic length
 		return 0, errors.New("MerkleRoot didn't write 32 bytes")
 	}
@@ -131,7 +136,7 @@ func (block *Block) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
 	block.Header = &BlockHeader{
-		MerkleRoot: make([]byte, 32),
+		MerkleRoot: make([]byte, merkleRootByteLength),
 		Signature:  make([]byte, ed25519.SignatureSize),
 	}
 
@@ -141,15 +146,15 @@ func (block *Block) UnmarshalFrom(data []byte) (int, error) {
 	block.Header.Version = binary.LittleEndian.Uint32(data[n:])
 	n += 4
 
-	if len(data[n:]) < 32 {
+	if len(data[n:]) < blockIDByteLength {
 		return 0, errors.New("incomplete PreviousBlock field")
 	}
-	n += copy(block.Header.PreviousBlock[:], data[n:n+32])
+	n += copy(block.Header.PreviousBlock[:], data[n:n+blockIDByteLength])
 
-	if len(data[n:]) < 32 {
+	if len(data[n:]) < merkleRootByteLength {
 		return 0, errors.New("incomplete MerkleRoot field")
 	}
-	n += copy(block.Header.MerkleRoot, data[n:n+32])
+	n += copy(block.Header.MerkleRoot, data[n:n+merkleRootByteLength])
 
 	if len(data[n:]) < ed25519.SignatureSize {
 		return 0, errors.New("incomplete Signature field")
