@@ -125,7 +125,16 @@ func newClientProtocolServer(l *logrus.Logger, c *Cache, conf *ConfigFile) (*cli
 }
 
 func wrapGrpc(grpcServer *grpc.Server) *http.Server {
-	wrappedServer := grpcweb.WrapServer(grpcServer)
+	options := []grpcweb.Option{
+		grpcweb.WithOriginFunc(func(origin string) bool {
+			return true
+		}),
+		grpcweb.WithWebsocketOriginFunc(func(r *http.Request) bool {
+			return true
+		}),
+	}
+
+	wrappedServer := grpcweb.WrapServer(grpcServer, options...)
 
 	handler := func(resp http.ResponseWriter, req *http.Request) {
 		wrappedServer.ServeHTTP(resp, req)
