@@ -3,7 +3,7 @@
 # --------------------
 # Main stage
 # --------------------
-FROM golang:1.12-buster
+FROM golang:1.13-buster
 
 ARG PROTOC_VERSION=3.9.0
 ARG PROTOC_FILE=protoc-${PROTOC_VERSION}-linux-x86_64.zip
