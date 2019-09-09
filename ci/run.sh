@@ -5,10 +5,10 @@ set -xe
 
 run_test() {
   docker run --rm --network=cachecash \
-    -e PSQL_HOST="$PSQL_HOST" -e PSQL_DBNAME="$PSQL_DBNAME" \
+    -e GO111MODULE=on -e PSQL_HOST="$PSQL_HOST" -e PSQL_DBNAME="$PSQL_DBNAME" \
     -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
     cachecash-ci \
-    go test -v -race "$@"
+    go test -mod=vendor -v -race "$@"
 }
 
 case "$BUILD_MODE" in
