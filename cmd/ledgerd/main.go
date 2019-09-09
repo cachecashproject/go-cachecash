@@ -101,7 +101,7 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	newTxChan := (*chan struct{})(nil)
+	var newTxChan *(chan struct{})
 	if *mineBlocks {
 		storage := ledgerservice.NewLedgerDatabase(db)
 		lm, err := ledgerservice.NewLedgerMiner(&l.Logger, storage, kp)

@@ -20,6 +20,8 @@ import (
 var (
 	ledgerAddr  = flag.String("ledgerAddr", "localhost:7778", "Address of ledgerd instance")
 	keypairPath = flag.String("keypair", "ledger.keypair.json", "Path to keypair file")
+	mixRounds   = flag.Int("mix-rounds", 3, "Run the mixer n times")
+	mixWallets  = flag.Int("mix-wallets", 12, "Run the mixer with n wallets")
 )
 
 // sudo chmod 0666 data/ledger/ledger.keypair.json && go run ./cmd/mixer-sim -keypair data/ledger/ledger.keypair.json
@@ -338,7 +340,7 @@ func mainC() error {
 	}
 
 	s.addGenesisWallet(kp, *txid, prevOutputs)
-	for i := 0; i < 12; i++ {
+	for i := 0; i < *mixWallets; i++ {
 		l.Info("adding wallet: ", i)
 		err = s.genWallet()
 		if err != nil {
@@ -346,7 +348,7 @@ func mainC() error {
 		}
 	}
 
-	err = s.run(3)
+	err = s.run(*mixRounds)
 	if err != nil {
 		return err
 	}
