@@ -5,7 +5,7 @@ set -xe
 
 run_test() {
   docker run --rm --network=cachecash \
-    -e GO111MODULE=on -e PSQL_HOST="$PSQL_HOST" -e PSQL_DBNAME="$PSQL_DBNAME" \
+    -e GOPROXY=off -e GO111MODULE=on -e PSQL_HOST="$PSQL_HOST" -e PSQL_DBNAME="$PSQL_DBNAME" \
     -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
     cachecash-ci \
     go test -mod=vendor -v -race "$@"
@@ -34,7 +34,7 @@ case "$BUILD_MODE" in
       --coverprofile=kv.prof
 
     # Linting is non-fatal right now.  See `.golangci.yml` for configuration.
-    time docker run -e GO111MODULE=on -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
+    time docker run -e GOPROXY=off -e GO111MODULE=on -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
       --rm --network=cachecash cachecash-ci golangci-lint run --deadline 5m
     time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
       --rm cachecash-ci gocovmerge *.prof > coverage.out
