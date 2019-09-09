@@ -22,7 +22,7 @@ var (
 	keypairPath = flag.String("keypair", "ledger.keypair.json", "Path to keypair file")
 )
 
-// sudo chmod 0666 data/ledger/ledger.keypair.json && go run ./cmd/ledger-cli -keypair data/ledger/ledger.keypair.json
+// sudo chmod 0666 data/ledger/ledger.keypair.json && go run ./cmd/mixer-sim -keypair data/ledger/ledger.keypair.json
 
 func main() {
 	common.Main(mainC)
@@ -305,7 +305,7 @@ func (s *simulator) run(rounds int) error {
 
 func mainC() error {
 	l := logrus.New()
-	p, err := common.NewConfigParser(l, "ledger-cli")
+	p, err := common.NewConfigParser(l, "mixer-sim")
 	if err != nil {
 		return err
 	}
