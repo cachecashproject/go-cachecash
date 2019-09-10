@@ -23,11 +23,11 @@ type Bootstrapd struct {
 	db *sql.DB
 }
 
-func NewBootstrapd(l *logrus.Logger, db *sql.DB) (*Bootstrapd, error) {
+func NewBootstrapd(l *logrus.Logger, db *sql.DB) *Bootstrapd {
 	return &Bootstrapd{
 		l:  l,
 		db: db,
-	}, nil
+	}
 }
 
 func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, port uint32) error {

@@ -73,11 +73,7 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	b, err := bootstrap.NewBootstrapd(&l.Logger, db)
-	if err != nil {
-		return nil
-	}
-
+	b := bootstrap.NewBootstrapd(&l.Logger, db)
 	app, err := bootstrap.NewApplication(&l.Logger, b, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create bootstrap application")
