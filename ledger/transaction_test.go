@@ -14,6 +14,16 @@ const (
 	bufferSize = 4096
 )
 
+func mustDecodeTXID(s string) TXID {
+	d := testutil.MustDecodeString(s)
+	var txid TXID
+	if len(d) != len(txid) {
+		panic("bad length for TXID")
+	}
+	copy(txid[:], d)
+	return txid
+}
+
 type TransactionTestSuite struct {
 	suite.Suite
 
@@ -38,7 +48,7 @@ func (suite *TransactionTestSuite) TestTransactionInput_RoundTrip() {
 
 	ti := TransactionInput{
 		Outpoint: Outpoint{
-			PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+			PreviousTx: mustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 			Index:      0,
 		},
 		ScriptSig:  testutil.MustDecodeString("abc123"),
@@ -111,7 +121,7 @@ func (suite *TransactionTestSuite) makeTransferTransaction() *Transaction {
 			Inputs: []TransactionInput{
 				{
 					Outpoint: Outpoint{
-						PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+						PreviousTx: mustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 						Index:      0,
 					},
 					ScriptSig:  testutil.MustDecodeString("abc123"),
@@ -161,7 +171,7 @@ func (suite *TransactionTestSuite) TestTransferTransaction_InOutPoints() {
 	ips := tx.Inpoints()
 	assert.Equal(t, []Outpoint{
 		{
-			PreviousTx: testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+			PreviousTx: mustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 			Index:      0,
 		},
 	}, ips)

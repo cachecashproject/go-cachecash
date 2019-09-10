@@ -223,5 +223,3 @@ message ObjectMetadata {
     uint32 minimum_backlog_depth = 7;
     uint32 bundle_request_interval = 8;
 }
-
-

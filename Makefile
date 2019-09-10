@@ -15,7 +15,7 @@ GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
 GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto
 GEN_DOCKER=docker run --rm -it -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} ${BASE_IMAGE}
 
-.PHONY: dockerfiles clean lint lint-fix \
+.PHONY: dockerfiles clean lint lint-fix fuzz \
 	dev-setup gen gen-docs modules \
 	base-image pull-base-image push-base-image \
 	restart stop build start
@@ -88,3 +88,8 @@ gen-docs: pull-base-image
 modules:
 	GO111MODULE=on go mod tidy
 	GO111MODULE=on go mod vendor
+
+fuzz:
+	mkdir -p mkdir fuzz-workdir/corpus
+	go-fuzz-build github.com/cachecashproject/go-cachecash/ledger
+	go-fuzz -bin=./ledger-fuzz.zip -workdir=fuzz-workdir

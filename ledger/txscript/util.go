@@ -6,7 +6,7 @@ import (
 	"golang.org/x/crypto/ripemd160"
 )
 
-func hash160Sum(b []byte) []byte {
+func Hash160Sum(b []byte) []byte {
 	d := sha256.Sum256(b)
 	return ripemd160Sum(d[:])
 }

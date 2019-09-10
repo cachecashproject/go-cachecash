@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
+
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 )
 
 type TxType uint8
@@ -15,6 +17,12 @@ const (
 	TxTypeTransfer   TxType = 0x01
 	TxTypeGenesis    TxType = 0x02
 	TxTypeEscrowOpen TxType = 0x03
+
+	// XXX: this is an arbitrary limit to prevent a panic in make()
+	MAX_INPUTS  = 512
+	MAX_OUTPUTS = 512
+	// this limit is identical with bitcoin
+	MAX_FIELDLEN = 520
 )
 
 // In order to be used as a gogo/protobuf custom type, a struct must implement this interface...
@@ -37,7 +45,7 @@ type Transaction struct {
 	Body    TransactionBody
 }
 
-var _ protobufCustomType = Transaction{}
+var _ protobufCustomType = (*Transaction)(nil)
 var _ protobufCustomTypePtr = (*Transaction)(nil)
 
 func (tx Transaction) Marshal() ([]byte, error) {
@@ -74,6 +82,10 @@ func (tx *Transaction) Unmarshal(data []byte) error {
 // N.B.: This is not strictly required for the protobuf interface, but it's useful for test code to be able to tell how
 // many bytes were consumed.
 func (tx *Transaction) UnmarshalFrom(data []byte) (int, error) {
+	if len(data) < 4 {
+		return 0, errors.New("incomplete transaction fields")
+	}
+
 	tx.Version = data[0]
 	if tx.Version != 1 {
 		return 0, errors.New("unexpected transaction version")
@@ -110,7 +122,7 @@ func (tx *Transaction) Size() int {
 	return 4 + tx.Body.Size()
 }
 
-func (tx Transaction) MarshalJSON() ([]byte, error) {
+func (tx *Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(tx)
 }
 
@@ -123,19 +135,31 @@ func (tx *Transaction) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (tx *Transaction) TXID() ([]byte, error) {
+func (tx *Transaction) TXID() (TXID, error) {
 	data, err := tx.Marshal()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal transaction")
+		return TXID{}, errors.Wrap(err, "failed to marshal transaction")
 	}
 
 	d := sha256.Sum256(data)
 	d = sha256.Sum256(d[:])
-	return d[:], nil
+	return d, nil
 }
 
 func (tx *Transaction) Inpoints() []Outpoint {
 	return tx.Body.Inpoints()
+}
+
+func (tx *Transaction) Inputs() []TransactionInput {
+	return tx.Body.TxInputs()
+}
+
+func (tx *Transaction) Outputs() []TransactionOutput {
+	return tx.Body.TxOutputs()
+}
+
+func (tx *Transaction) Witnesses() []TransactionWitness {
+	return tx.Body.TxWitnesses()
 }
 
 func (tx *Transaction) Outpoints() []Outpoint {
@@ -154,6 +178,36 @@ func (tx *Transaction) Outpoints() []Outpoint {
 	return pp
 }
 
+func (tx *Transaction) WellFormed() error {
+	// XXX: Add validation logic here.
+	return nil
+}
+
+func (tx *Transaction) Standard() error {
+	// Check that input and output scripts are standard.
+	for _, ti := range tx.Inputs() {
+		scr, err := txscript.ParseScript(ti.ScriptSig)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse script")
+		}
+		if err := scr.StandardInput(); err != nil {
+			return errors.Wrap(err, "input script is not standard")
+		}
+	}
+	// TODO: Do we also need to check that there are two witness values for each input?
+	for _, to := range tx.Outputs() {
+		scr, err := txscript.ParseScript(to.ScriptPubKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse script")
+		}
+		if err := scr.StandardOutput(); err != nil {
+			return errors.Wrap(err, "output script is not standard")
+		}
+	}
+
+	return nil
+}
+
 type TransactionBody interface {
 	Size() int
 	TxType() TxType
@@ -162,6 +216,9 @@ type TransactionBody interface {
 	UnmarshalFrom(data []byte) (n int, err error)
 	Inpoints() []Outpoint
 	OutputCount() uint8
+	TxInputs() []TransactionInput
+	TxOutputs() []TransactionOutput
+	TxWitnesses() []TransactionWitness
 }
 
 // A TransferTransaction is very similar to a Bitcoin transaction.  It consumes one or more unspent outputs of previous
@@ -251,6 +308,13 @@ func (tx *TransferTransaction) Unmarshal(data []byte) error {
 
 func (tx *TransferTransaction) UnmarshalFrom(data []byte) (int, error) {
 	inputQty, n := binary.Uvarint(data)
+	if n <= 0 {
+		return 0, errors.New("failed to read inputQty")
+	}
+
+	if inputQty > MAX_INPUTS {
+		return 0, errors.New("exceeded maximum number of inputs")
+	}
 	tx.Inputs = make([]TransactionInput, inputQty)
 	tx.Witnesses = make([]TransactionWitness, inputQty)
 
@@ -263,7 +327,14 @@ func (tx *TransferTransaction) UnmarshalFrom(data []byte) (int, error) {
 	}
 
 	outputQty, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("failed to read outputQty")
+	}
 	n += ni
+
+	if outputQty > MAX_OUTPUTS {
+		return 0, errors.New("exceeded maximum number of outputs")
+	}
 	tx.Outputs = make([]TransactionOutput, outputQty)
 
 	for i := 0; i < len(tx.Outputs); i++ {
@@ -294,6 +365,18 @@ func (tx *TransferTransaction) Inpoints() []Outpoint {
 		})
 	}
 	return pp
+}
+
+func (tx *TransferTransaction) TxInputs() []TransactionInput {
+	return tx.Inputs
+}
+
+func (tx *TransferTransaction) TxOutputs() []TransactionOutput {
+	return tx.Outputs
+}
+
+func (tx *TransferTransaction) TxWitnesses() []TransactionWitness {
+	return tx.Witnesses
 }
 
 func (tx *TransferTransaction) OutputCount() uint8 {
@@ -338,19 +421,55 @@ func (tx *EscrowOpenTransaction) OutputCount() uint8 {
 	return 0
 }
 
-// XXX: This is a bad name, because we use this struct to describe both inpoints and outpoints.
-type Outpoint struct {
-	PreviousTx []byte // TODO: type
-	Index      uint8  // (of output in PreviousTx) // TODO: type
+func (tx *EscrowOpenTransaction) TxInputs() []TransactionInput {
+	return nil
 }
 
-type OutpointKey [33]byte
+func (tx *EscrowOpenTransaction) TxOutputs() []TransactionOutput {
+	return nil
+}
+
+func (tx *EscrowOpenTransaction) TxWitnesses() []TransactionWitness {
+	return nil
+}
+
+// XXX: This is a bad name, because we use this struct to describe both inpoints and outpoints.
+type Outpoint struct {
+	PreviousTx TXID
+	Index      uint8 // (of output in PreviousTx) // TODO: type
+}
+
+func (a Outpoint) Equal(b Outpoint) bool {
+	return a.PreviousTx.Equal(b.PreviousTx) && a.Index == b.Index
+}
 
 func (o *Outpoint) Key() OutpointKey {
 	var k OutpointKey
 	copy(k[:], o.PreviousTx[:])
 	k[32] = o.Index
 	return k
+}
+
+type OutpointKey [33]byte
+
+func NewOutpointKey(txid []byte, idx byte) (*OutpointKey, error) {
+	if len(txid) != 32 {
+		return nil, errors.New("txid has wrong length")
+	}
+
+	outpoint := OutpointKey{}
+	copy(outpoint[:], txid)
+	outpoint[32] = idx
+
+	return &outpoint, nil
+}
+
+func (o *OutpointKey) TXID() []byte {
+	return o[:32]
+}
+
+func (o *OutpointKey) Idx() byte {
+	return o[32]
 }
 
 type TransactionInput struct {
@@ -368,7 +487,7 @@ func (ti *TransactionInput) MarshalTo(data []byte) (int, error) {
 	if len(ti.PreviousTx) != TransactionIDSize {
 		return 0, errors.New("bad size for previous transaction ID")
 	}
-	n := copy(data, ti.PreviousTx)
+	n := copy(data, ti.PreviousTx[:])
 
 	data[n] = (byte)(ti.Index)
 	n += 1
@@ -385,17 +504,32 @@ func (ti *TransactionInput) MarshalTo(data []byte) (int, error) {
 func (ti *TransactionInput) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
-	ti.PreviousTx = data[n : n+TransactionIDSize]
-	n += TransactionIDSize
+	if len(data[n:]) < TransactionIDSize+1 {
+		return 0, errors.New("TransactionInput is below minimum length")
+	}
+
+	n += copy(ti.PreviousTx[:], data[n:n+TransactionIDSize])
 
 	ti.Index = uint8(data[n])
 	n += 1
 
 	fieldLen, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("field to read fieldLen")
+	}
 	n += ni
+	if fieldLen > MAX_FIELDLEN {
+		return 0, errors.New("fieldLen exceeds MAX_FIELDLEN")
+	}
+	if len(data[n:]) < int(fieldLen) {
+		return 0, errors.New("fieldLen exceeds data buffer")
+	}
 	ti.ScriptSig = data[n : n+int(fieldLen)]
 	n += int(fieldLen)
 
+	if len(data[n:]) < 4 {
+		return 0, errors.New("failed to read SequenceNo")
+	}
 	ti.SequenceNo = binary.LittleEndian.Uint32(data[n:])
 	n += 4
 
@@ -422,11 +556,23 @@ func (to *TransactionOutput) MarshalTo(data []byte) (int, error) {
 }
 
 func (to *TransactionOutput) UnmarshalFrom(data []byte) (int, error) {
+	if len(data) < 4 {
+		return 0, errors.New("failed to read TransactionOutput value")
+	}
 	to.Value = binary.LittleEndian.Uint32(data)
 	n := 4
 
 	fieldLen, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("field to read fieldLen")
+	}
 	n += ni
+	if fieldLen > MAX_FIELDLEN {
+		return 0, errors.New("fieldLen exceeds MAX_FIELDLEN")
+	}
+	if len(data[n:]) < int(fieldLen) {
+		return 0, errors.New("fieldLen exceeds data buffer")
+	}
 	to.ScriptPubKey = data[n : n+int(fieldLen)]
 	n += int(fieldLen)
 
@@ -464,11 +610,23 @@ func (tw *TransactionWitness) MarshalTo(data []byte) (int, error) {
 
 func (tw *TransactionWitness) UnmarshalFrom(data []byte) (int, error) {
 	stackSize, n := binary.Uvarint(data)
+	if n <= 0 {
+		return 0, errors.New("field to read stackSize")
+	}
 
 	tw.Data = nil
 	for i := uint64(0); i < stackSize; i++ {
 		fieldLen, ni := binary.Uvarint(data[n:])
+		if ni <= 0 {
+			return 0, errors.New("field to read fieldLen")
+		}
 		n += ni
+		if fieldLen > MAX_FIELDLEN {
+			return 0, errors.New("fieldLen exceeds MAX_FIELDLEN")
+		}
+		if len(data[n:]) < int(fieldLen) {
+			return 0, errors.New("failed to read witness data")
+		}
 		tw.Data = append(tw.Data, data[n:n+int(fieldLen)])
 		n += int(fieldLen)
 	}
@@ -521,7 +679,14 @@ func (tx *GenesisTransaction) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
 	outputQty, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.New("field to read outputQty")
+	}
 	n += ni
+
+	if outputQty > MAX_OUTPUTS {
+		return 0, errors.New("exceeded maximum number of outputs")
+	}
 	tx.Outputs = make([]TransactionOutput, outputQty)
 
 	for i := 0; i < len(tx.Outputs); i++ {
@@ -541,4 +706,16 @@ func (tx *GenesisTransaction) Inpoints() []Outpoint {
 
 func (tx *GenesisTransaction) OutputCount() uint8 {
 	return uint8(len(tx.Outputs))
+}
+
+func (tx *GenesisTransaction) TxInputs() []TransactionInput {
+	return nil
+}
+
+func (tx *GenesisTransaction) TxOutputs() []TransactionOutput {
+	return tx.Outputs
+}
+
+func (tx *GenesisTransaction) TxWitnesses() []TransactionWitness {
+	return nil
 }

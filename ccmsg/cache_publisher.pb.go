@@ -585,9 +585,9 @@ func (m *CacheMissResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCachePublisher(dAtA, i, uint64(m.Metadata.Size()))
-		n1, err := m.Metadata.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.Metadata.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -630,9 +630,9 @@ func (m *Chunk) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintCachePublisher(dAtA, i, uint64(m.SlotIdx))
 	}
 	if m.Source != nil {
-		nn2, err := m.Source.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		nn2, err2 := m.Source.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += nn2
 	}
@@ -648,9 +648,9 @@ func (m *Chunk_Http) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintCachePublisher(dAtA, i, uint64(m.Http.Size()))
-		n3, err := m.Http.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Http.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -664,9 +664,9 @@ func (m *Chunk_Inline) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintCachePublisher(dAtA, i, uint64(m.Inline.Size()))
-		n4, err := m.Inline.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.Inline.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}

@@ -8,6 +8,7 @@ require (
 	contrib.go.opencensus.io/exporter/jaeger v0.1.0
 	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
 	github.com/DATA-DOG/go-sqlmock v1.3.3
+	github.com/btcsuite/btcd v0.0.0-20190807005414-4063feeff79a
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/capnm/sysinfo v0.0.0-20130621111458-5909a53897f3
 	github.com/client9/reopen v1.0.0

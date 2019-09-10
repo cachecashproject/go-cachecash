@@ -570,7 +570,7 @@ func testMempoolTransactionsSelect(t *testing.T) {
 }
 
 var (
-	mempoolTransactionDBTypes = map[string]string{`Rowid`: `integer`, `Raw`: `bytea`}
+	mempoolTransactionDBTypes = map[string]string{`Rowid`: `integer`, `Txid`: `bytea`, `Raw`: `bytea`}
 	_                         = bytes.MinRead
 )
 

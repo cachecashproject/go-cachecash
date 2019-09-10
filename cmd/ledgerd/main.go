@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	_ "net/http/pprof"
@@ -8,6 +9,7 @@ import (
 
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledgerservice"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/migrations"
 	"github.com/cachecashproject/go-cachecash/log"
@@ -17,9 +19,11 @@ import (
 )
 
 var (
-	configPath = flag.String("config", "ledger.config.json", "Path to configuration file")
-	// keypairPath = flag.String("keypair", "ledger.keypair.json", "Path to keypair file") // XXX: Not used yet.
-	traceAPI = flag.String("trace", "", "Jaeger API for tracing")
+	configPath   = flag.String("config", "ledger.config.json", "Path to configuration file")
+	keypairPath  = flag.String("keypair", "ledger.keypair.json", "Path to keypair file")
+	traceAPI     = flag.String("trace", "", "Jaeger API for tracing")
+	mineBlocks   = flag.Bool("mine-blocks", false, "Create new blocks at an interval")
+	mineInterval = flag.Int("mine-interval", 300, "Create a new block ever X seconds")
 )
 
 func loadConfigFile(l *logrus.Logger, path string) (*ledgerservice.ConfigFile, error) {
@@ -33,7 +37,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*ledgerservice.ConfigFile, e
 		return nil, err
 	}
 
-	conf.LedgerProtocolAddr = p.GetString("ledger_addr", ":8080")
+	conf.LedgerProtocolAddr = p.GetString("ledger_addr", ":7778")
 	conf.StatusAddr = p.GetString("status_addr", ":8100")
 	conf.Database = p.GetString("database", "host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable")
 	conf.Insecure = p.GetInsecure()
@@ -60,6 +64,11 @@ func mainC() error {
 	l.Info("Starting CacheCash ledgerd ", cachecash.CurrentVersion)
 
 	defer common.SetupTracing(*traceAPI, "cachecash-ledgerd", &l.Logger).Flush()
+
+	kp, err := keypair.LoadOrGenerate(&l.Logger, *keypairPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to get keypair")
+	}
 
 	db, err := sql.Open("postgres", cf.Database)
 	if err != nil {
@@ -92,9 +101,30 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	ls, err := ledgerservice.NewLedgerService(&l.Logger, db)
+	var newTxChan *(chan struct{})
+	if *mineBlocks {
+		storage := ledgerservice.NewLedgerDatabase(db)
+		lm, err := ledgerservice.NewLedgerMiner(&l.Logger, storage, kp)
+		if err != nil {
+			return errors.Wrap(err, "failed to create ledger miner")
+		}
+		lm.Interval = time.Duration(*mineInterval)
+		newTxChan = &lm.NewTxChan
+
+		if lm.CurrentBlock == nil {
+			l.Info("creating genesis block")
+			_, err = lm.InitGenesisBlock(context.Background(), 420000000)
+			if err != nil {
+				return errors.Wrap(err, "failed to create genesis block")
+			}
+		}
+
+		go lm.Run(context.Background())
+	}
+
+	ls, err := ledgerservice.NewLedgerService(&l.Logger, db, kp, newTxChan)
 	if err != nil {
-		return errors.Wrap(err, "failed to create publisher")
+		return errors.Wrap(err, "failed to create ledger service")
 	}
 
 	app, err := ledgerservice.NewApplication(&l.Logger, ls, cf)

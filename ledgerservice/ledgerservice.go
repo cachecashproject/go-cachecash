@@ -5,11 +5,14 @@ import (
 	"database/sql"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/boil"
+	"github.com/volatiletech/sqlboiler/queries/qm"
+	"github.com/volatiletech/sqlboiler/types"
 )
 
 type LedgerService struct {
@@ -18,15 +21,21 @@ type LedgerService struct {
 
 	l  *logrus.Logger
 	db *sql.DB
+	kp *keypair.KeyPair
+
+	newTxChan *chan struct{}
 }
 
-func NewLedgerService(l *logrus.Logger, db *sql.DB) (*LedgerService, error) {
-	p := &LedgerService{
+func NewLedgerService(l *logrus.Logger, db *sql.DB, kp *keypair.KeyPair, newTxChan *chan struct{}) (*LedgerService, error) {
+	s := &LedgerService{
 		l:  l,
 		db: db,
+		kp: kp,
+
+		newTxChan: newTxChan,
 	}
 
-	return p, nil
+	return s, nil
 }
 
 func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTransactionRequest) (*ccmsg.PostTransactionResponse, error) {
@@ -43,12 +52,22 @@ func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTran
 		return nil, errors.Wrap(err, "failed to marshal tx into bytes")
 	}
 
-	mpTx := models.MempoolTransaction{Raw: txBytes}
+	txid, err := req.Tx.TXID()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get txid")
+	}
+	txidBytes := types.BytesArray{0: txid[:]}
+
+	mpTx := models.MempoolTransaction{
+		Txid: txidBytes,
+		Raw:  txBytes,
+	}
 	if err := mpTx.Insert(ctx, dbTx, boil.Infer()); err != nil {
 		return nil, errors.Wrap(err, "failed to insert mempool transaction")
 	}
 
 	taTx := models.TransactionAuditlog{
+		Txid:   txidBytes,
 		Raw:    txBytes,
 		Status: models.TransactionStatusPending,
 	}
@@ -60,6 +79,11 @@ func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTran
 		return nil, errors.Wrap(err, "failed to commit database transaction")
 	}
 
+	if s.newTxChan != nil {
+		s.l.Debug("Notifying mining go routine")
+		*s.newTxChan <- struct{}{}
+	}
+
 	s.l.Info("PostTransaction - success")
 
 	return &ccmsg.PostTransactionResponse{}, nil
@@ -67,46 +91,33 @@ func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTran
 
 func (s *LedgerService) GetBlocks(ctx context.Context, req *ccmsg.GetBlocksRequest) (*ccmsg.GetBlocksResponse, error) {
 	s.l.Info("GetBlocks")
-	return nil, errors.New("no implementation")
+
+	if req.Limit > 100 {
+		return nil, errors.New("limit is too high")
+	}
+
+	blocks, err := models.Blocks(
+		qm.Where("height >= ?", req.StartDepth),
+		qm.OrderBy("height ASC"),
+		qm.Limit(int(req.Limit)),
+	).All(ctx, s.db)
+
+	if err != nil {
+		return nil, errors.New("failed to get blocks")
+	}
+
+	byteBlocks := make([][]byte, 0, len(blocks))
+	for _, block := range blocks {
+		byteBlocks = append(byteBlocks, block.Raw)
+	}
+
+	s.l.WithFields(logrus.Fields{
+		"blocks":     len(byteBlocks),
+		"startDepth": req.StartDepth,
+		"limit":      req.Limit,
+	}).Debug("sending block reply")
+
+	return &ccmsg.GetBlocksResponse{
+		Blocks: byteBlocks,
+	}, nil
 }
-
-/*
-
-	db, err := sql.Open("sqlite3", "./cache.db")
-	if err != nil {
-		l.Fatal(err)
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		l.Fatal(err)
-	}
-
-	lcms, err := models.LogicalCacheMappings().All(ctx, tx)
-	if err != nil {
-		l.Fatal(err)
-	}
-	for i, lcm := range lcms {
-		l.Infof("%v: %v", i, lcm)
-	}
-
-	txid, err := common.BytesToEscrowID(testutil.RandBytes(common.EscrowIDSize))
-	if err != nil {
-		panic(err)
-	}
-	ne := models.LogicalCacheMapping{
-		Txid:    txid,
-		SlotIdx: uint64(len(lcms)),
-	}
-	if err := ne.Insert(ctx, tx, boil.Infer()); err != nil {
-		l.Fatal(err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		l.Fatal(err)
-	}
-
-	l.Info("fin")
-	_ = db
-
-*/

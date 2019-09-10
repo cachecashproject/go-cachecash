@@ -30,6 +30,14 @@ func (suite *VMTestSuite) SetupTest() {
 	_ = t
 }
 
+type DummySigHash struct {
+	sighash []byte
+}
+
+func (sh *DummySigHash) SigHash(script *Script, txIdx int, inputAmount int64) ([]byte, error) {
+	return sh.sighash, nil
+}
+
 func (suite *VMTestSuite) TestP2WPKHOutput_StandardOutput() {
 	t := suite.T()
 
@@ -37,9 +45,9 @@ func (suite *VMTestSuite) TestP2WPKHOutput_StandardOutput() {
 	// Setup
 	// ------------
 
-	_, pubKey, err := ed25519.GenerateKey(nil)
+	pubKey, privKey, err := ed25519.GenerateKey(nil)
 	assert.Nil(t, err)
-	pubKeyHash := hash160Sum(pubKey)
+	pubKeyHash := Hash160Sum(pubKey)
 
 	scriptPubKey, err := MakeP2WPKHOutputScript(pubKeyHash)
 	if err != nil {
@@ -51,12 +59,19 @@ func (suite *VMTestSuite) TestP2WPKHOutput_StandardOutput() {
 		t.Fatalf("failed to create scriptSig: %v", err)
 	}
 
+	sighash := testutil.MustDecodeString("cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe")
+
+	signature := ed25519.Sign(privKey, sighash)
+
 	witData := [][]byte{
-		testutil.MustDecodeString("cafebabe"), // XXX: Once we have sighash, we'll need an actual signature here.
+		signature,
 		pubKey,
 	}
 
 	vm := NewVirtualMachine()
+	vm.tx = &DummySigHash{
+		sighash,
+	}
 
 	// ------------
 	// Execution

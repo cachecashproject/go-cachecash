@@ -97,6 +97,13 @@ func (scr *Script) StandardOutput() error {
 	return nil
 }
 
+func (scr *Script) StandardInput() error {
+	if len(scr.ast) != 0 {
+		return errors.New("unexpected script length")
+	}
+	return nil
+}
+
 func (scr *Script) PrettyPrint() (string, error) {
 	var ss []string
 	for _, ins := range scr.ast {

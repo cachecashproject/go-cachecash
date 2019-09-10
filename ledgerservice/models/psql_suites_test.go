@@ -13,4 +13,6 @@ func TestUpsert(t *testing.T) {
 	t.Run("MempoolTransactions", testMempoolTransactionsUpsert)
 
 	t.Run("TransactionAuditlogs", testTransactionAuditlogsUpsert)
+
+	t.Run("Utxos", testUtxosUpsert)
 }

@@ -1,8 +1,9 @@
 package txscript
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 // ScriptStack represents a Bitcoin script stack.  This type offers utility functions for interpreting values that will
@@ -33,6 +34,19 @@ func (st *ScriptStack) PopBytes() ([]byte, error) {
 	}
 	v := st.data[len(st.data)-1]
 	st.data = st.data[:len(st.data)-1]
+	return v, nil
+}
+
+func (st *ScriptStack) PopNBytes(n int) ([]byte, error) {
+	v, err := st.PopBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(v) != n {
+		return nil, errors.Errorf("bytes have wrong length, expected: %d, got: %d", n, len(v))
+	}
+
 	return v, nil
 }
 

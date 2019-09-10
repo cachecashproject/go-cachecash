@@ -19,13 +19,15 @@ import (
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"github.com/volatiletech/sqlboiler/queries/qmhelper"
 	"github.com/volatiletech/sqlboiler/strmangle"
+	"github.com/volatiletech/sqlboiler/types"
 )
 
 // TransactionAuditlog is an object representing the database table.
 type TransactionAuditlog struct {
-	Rowid  int    `boil:"rowid" json:"rowid" toml:"rowid" yaml:"rowid"`
-	Raw    []byte `boil:"raw" json:"raw" toml:"raw" yaml:"raw"`
-	Status string `boil:"status" json:"status" toml:"status" yaml:"status"`
+	Rowid  int              `boil:"rowid" json:"rowid" toml:"rowid" yaml:"rowid"`
+	Txid   types.BytesArray `boil:"txid" json:"txid" toml:"txid" yaml:"txid"`
+	Raw    []byte           `boil:"raw" json:"raw" toml:"raw" yaml:"raw"`
+	Status string           `boil:"status" json:"status" toml:"status" yaml:"status"`
 
 	R *transactionAuditlogR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L transactionAuditlogL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -33,10 +35,12 @@ type TransactionAuditlog struct {
 
 var TransactionAuditlogColumns = struct {
 	Rowid  string
+	Txid   string
 	Raw    string
 	Status string
 }{
 	Rowid:  "rowid",
+	Txid:   "txid",
 	Raw:    "raw",
 	Status: "status",
 }
@@ -54,10 +58,12 @@ func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.f
 
 var TransactionAuditlogWhere = struct {
 	Rowid  whereHelperint
+	Txid   whereHelpertypes_BytesArray
 	Raw    whereHelper__byte
 	Status whereHelperstring
 }{
 	Rowid:  whereHelperint{field: "\"transaction_auditlog\".\"rowid\""},
+	Txid:   whereHelpertypes_BytesArray{field: "\"transaction_auditlog\".\"txid\""},
 	Raw:    whereHelper__byte{field: "\"transaction_auditlog\".\"raw\""},
 	Status: whereHelperstring{field: "\"transaction_auditlog\".\"status\""},
 }
@@ -79,8 +85,8 @@ func (*transactionAuditlogR) NewStruct() *transactionAuditlogR {
 type transactionAuditlogL struct{}
 
 var (
-	transactionAuditlogAllColumns            = []string{"rowid", "raw", "status"}
-	transactionAuditlogColumnsWithoutDefault = []string{"raw", "status"}
+	transactionAuditlogAllColumns            = []string{"rowid", "txid", "raw", "status"}
+	transactionAuditlogColumnsWithoutDefault = []string{"txid", "raw", "status"}
 	transactionAuditlogColumnsWithDefault    = []string{"rowid"}
 	transactionAuditlogPrimaryKeyColumns     = []string{"rowid"}
 )
