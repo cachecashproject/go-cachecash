@@ -403,8 +403,10 @@ func TestClientBackoff(t *testing.T) {
 	tp.RaiseError = errors.New("welp")
 	tp.Mutex.Unlock()
 
-	writeLogs(l, make(chan struct{}))
+	done := make(chan struct{})
+	go writeLogs(l, done)
 	time.Sleep(5 * time.Second)
+	<-done
 
 	fi, err := os.Stat(f.Name())
 	assert.Nil(t, err)
