@@ -35,7 +35,7 @@ case "$BUILD_MODE" in
 
     # Linting is non-fatal right now.  See `.golangci.yml` for configuration.
     time docker run -e GOPROXY=direct -e GO111MODULE=on -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
-      --rm --network=cachecash cachecash-ci golangci-lint run --deadline 5m
+      --rm --network=cachecash cachecash-ci golangci-lint run --deadline 10m
     time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
       --rm cachecash-ci gocovmerge *.prof > coverage.out
     # Coverage exclusions.
