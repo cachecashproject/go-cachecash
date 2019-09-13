@@ -6,11 +6,15 @@ import (
 	"database/sql"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledger"
 	"github.com/cachecashproject/go-cachecash/ledger/txscript"
+	"github.com/cachecashproject/go-cachecash/wallet/migrations"
 	"github.com/cachecashproject/go-cachecash/wallet/models"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
+	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
@@ -51,13 +55,37 @@ type Wallet struct {
 	grpc ccmsg.LedgerClient
 }
 
-func NewWallet(l *logrus.Logger, kp *keypair.KeyPair, db *sql.DB, grpc ccmsg.LedgerClient) *Wallet {
+func NewWallet(l *logrus.Logger, kp *keypair.KeyPair, dbPath string, ledgerAddr string, insecure bool) (*Wallet, error) {
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to connect to database")
+	}
+	l.Info("opened database")
+
+	l.Info("applying migrations")
+	n, err := migrate.Exec(db, "sqlite3", migrations.Migrations, migrate.Up)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to apply migrations")
+	}
+	l.Infof("applied %d migrations", n)
+
+	conn, err := common.GRPCDial(ledgerAddr, insecure)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to dial ledger service")
+	}
+
+	grpc := ccmsg.NewLedgerClient(conn)
+
 	return &Wallet{
 		l:    l,
 		kp:   kp,
 		db:   db,
 		grpc: grpc,
-	}
+	}, nil
+}
+
+func (w *Wallet) PublicKey() ed25519.PublicKey {
+	return w.kp.PublicKey
 }
 
 func (w *Wallet) BlockHeight(ctx context.Context) (uint64, error) {
@@ -133,9 +161,9 @@ func (w *Wallet) AddBlock(ctx context.Context, block ledger.Block) error {
 			return err
 		}
 
-		// TODO: mark outputs as spent
+		// mark outputs as spent
 		for _, txo := range tx.Inputs() {
-			err = w.UnspendableUTXO(ctx, txo.Outpoint)
+			err = w.DeleteUTXO(ctx, txo.Outpoint)
 			if err != nil {
 				return errors.Wrap(err, "failed to mark utxo as spent")
 			}
@@ -170,21 +198,12 @@ func (w *Wallet) GetUTXOs(ctx context.Context) ([]*models.Utxo, error) {
 	return models.Utxos().All(ctx, w.db)
 }
 
-// we've spent the utxo
-// TODO: refactor this
-func (w *Wallet) DeleteUTXO(ctx context.Context, utxo *models.Utxo) error {
-	_, err := utxo.Delete(ctx, w.db)
-	return err
-}
-
-// we've observed the utxo has been spent
-// TODO: refactor this
-func (w *Wallet) UnspendableUTXO(ctx context.Context, utxo ledger.Outpoint) error {
+func (w *Wallet) DeleteUTXO(ctx context.Context, utxo ledger.Outpoint) error {
 	_, err := models.Utxos(qm.Where("txid = ? and idx = ?", string(utxo.PreviousTx[:]), utxo.Index)).DeleteAll(ctx, w.db)
 	return err
 }
 
-func (w *Wallet) GenerateTX(ctx context.Context, target ed25519.PublicKey, amount uint32) (*ledger.Transaction, error) {
+func (w *Wallet) generateTX(ctx context.Context, target ledger.Address, amount uint32) (*ledger.Transaction, error) {
 	utxos, err := w.GetUTXOs(ctx)
 	if err != nil {
 		return nil, err
@@ -225,11 +244,6 @@ func (w *Wallet) GenerateTX(ctx context.Context, target ed25519.PublicKey, amoun
 			ScriptPubKey: []byte(utxo.ScriptPubkey),
 		})
 
-		err = w.DeleteUTXO(ctx, utxo)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to delete spent utxo")
-		}
-
 		if spendingSum >= amount {
 			break
 		}
@@ -239,14 +253,13 @@ func (w *Wallet) GenerateTX(ctx context.Context, target ed25519.PublicKey, amoun
 		return nil, errors.New("insufficient funds")
 	}
 
-	pubKeyHash := txscript.Hash160Sum(target)
-	scriptPubkey, err := txscript.MakeP2WPKHInputScript(pubKeyHash)
+	scriptPubkey, err := txscript.MakeP2WPKHInputScript(target.PubKeyHash())
 	if err != nil {
-		return nil, errors.Wrap(err, "todo")
+		return nil, errors.Wrap(err, "failed to create p2wpkh input script")
 	}
 	scriptPubkeyBytes, err := scriptPubkey.Marshal()
 	if err != nil {
-		return nil, errors.Wrap(err, "todo")
+		return nil, errors.Wrap(err, "failed to marshal p2wpkh input script")
 	}
 
 	outputs = append(outputs, ledger.TransactionOutput{
@@ -292,9 +305,38 @@ func (w *Wallet) GenerateTX(ctx context.Context, target ed25519.PublicKey, amoun
 	return &tx, nil
 }
 
-func (w *Wallet) SendCoins(ctx context.Context, target ed25519.PublicKey, amount uint32) error {
+func (w *Wallet) markTXInputsSpent(ctx context.Context, tx *ledger.Transaction) error {
+	// mark outputs as spent
+	for _, txo := range tx.Inputs() {
+		err := w.DeleteUTXO(ctx, txo.Outpoint)
+		if err != nil {
+			return errors.Wrap(err, "failed to mark utxo as spent")
+		}
+	}
+	return nil
+}
+
+func (w *Wallet) Address() string {
+	address := ledger.MakeP2WPKHAddress(w.kp.PublicKey)
+	return address.Base58Check()
+}
+
+func (w *Wallet) GetBalance(ctx context.Context) (uint64, error) {
+	utxos, err := w.GetUTXOs(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	sum := uint64(0)
+	for _, utxo := range utxos {
+		sum += uint64(utxo.Amount)
+	}
+	return sum, nil
+}
+
+func (w *Wallet) SendCoins(ctx context.Context, target ledger.Address, amount uint32) error {
 	w.l.Info("generating transaction")
-	tx, err := w.GenerateTX(ctx, target, amount)
+	tx, err := w.generateTX(ctx, target, amount)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate tx")
 	}
@@ -306,5 +348,14 @@ func (w *Wallet) SendCoins(ctx context.Context, target ed25519.PublicKey, amount
 	}
 	w.l.Info("tx got accepted")
 
+	err = w.markTXInputsSpent(ctx, tx)
+	if err != nil {
+		return errors.Wrap(err, "failed to mark tx inputs as spent")
+	}
+
 	return nil
+}
+
+func (w *Wallet) Close() error {
+	return w.db.Close()
 }

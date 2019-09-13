@@ -1,20 +1,16 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/faucet"
 	"github.com/cachecashproject/go-cachecash/keypair"
-	"github.com/cachecashproject/go-cachecash/ledgerservice"
 	"github.com/cachecashproject/go-cachecash/log"
 	"github.com/cachecashproject/go-cachecash/wallet"
-	"github.com/cachecashproject/go-cachecash/wallet/migrations"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	migrate "github.com/rubenv/sql-migrate"
 	"github.com/sirupsen/logrus"
 )
 
@@ -68,24 +64,10 @@ func mainC() error {
 		return errors.Wrap(err, "failed to get keypair")
 	}
 
-	db, err := sql.Open("sqlite3", cf.Database)
+	wallet, err := wallet.NewWallet(&l.Logger, kp, cf.Database, cf.LedgerAddr, cf.Insecure)
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to database")
+		return errors.Wrap(err, "failed to open wallet")
 	}
-	l.Info("opened database")
-
-	l.Info("applying migrations")
-	n, err := migrate.Exec(db, "sqlite3", migrations.Migrations, migrate.Up)
-	if err != nil {
-		return errors.Wrap(err, "failed to apply migrations")
-	}
-	l.Infof("applied %d migrations", n)
-
-	client, err := ledgerservice.NewLedgerClient(&l.Logger, cf.LedgerAddr, cf.Insecure)
-	if err != nil {
-		return err
-	}
-	wallet := wallet.NewWallet(&l.Logger, kp, db, client.GrpcClient)
 
 	fs, err := faucet.NewFaucet(&l.Logger, wallet)
 	if err != nil {
