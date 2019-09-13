@@ -36,6 +36,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*publisher.ConfigFile, error
 		return nil, err
 	}
 
+	conf.Origin = p.GetString("origin", "localhost")
 	conf.GrpcAddr = p.GetString("grpc_addr", ":7070")
 	conf.StatusAddr = p.GetString("status_addr", ":8100")
 	conf.BootstrapAddr = p.GetString("bootstrap_addr", "bootstrapd:7777")
