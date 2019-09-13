@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/boil"
+	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -134,10 +135,12 @@ func (w *Wallet) AddBlock(ctx context.Context, block ledger.Block) error {
 			return err
 		}
 
-		for idx, txos := range tx.Inputs() {
-			// TODO: mark outputs as spent
-			_ = idx
-			_ = txos
+		// TODO: mark outputs as spent
+		for _, txo := range tx.Inputs() {
+			err = w.UnspendableUTXO(ctx, txo.Outpoint)
+			if err != nil {
+				return errors.Wrap(err, "failed to mark utxo as spent")
+			}
 		}
 
 		for idx, output := range tx.Outputs() {
@@ -166,12 +169,20 @@ func (w *Wallet) AddUTXO(ctx context.Context, utxo *models.Utxo) error {
 }
 
 func (w *Wallet) GetUTXOs(ctx context.Context) ([]*models.Utxo, error) {
-	utxos, err := models.Utxos().All(ctx, w.db)
-	return utxos, err
+	return models.Utxos().All(ctx, w.db)
 }
 
+// we've spent the utxo
+// TODO: refactor this
 func (w *Wallet) DeleteUTXO(ctx context.Context, utxo *models.Utxo) error {
 	_, err := utxo.Delete(ctx, w.db)
+	return err
+}
+
+// we've observed the utxo has been spent
+// TODO: refactor this
+func (w *Wallet) UnspendableUTXO(ctx context.Context, utxo ledger.Outpoint) error {
+	_, err := models.Utxos(qm.Where("txid = ? and idx = ?", string(utxo.PreviousTx[:]), utxo.Index)).DeleteAll(ctx, w.db)
 	return err
 }
 

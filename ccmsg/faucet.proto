@@ -2,6 +2,7 @@ syntax = "proto3";
 package ccmsg;
 
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "google/protobuf/empty.proto";
 import "common.proto";
 
 // ------------------------
@@ -9,12 +10,9 @@ import "common.proto";
 // ------------------------
 
 service Faucet {
-    rpc GetCoins(GetCoinsRequest) returns (GetCoinsResponse) {}
+    rpc GetCoins(GetCoinsRequest) returns (google.protobuf.Empty) {}
 }
 
 message GetCoinsRequest {
     PublicKey public_key = 1;
-}
-
-message GetCoinsResponse {
 }
