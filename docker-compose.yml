@@ -1,6 +1,20 @@
 ---
 version: '3.7'
 services:
+  blockexplorerd:
+    image: cachecash/go-cachecash
+    build: .
+    command: blockexplorerd -logLevel debug -trace http://jaeger:14268
+    ports:
+    # www
+    - 8080:8080
+    # status
+    - 8103:8100
+    environment:
+    - CACHECASH_INSECURE=true
+    - BLOCKEXPLORER_LEDGER_ADDR=ledger:7778
+    - BLOCKEXPLORER_ROOT=http://localhost:8080/
+
   logpiped:
     image: cachecash/go-cachecash
     build: .

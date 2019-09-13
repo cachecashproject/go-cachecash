@@ -17,6 +17,8 @@ require (
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/ericlagergren/decimal v0.0.0-20181231230500-73749d4874d5 // indirect
+	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
+	github.com/gin-gonic/gin v1.4.0
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gobuffalo/packd v0.2.0 // indirect
 	github.com/gobuffalo/packr v0.0.0-20190614022956-a7085697a89c
@@ -38,7 +40,6 @@ require (
 	github.com/prometheus/client_golang v1.0.0
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 	github.com/prometheus/common v0.6.0
-	github.com/protocolbuffers/protobuf v3.9.1+incompatible // indirect
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/rubenv/sql-migrate v0.0.0-20190618074426-f4d34eae5a5c
 	github.com/sirupsen/logrus v1.4.2
@@ -50,6 +51,7 @@ require (
 	github.com/volatiletech/null v8.0.0+incompatible
 	github.com/volatiletech/sqlboiler v3.4.0+incompatible
 	github.com/ziutek/mymysql v1.5.4 // indirect
+	github.com/zsais/go-gin-prometheus v0.1.0
 	go.opencensus.io v0.22.0
 	golang.org/x/crypto v0.0.0-20190617133340-57b3e21c3d56
 	golang.org/x/sys v0.0.0-20190618155005-516e3c20635f // indirect
