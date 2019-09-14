@@ -62,8 +62,8 @@ github.com/gobuffalo/packr
 # github.com/gofrs/uuid v3.2.0+incompatible
 github.com/gofrs/uuid
 # github.com/gogo/protobuf v1.2.1
-github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/gogoproto
+github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/types
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/gogo/protobuf/sortkeys

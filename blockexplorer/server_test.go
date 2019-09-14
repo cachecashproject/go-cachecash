@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-
+	proto "github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/assert"
@@ -69,5 +69,55 @@ func (suite *ServerTestSuite) TestRootDocHTML() {
 	}
 	rr := httptest.NewRecorder()
 	server.Handler.ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Equal(t, rr.Code, http.StatusOK)
+	body := rr.Body.String()
+	assert.Contains(t, body, "<link rel=\"self\" href=\"http://localhost/\">")
+	assert.Contains(t, body, "<a href=\"http://localhost/escrows\">Escrows</a>")
+	assert.NotContains(t, body, "<a href=\"http://localhost/\">Self</a>")
+}
+
+func (suite *ServerTestSuite) TestRootDocJSON() {
+	t := suite.T()
+
+	conf := ConfigFile{Root: "http://localhost/", HTTPAddr: "address"}
+	server, err := newBlockExplorerServer(suite.l, nil, &conf)
+	assert.NotNil(t, server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept", gin.MIMEJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	server.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, rr.Code, http.StatusOK)
+	assert.Equal(t, "{\"_links\":{\"links\":{\"escrows\":{\"href\":\"http://localhost/escrows\",\"name\":\"Escrows\"},\"self\":{\"href\":\"http://localhost/\",\"name\":\"Self\"}}}}", rr.Body.String())
+}
+
+func (suite *ServerTestSuite) TestRootDocPB() {
+	t := suite.T()
+
+	conf := ConfigFile{Root: "http://localhost/", HTTPAddr: "address"}
+	server, err := newBlockExplorerServer(suite.l, nil, &conf)
+	assert.NotNil(t, server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept", "application/protobuf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	server.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, rr.Code, http.StatusOK)
+	newroot := &APIRoot{}
+	body := rr.Body.Bytes()
+	err = proto.Unmarshal(body, newroot)
+	assert.Nil(t, err)
+	assert.Len(t, newroot.XLinks.Links, 2)
+	assert.Equal(t, "http://localhost/", newroot.XLinks.Links["self"].Href)
+	assert.Equal(t, "http://localhost/escrows", newroot.XLinks.Links["escrows"].Href)
 }

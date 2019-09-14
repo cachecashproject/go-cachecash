@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="self" href="{{.Doc.XLinks.Links.self.Href}}">
+<title>Block explorer root</title>
+</head>
+
+<body>
+<p>Available API types</p>
+<ul>
+{{range .Doc.XLinks.Links}}{{if (ne .Name "Self")}}<li><a href="{{.Href}}">{{.Name}}</a></li>{{end}}{{end}}
+</ul>
+</body>
+</html>

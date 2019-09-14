@@ -1,0 +1,40 @@
+syntax = "proto3";
+package blockexplorer;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+// ------------------------
+// Blockexplorer API
+// ------------------------
+
+// Each API object has a data key containing the underlying data type
+// and HAL compatible metadata with calculated links to related data
+// https://www.ietf.org/archive/id/draft-kelly-json-hal-08.txt
+// (this is pragmatic - protobuf3 has no subclass feature as would be
+// required to trivially attach HAL data to existing datatypes, and 
+// writing protobuf code generators right now isn't a good use of time
+// - in future we may swing back and move the API object to be the root
+// rather than at .data)
+
+// Link is a single link to another object
+message Link {
+    // The URL - possibly a template such as "/escrows{?id}"
+    string href = 1;
+    // optional; true if the url is a template
+    bool templated = 2;
+    // optional human readable name
+    string name = 3;
+}
+
+// Links is a collection of links in an API response
+message Links {
+    // Maps the rel to the Link object.
+    // For instance the link with rel="self" is found with key="self".
+    map<string, Link> links = 1;
+}
+
+// APIRoot is the root of the API
+message APIRoot {
+    Links _links = 1;
+    // No embedded resources in the root
+}
