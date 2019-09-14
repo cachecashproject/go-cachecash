@@ -212,7 +212,7 @@ func (s *simulator) submit(tx ledger.Transaction, prevOutputs []ledger.Transacti
 	if err != nil {
 		return errors.Wrap(err, "failed to post transaction")
 	}
-	s.l.Info("block got accepted")
+	s.l.Info("tx got accepted")
 
 	return nil
 }

@@ -65,6 +65,6 @@ func (p *ConfigParser) GetInt64(key string, fallback int64) int64 {
 // bootstrap/publisher/observability endpoints.
 func (p *ConfigParser) GetInsecure() bool {
 	insecure := p.GetBool("insecure", false)
-	p.l.Info("Insecure mode", insecure)
+	p.l.Info("Insecure mode ", insecure)
 	return insecure
 }

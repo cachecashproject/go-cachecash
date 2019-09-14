@@ -1,0 +1,6 @@
+# This configuration file is for sql-migrate.
+wallet-development:
+  dialect: sqlite3
+  datasource: "./wallet.db"
+  dir: "../migrations/"
+  table: migrations
