@@ -1,6 +1,6 @@
 module github.com/cachecashproject/go-cachecash
 
-go 1.12
+go 1.13
 
 require github.com/elastic/go-elasticsearch/v7 v7.3.1-0.20190801065659-92cf325b6bfb
 
