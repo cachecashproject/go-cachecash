@@ -1069,6 +1069,23 @@ func (u *GlobalConfigListUpdate) UnmarshalFrom(data []byte) (int, error) {
 	return n, nil
 }
 
+// N.B.: This only identifies clearly malformed data.  Since the validity of the deletion/insertion indices themselves
+// depends on the value that the update is being applied to, detecting those problems requires that value to be known.
+func (u *GlobalConfigListUpdate) validate() error {
+	// Validate that deletion indices are in order and there are no duplicates.
+	if len(u.Deletions) > 0 {
+		prev := u.Deletions[0]
+		for _, idx := range u.Deletions[1:] {
+			if idx <= prev {
+				return errors.New("invalid sequence of deletion indices")
+			}
+			prev = idx
+		}
+	}
+
+	return nil
+}
+
 // A GlobalConfigListInsertion describes an insertion into a list global configuration parameter (GCP).
 type GlobalConfigListInsertion struct {
 	Index uint64
