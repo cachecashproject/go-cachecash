@@ -5,10 +5,10 @@ import (
 	"flag"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
-	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/faucet"
 	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledgerservice"
 	"github.com/cachecashproject/go-cachecash/log"
 	"github.com/cachecashproject/go-cachecash/wallet"
 	"github.com/cachecashproject/go-cachecash/wallet/migrations"
@@ -47,16 +47,6 @@ func main() {
 	common.Main(mainC)
 }
 
-func connectGrpcClient(cf *faucet.ConfigFile) (ccmsg.LedgerClient, error) {
-	conn, err := common.GRPCDial(cf.LedgerAddr, cf.Insecure)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to dial ledger service")
-	}
-
-	grpc := ccmsg.NewLedgerClient(conn)
-	return grpc, nil
-}
-
 func mainC() error {
 	l := log.NewCLILogger("faucetd", log.CLIOpt{JSON: true})
 	flag.Parse()
@@ -91,11 +81,11 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	grpc, err := connectGrpcClient(cf)
+	client, err := ledgerservice.NewLedgerClient(&l.Logger, cf.LedgerAddr, cf.Insecure)
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to ledgerd")
+		return err
 	}
-	wallet := wallet.NewWallet(&l.Logger, kp, db, grpc)
+	wallet := wallet.NewWallet(&l.Logger, kp, db, client.GrpcClient)
 
 	fs, err := faucet.NewFaucet(&l.Logger, wallet)
 	if err != nil {

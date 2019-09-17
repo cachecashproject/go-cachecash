@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/ledgerservice"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -19,7 +20,7 @@ type Daemon interface {
 type daemon struct {
 	l            *logrus.Logger
 	statusServer *statusServer
-	ledgerClient *LedgerClient
+	ledgerClient *ledgerservice.LedgerClient
 	conf         *ConfigFile
 	httpServer   *http.Server
 }
@@ -28,7 +29,7 @@ var _ Daemon = (*daemon)(nil)
 
 // NewDaemon creates a block explorer daemon
 func NewDaemon(l *logrus.Logger, conf *ConfigFile) (Daemon, error) {
-	client, err := NewLedgerClient(l, conf.LedgerAddr, conf.Insecure)
+	client, err := ledgerservice.NewLedgerClient(l, conf.LedgerAddr, conf.Insecure)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create ledger client")
 	}

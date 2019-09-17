@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cachecashproject/go-cachecash/ledgerservice"
 	"github.com/gin-gonic/contrib/ginrus"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
@@ -17,7 +18,7 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 )
 
-func newBlockExplorerServer(l *logrus.Logger, c *LedgerClient, conf *ConfigFile) (*http.Server, error) {
+func newBlockExplorerServer(l *logrus.Logger, c *ledgerservice.LedgerClient, conf *ConfigFile) (*http.Server, error) {
 	r := gin.New()
 	r.Use(ginrus.Ginrus(l, time.RFC3339, true), gin.Recovery())
 	if gin.Mode() != gin.TestMode {

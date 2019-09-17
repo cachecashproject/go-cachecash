@@ -1,4 +1,4 @@
-package blockexplorer
+package ledgerservice
 
 import (
 	"github.com/cachecashproject/go-cachecash/ccmsg"
@@ -12,7 +12,7 @@ import (
 type LedgerClient struct {
 	l          *logrus.Logger
 	conn       *grpc.ClientConn
-	grpcClient ccmsg.LedgerClient
+	GrpcClient ccmsg.LedgerClient
 }
 
 // NewLedgerClient creates a new LedgerClient
@@ -26,8 +26,8 @@ func NewLedgerClient(l *logrus.Logger, addr string, insecure bool) (*LedgerClien
 	grpcClient := ccmsg.NewLedgerClient(conn)
 
 	return &LedgerClient{
-		l:          l,
-		grpcClient: grpcClient,
 		conn:       conn,
+		GrpcClient: grpcClient,
+		l:          l,
 	}, nil
 }
