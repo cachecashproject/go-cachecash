@@ -3,6 +3,7 @@ package ccmsg;
 
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 import "common.proto";
+import "ledger/block.proto";
 
 // ------------------------
 // Ledger protocol
@@ -32,7 +33,7 @@ message GetBlocksRequest {
 
 message GetBlocksResponse {
     bytes prev_block_id = 1;
-    repeated bytes blocks = 2;
+    repeated ledger.Block blocks = 2;
 }
 
 // ------------------------

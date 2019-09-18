@@ -44,11 +44,7 @@ func getFirstGenesisTransaction(ctx context.Context, l *logrus.Logger, grpcClien
 		return nil, nil, errors.New("TODO: chains with more than the genesis block are currently unsupported")
 	}
 
-	block := ledger.Block{}
-	err = block.Unmarshal(blocks[0])
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to unmarshal block")
-	}
+	block := blocks[0]
 
 	if len(block.Transactions.Transactions) == 0 {
 		return nil, nil, errors.New("missing transactions in genesis block")

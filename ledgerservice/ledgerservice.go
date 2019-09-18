@@ -6,6 +6,7 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledger"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -96,7 +97,7 @@ func (s *LedgerService) GetBlocks(ctx context.Context, req *ccmsg.GetBlocksReque
 		return nil, errors.New("limit is too high")
 	}
 
-	blocks, err := models.Blocks(
+	dbBlocks, err := models.Blocks(
 		qm.Where("height >= ?", req.StartDepth),
 		qm.OrderBy("height ASC"),
 		qm.Limit(int(req.Limit)),
@@ -106,18 +107,23 @@ func (s *LedgerService) GetBlocks(ctx context.Context, req *ccmsg.GetBlocksReque
 		return nil, errors.New("failed to get blocks")
 	}
 
-	byteBlocks := make([][]byte, 0, len(blocks))
-	for _, block := range blocks {
-		byteBlocks = append(byteBlocks, block.Raw)
+	blocks := make([]*ledger.Block, 0, len(dbBlocks))
+	for _, dbBlock := range dbBlocks {
+		block := &ledger.Block{}
+		err = block.Unmarshal(dbBlock.Raw)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse stored block")
+		}
+		blocks = append(blocks, block)
 	}
 
 	s.l.WithFields(logrus.Fields{
-		"blocks":     len(byteBlocks),
+		"blocks":     len(blocks),
 		"startDepth": req.StartDepth,
 		"limit":      req.Limit,
 	}).Debug("sending block reply")
 
 	return &ccmsg.GetBlocksResponse{
-		Blocks: byteBlocks,
+		Blocks: blocks,
 	}, nil
 }

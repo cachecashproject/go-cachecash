@@ -86,15 +86,13 @@ func (w *Wallet) FetchBlocks(ctx context.Context) error {
 		w.l.Info("No new blocks")
 	}
 
-	for _, bytes := range resp.Blocks {
-		block := ledger.Block{}
-		err = block.Unmarshal(bytes)
-		if err != nil {
-			return errors.Wrap(err, "failed to unmarshal block")
-		}
-
+	for _, block := range resp.Blocks {
 		w.l.Info("Adding block")
-		err = w.AddBlock(ctx, block)
+		err = w.AddBlock(ctx, *block)
+		if err != nil {
+			return err
+		}
+		bytes, err := block.Marshal()
 		if err != nil {
 			return err
 		}
