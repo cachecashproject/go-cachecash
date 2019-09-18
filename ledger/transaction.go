@@ -3,12 +3,90 @@ package ledger
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/json"
 
 	"github.com/pkg/errors"
 
 	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 )
+
+// <---- Transactions ----
+
+// Protobuf custom type glue for dealing with bug https://github.com/gogo/protobuf/issues/478
+
+// Transactions wraps a slice of *Transaction
+type Transactions struct {
+	Transactions []*Transaction
+}
+
+func (transactions Transactions) Marshal() ([]byte, error) {
+	s := transactions.Size()
+	data := make([]byte, s)
+	n, err := transactions.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	if n != len(data) {
+		return nil, errors.New("unexpected data length in BlockHeader.Marshal()")
+	}
+	return data, nil
+}
+
+func (transactions *Transactions) MarshalTo(data []byte) (int, error) {
+	var n int
+
+	for _, tx := range transactions.Transactions {
+		txBytes, err := tx.Marshal()
+		if err != nil {
+			return 0, err
+		}
+		binary.LittleEndian.PutUint32(data[n:], uint32(len(txBytes)))
+		n += 4
+		n += copy(data[n:], txBytes)
+	}
+	return n, nil
+}
+
+func (transactions *Transactions) Unmarshal(data []byte) error {
+	_, err := transactions.UnmarshalFrom(data)
+	return err
+}
+
+func (transactions *Transactions) UnmarshalFrom(data []byte) (int, error) {
+	var n int
+	transactions.Transactions = make([]*Transaction, 0)
+	for len(data[n:]) > 0 {
+		if len(data[n:]) < 4 {
+			return 0, errors.New("incomplete tx length field")
+		}
+		b := int(binary.LittleEndian.Uint32(data[n:]))
+		n += 4
+
+		if len(data[n:]) < b {
+			return 0, errors.New("transaction length field exceeds remaining data")
+		}
+
+		tx := Transaction{}
+		err := tx.Unmarshal(data[n : n+b])
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to unmarshal transaction")
+		}
+		n += b
+
+		transactions.Transactions = append(transactions.Transactions, &tx)
+	}
+
+	return n, nil
+}
+
+func (transactions *Transactions) Size() int {
+	var n int
+	for _, tx := range transactions.Transactions {
+		n += 4 + tx.Size()
+	}
+	return n
+}
+
+// ---- Transactions ---->
 
 type TxType uint8
 
@@ -26,9 +104,11 @@ const (
 )
 
 // In order to be used as a gogo/protobuf custom type, a struct must implement this interface...
+// - removed JSON from this because its not actually needed: its there because protobuf invokes JSON serialisation
+// on the types and the type thus has to be JSON serialisable. IFF the default behaviour is inappropriate do we need
+// a custom implementation. If we do need to add it back in, use type aliases - http://choly.ca/post/go-json-marshalling/
 type protobufCustomType interface {
 	Marshal() ([]byte, error)
-	MarshalJSON() ([]byte, error)
 }
 
 // ... and the pointer-to-struct type must implement this one.
@@ -36,7 +116,6 @@ type protobufCustomTypePtr interface {
 	MarshalTo(data []byte) (n int, err error)
 	Unmarshal(data []byte) error
 	Size() int
-	UnmarshalJSON(data []byte) error
 }
 
 type Transaction struct {
@@ -120,19 +199,6 @@ func (tx *Transaction) Size() int {
 	// - TxType   uint8
 	// - Flags    uint16
 	return 4 + tx.Body.Size()
-}
-
-func (tx *Transaction) MarshalJSON() ([]byte, error) {
-	return json.Marshal(tx)
-}
-
-func (tx *Transaction) UnmarshalJSON(data []byte) error {
-	// XXX: Not sure this will work with Body which has an interface type.
-	err := json.Unmarshal(data, tx)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (tx *Transaction) TXID() (TXID, error) {

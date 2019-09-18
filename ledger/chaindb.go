@@ -62,7 +62,7 @@ func NewSimpleChainDatabase(genesisBlock *Block) (*simpleChainDatabase, error) {
 }
 
 func (cdb *simpleChainDatabase) addTransactions(blk *Block) error {
-	for _, tx := range blk.Transactions {
+	for _, tx := range blk.Transactions.Transactions {
 		txid, err := tx.TXID()
 		if err != nil {
 			return errors.Wrap(err, "failed to compute TXID")
@@ -99,16 +99,16 @@ func (cdb *simpleChainDatabase) visitTransactions(cc *ChainContext, vis txVisito
 			return fmt.Errorf("block not in database: %v", blkid)
 		}
 
-		startIdx := len(blk.Transactions) - 1
+		startIdx := len(blk.Transactions.Transactions) - 1
 		if blkid.Equal(cc.BlockID) {
 			startIdx = int(cc.TxIndex) - 1
-			if startIdx > len(blk.Transactions) {
+			if startIdx > len(blk.Transactions.Transactions) {
 				return errors.New("out-of-range transaction index")
 			}
 		}
 
 		for i := startIdx; i >= 0; i-- {
-			ok, err := vis(blk.Transactions[i])
+			ok, err := vis(blk.Transactions.Transactions[i])
 			if err != nil {
 				return err
 			}

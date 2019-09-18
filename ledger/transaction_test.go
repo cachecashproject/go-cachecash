@@ -254,3 +254,54 @@ func (suite *TransactionTestSuite) TestGenesisTransaction_InOutPoints() {
 		},
 	}, ops)
 }
+
+func (suite *TransactionTestSuite) TestMarshal() {
+	t := suite.T()
+
+	transactions := &Transactions{Transactions: []*Transaction{
+		{
+			Version: 0x01,
+			Flags:   0x0000,
+			Body: &TransferTransaction{
+				Inputs: []TransactionInput{
+					{
+						Outpoint: Outpoint{
+							PreviousTx: mustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+							Index:      0,
+						},
+						ScriptSig:  testutil.MustDecodeString("abc123"),
+						SequenceNo: 0xFFFFFFFF,
+					},
+				},
+				Witnesses: []TransactionWitness{
+					{
+						// A zero-item stack.
+					},
+				},
+				Outputs: []TransactionOutput{
+					{
+						Value:        1234,
+						ScriptPubKey: testutil.MustDecodeString("def456"),
+					},
+				},
+			},
+		},
+	},
+	}
+
+	// These are the protobuf serialised bytes for /
+	transactionsBytes := []byte{
+		0x38, 0x0, 0x0, 0x0, 0x1, 0x1, 0x0, 0x0, 0x1, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe,
+		0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde,
+		0xad, 0xbe, 0xef, 0x0, 0x3, 0xab, 0xc1, 0x23, 0xff, 0xff, 0xff, 0xff, 0x1, 0xd2, 0x4, 0x0, 0x0, 0x3, 0xde, 0xf4,
+		0x56, 0x0}
+
+	bytes, err := transactions.Marshal()
+	assert.Nil(t, err)
+	assert.Equal(t, transactionsBytes, bytes)
+
+	transactions2 := &Transactions{}
+	err = transactions2.Unmarshal(transactionsBytes)
+	assert.Nil(t, err)
+	assert.Equal(t, transactions, transactions2)
+}

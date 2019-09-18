@@ -1,0 +1,29 @@
+syntax = "proto3";
+package ledger;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+// ------------------------
+// Block protocol
+// ------------------------
+// See https://github.com/gogo/protobuf/blob/master/custom_types.md
+
+message Block {
+	HeaderStub Header = 1 [(gogoproto.customtype) = "BlockHeader"];
+    // This is not a repeated field due to
+    // https://github.com/gogo/protobuf/issues/478 when that is fixed this can
+    // be updated to a repeated field and the plural type dropped.
+	TransactionsStub Transactions = 2 [(gogoproto.customtype) = "Transactions"];
+}
+
+message HeaderStub {
+    // This can be filled in to hintfor other language bindings, or remain as a
+    // stub.
+}
+
+message TransactionsStub {
+    // This can be filled in to hintfor other language bindings, or remain as a
+    // stub.
+}
+
+// ------------------------

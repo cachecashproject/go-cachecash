@@ -50,16 +50,16 @@ func getFirstGenesisTransaction(ctx context.Context, l *logrus.Logger, grpcClien
 		return nil, nil, errors.Wrap(err, "failed to unmarshal block")
 	}
 
-	if len(block.Transactions) == 0 {
+	if len(block.Transactions.Transactions) == 0 {
 		return nil, nil, errors.New("missing transactions in genesis block")
 	}
 
-	txid, err := block.Transactions[0].TXID()
+	txid, err := block.Transactions.Transactions[0].TXID()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get txid")
 	}
 
-	return &txid, block.Transactions[0].Outputs(), nil
+	return &txid, block.Transactions.Transactions[0].Outputs(), nil
 }
 
 type wallet struct {

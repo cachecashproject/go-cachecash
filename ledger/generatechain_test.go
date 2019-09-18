@@ -101,7 +101,7 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 
 	// Block 1
 
-	prevTXID, err := block0.Transactions[0].TXID()
+	prevTXID, err := block0.Transactions.Transactions[0].TXID()
 	if err != nil {
 		t.Fatalf("failed to get previous transaction ID: %v", err)
 	}
@@ -148,7 +148,7 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 	// TODO: Validate.
 	us := NewUTXOSet()
 	for _, blk := range []*Block{block0, block1} {
-		for _, tx := range blk.Transactions {
+		for _, tx := range blk.Transactions.Transactions {
 			if err := us.Update(tx); err != nil {
 				t.Fatalf("failed to update UTXO set: %v", err)
 			}
@@ -178,7 +178,7 @@ func (suite *GenerateChainTestSuite) testChainDatabase(blocks []*Block) {
 		}
 	}
 
-	tx := blocks[1].Transactions[0]
+	tx := blocks[1].Transactions.Transactions[0]
 	txid, err := tx.TXID()
 	if !assert.Nil(t, err) {
 		return

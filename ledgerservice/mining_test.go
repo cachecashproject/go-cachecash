@@ -50,7 +50,7 @@ func TestMineNoBlockWithEmptyMempool(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
@@ -60,7 +60,7 @@ func TestMineNoBlockWithEmptyMempool(t *testing.T) {
 func block2txos(block *ledger.Block) ([]txo, error) {
 	txos := []txo{}
 
-	for _, tx := range block.Transactions {
+	for _, tx := range block.Transactions.Transactions {
 		outputs, err := tx2txos(tx)
 		if err != nil {
 			return nil, err
@@ -173,7 +173,7 @@ func TestMineOneTransaction(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)
@@ -192,7 +192,7 @@ func TestMineOneTransaction(t *testing.T) {
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 }
 
 func TestMineMultipleOutputs(t *testing.T) {
@@ -204,7 +204,7 @@ func TestMineMultipleOutputs(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)
@@ -235,7 +235,7 @@ func TestMineMultipleOutputs(t *testing.T) {
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 }
 
 func TestMineMultipleInputs(t *testing.T) {
@@ -247,7 +247,7 @@ func TestMineMultipleInputs(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)
@@ -278,7 +278,7 @@ func TestMineMultipleInputs(t *testing.T) {
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err = block2txos(block)
 	assert.Nil(t, err)
@@ -297,7 +297,7 @@ func TestMineMultipleInputs(t *testing.T) {
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 }
 
 func TestMineOutputTwice(t *testing.T) {
@@ -309,7 +309,7 @@ func TestMineOutputTwice(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)
@@ -328,7 +328,7 @@ func TestMineOutputTwice(t *testing.T) {
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	// try to spend the same output twice
 	err = lm.QueueTX(ctx, tx)
@@ -349,7 +349,7 @@ func TestMineConflictingTXs(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)
@@ -371,9 +371,9 @@ func TestMineConflictingTXs(t *testing.T) {
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 }
 
 func TestMineDependingTXs(t *testing.T) {
@@ -385,7 +385,7 @@ func TestMineDependingTXs(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)
@@ -417,7 +417,7 @@ func TestMineDependingTXs(t *testing.T) {
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 2, len(block.Transactions))
+	assert.Equal(t, 2, len(block.Transactions.Transactions))
 }
 
 func TestMineMultipleWallets(t *testing.T) {
@@ -429,7 +429,7 @@ func TestMineMultipleWallets(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	next, err := keypair.Generate()
 	assert.Nil(t, err)
@@ -452,7 +452,7 @@ func TestMineMultipleWallets(t *testing.T) {
 		block, err = lm.GenerateBlock(ctx)
 		assert.Nil(t, err)
 		assert.NotNil(t, block)
-		assert.Equal(t, 1, len(block.Transactions))
+		assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 		kp = next
 		next, err = keypair.Generate()
@@ -472,7 +472,7 @@ func TestMineWrongWallet(t *testing.T) {
 	lm, block, err := SetupGenesis(kp1)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)
@@ -503,7 +503,7 @@ func TestMultipleGenesisBlocks(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	outputs, err := makeOutputs([]output{
 		{
@@ -539,7 +539,7 @@ func TestMineInflation(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)
@@ -579,7 +579,7 @@ func TestMineDeflation(t *testing.T) {
 	lm, block, err := SetupGenesis(kp)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 1, len(block.Transactions))
+	assert.Equal(t, 1, len(block.Transactions.Transactions))
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)

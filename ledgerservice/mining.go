@@ -94,8 +94,9 @@ func (m *LedgerMiner) InitGenesisBlock(ctx context.Context, totalCoins uint32) (
 	// the genesis block mints totalCoins to m.kp.PublicKey
 	block := &ledger.Block{
 		Header: &ledger.BlockHeader{},
-		Transactions: []*ledger.Transaction{
+		Transactions: &ledger.Transactions{Transactions: []*ledger.Transaction{
 			&tx,
+		},
 		},
 	}
 
@@ -267,7 +268,7 @@ func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spent
 		return nil, errors.Wrap(err, "Failed to insert new block to database")
 	}
 
-	for _, tx := range block.Transactions {
+	for _, tx := range block.Transactions.Transactions {
 		txid, err := tx.TXID()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get txid from transaction")
@@ -390,7 +391,7 @@ func (m *LedgerMiner) Run(ctx context.Context) {
 		} else if block != nil {
 			m.l.WithFields(logrus.Fields{
 				"blockID": hex.EncodeToString(block.CanonicalDigest()),
-				"txs":     len(block.Transactions),
+				"txs":     len(block.Transactions.Transactions),
 			}).Info("block has been created")
 		} else {
 			m.l.Debug("mempool is empty")

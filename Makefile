@@ -9,7 +9,7 @@ GIT_VERSION:=$(or \
 
 BASE_IMAGE=cachecash/go-cachecash-build:latest
 
-GEN_PROTO_DIRS=./ccmsg/... ./log/... ./metrics/...
+GEN_PROTO_DIRS=./ccmsg/... ./ledger/... ./log/... ./metrics/...
 GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
 GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
 GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto

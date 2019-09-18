@@ -129,7 +129,7 @@ func (w *Wallet) MatchesOurWallet(output ledger.TransactionOutput) (bool, error)
 }
 
 func (w *Wallet) AddBlock(ctx context.Context, block ledger.Block) error {
-	for _, tx := range block.Transactions {
+	for _, tx := range block.Transactions.Transactions {
 		txid, err := tx.TXID()
 		if err != nil {
 			return err
