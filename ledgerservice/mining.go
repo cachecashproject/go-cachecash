@@ -440,7 +440,6 @@ func (m *LedgerMiner) BlockSchedulerTimer(ctx context.Context) bool {
 			// exit the go routine
 			return false
 		case <-time.After(remaining):
-			break
 		case <-m.NewTxChan:
 		}
 
