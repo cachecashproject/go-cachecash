@@ -1,6 +1,9 @@
 package ledger
 
-import "bytes"
+import (
+	"bytes"
+	"encoding/hex"
+)
 
 const (
 	TransactionIDSize = 32
@@ -21,4 +24,8 @@ func (bid *BlockID) Zero() bool {
 
 func (bid BlockID) Equal(o BlockID) bool {
 	return bytes.Equal(bid[:], o[:])
+}
+
+func (id BlockID) String() string {
+	return hex.EncodeToString(id[:])
 }
