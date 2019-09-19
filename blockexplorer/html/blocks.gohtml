@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="self" href="{{.XLinks.Links.self.Href}}">
+<title>Block explorer /blocks</title>
+</head>
+
+<body>
+{{template "nav.gohtml" .}}
+{{range $block := .XEmbedded.Blocks}}
+  <table>
+  <tr><th>Block ID</th><td><a href="{{.XLinks.Links.self.Href}}">{{.Data.BlockID.String}}</a></td></tr>
+  <tr><th>Version</th><td>{{.Data.Header.Version}}</td></tr>
+  <tr><th>PreviousBlock</th><td>{{.Data.Header.PreviousBlock}}</td></tr>
+  <tr><th>MerkleRoot</th><td>{{.Data.Header.MerkleRoot}}</td></tr>
+  <tr><th>Timestamp</th><td>{{.Data.Header.Timestamp}}</td></tr>
+  <tr><th>Signature</th><td>{{.Data.Header.Signature}}</td></tr>
+  </table>
+  <p>Transactions for block {{.Data.BlockID.String}}</p>
+  <p>
+  <table>
+  
+  {{/* This would likely be nicer with pop-up text rather than tables... or
+perhaps less detail once API access to a transaction id is implemented. For now,
+pull up everything that was in the test transactions (to be expanded once the
+wallet merges and we have more reference points)). Further, doing it one table
+would be nice, but then we really want to zip things and we're out of go's
+comfort zone. */}}
+
+  <tr>
+  <th>Transaction ID</th>
+  <th>Version</th>
+  <th>Flags</th>
+  <th>Input SequenceNo</th>
+  <th>ScriptSig</th>
+  <th>Outpoint Index</th>
+  <th>PreviousTx</th>
+  <th>Output Value</th>
+  <th>ScriptPubKey</th>
+  <th>Witness Value</th>
+  </tr>
+  {{range flattentransactions .Data.Transactions.Transactions $block}}
+    <tr>
+    <td>{{if .Meta}}<a href="{{.URL}}">{{.Meta.TXID}}</a>{{end}}</td>
+    <td>{{if .Meta}}{{.Meta.Version}}{{end}}</td>
+    <td>{{if .Meta}}{{.Meta.Flags}}{{end}}</td>
+    <td>{{if .Input}}{{.Input.SequenceNo}}{{end}}</td>
+    <td>{{if .Input}}{{.Input.ScriptSig}}{{end}}</td>
+    <td>{{if .Input}}{{.Input.Outpoint.Index}}{{end}}</td>
+    <td>{{if .Input}}{{.Input.Outpoint.PreviousTx}}{{end}}</td>
+    <td>{{if .Output}}{{.Output.Value}}{{end}}</td>
+    <td>{{if .Output}}{{.Output.ScriptPubKey}}{{end}}</td>
+    <td>{{if .Witness}}{{.Witness}}{{end}}</td>
+  {{end}}
+  </table>
+</p>
+{{end}}
+
+
+</body>
+</html>

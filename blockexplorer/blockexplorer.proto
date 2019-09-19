@@ -2,6 +2,7 @@ syntax = "proto3";
 package blockexplorer;
 
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "ledger/block.proto";
 
 // ------------------------
 // Blockexplorer API
@@ -37,4 +38,19 @@ message Links {
 message APIRoot {
     Links _links = 1;
     // No embedded resources in the root
+}
+
+// Block is a blockchain block
+message Block {
+    Links _links = 1;
+    ledger.Block data = 2;
+}
+
+// Blocks is a collection of blocks
+message Blocks {
+    Links _links = 1;
+    message Embedded {
+        repeated Block blocks = 1;
+    }
+    Embedded _embedded = 2;
 }
