@@ -22,11 +22,11 @@ func main() {
 }
 
 func openWallet(ctx context.Context, l *logrus.Logger, c *cli.Context) (*wallet.Wallet, error) {
-	keypairPath := c.String("keypair")
-	ledgerAddr := c.String("ledger-addr")
-	sync := c.Bool("sync")
-	insecure := c.Bool("insecure")
-	dbPath := c.String("wallet-db")
+	keypairPath := c.GlobalString("keypair")
+	ledgerAddr := c.GlobalString("ledger-addr")
+	sync := c.GlobalBool("sync")
+	insecure := c.GlobalBool("insecure")
+	dbPath := c.GlobalString("wallet-db")
 
 	kp, err := keypair.LoadOrGenerate(l, keypairPath)
 	if err != nil {
@@ -51,9 +51,7 @@ func mainC() error {
 	l := logrus.New()
 
 	app := cli.NewApp()
-	// Global flags are broken
-	// https://github.com/urfave/cli/issues/795
-	globalFlags := []cli.Flag{
+	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "keypair",
 			Usage: "Path to keypair file",
@@ -82,7 +80,6 @@ func mainC() error {
 		{
 			Name:  "balance",
 			Usage: "get current balance",
-			Flags: globalFlags,
 			Action: func(c *cli.Context) error {
 				ctx := context.Background()
 				wallet, err := openWallet(ctx, l, c)
@@ -103,7 +100,6 @@ func mainC() error {
 		{
 			Name:  "address",
 			Usage: "get our own address",
-			Flags: globalFlags,
 			Action: func(c *cli.Context) error {
 				ctx := context.Background()
 				wallet, err := openWallet(ctx, l, c)
@@ -119,7 +115,7 @@ func mainC() error {
 		{
 			Name:  "send",
 			Usage: "send coins to address",
-			Flags: append([]cli.Flag{
+			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:     "to",
 					Usage:    "Destination address",
@@ -130,7 +126,7 @@ func mainC() error {
 					Usage:    "transfer amount",
 					Required: true,
 				},
-			}, globalFlags...),
+			},
 			Action: func(c *cli.Context) error {
 				ctx := context.Background()
 				wallet, err := openWallet(ctx, l, c)
@@ -160,13 +156,13 @@ func mainC() error {
 		{
 			Name:  "faucet",
 			Usage: "request coins from a faucet",
-			Flags: append([]cli.Flag{
+			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "faucet-addr",
 					Usage: "Address of faucet instance",
 					Value: "localhost:7781",
 				},
-			}, globalFlags...),
+			},
 			Action: func(c *cli.Context) error {
 				ctx := context.Background()
 				wallet, err := openWallet(ctx, l, c)
@@ -176,7 +172,7 @@ func mainC() error {
 				defer wallet.Close()
 
 				faucetAddr := c.String("faucet-addr")
-				insecure := c.Bool("insecure")
+				insecure := c.GlobalBool("insecure")
 
 				conn, err := common.GRPCDial(faucetAddr, insecure)
 				if err != nil {
