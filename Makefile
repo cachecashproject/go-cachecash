@@ -55,7 +55,7 @@ clean:
 
 lint:
 	docker build -t cachecash-ci ci
-	docker run -v ${PWD}:/go/src/github.com/cachecashproject/go-cachecash --rm cachecash-ci golangci-lint run
+	docker run -v ${PWD}:/go/src/github.com/cachecashproject/go-cachecash --rm cachecash-ci golangci-lint run -v
 
 lint-fix:
 	docker build -t cachecash-ci ci

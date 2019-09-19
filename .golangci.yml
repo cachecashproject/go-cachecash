@@ -1,5 +1,17 @@
 linters:
+  disable:
+    - errcheck # will address in separate PR
   enable:
     - goimports
     - scopelint
+    - gocyclo
+    - bodyclose
     - misspell
+run:
+  deadline: 5m
+  skip-files:
+    - ledger/txscript/opcodes.go  # ALL_CAPS and other constants that we want to avoid messing with
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
