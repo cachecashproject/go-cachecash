@@ -161,12 +161,9 @@ func (w *Wallet) AddBlock(ctx context.Context, block ledger.Block) error {
 			return err
 		}
 
-		// mark outputs as spent
-		for _, txo := range tx.Inputs() {
-			err = w.DeleteUTXO(ctx, txo.Outpoint)
-			if err != nil {
-				return errors.Wrap(err, "failed to mark utxo as spent")
-			}
+		err = w.markTXInputsSpent(ctx, tx)
+		if err != nil {
+			return err
 		}
 
 		for idx, output := range tx.Outputs() {

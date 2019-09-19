@@ -21,35 +21,94 @@ func main() {
 	common.Main(mainC)
 }
 
-func openWallet(ctx context.Context, l *logrus.Logger, c *cli.Context) (*wallet.Wallet, error) {
-	keypairPath := c.GlobalString("keypair")
-	ledgerAddr := c.GlobalString("ledger-addr")
-	sync := c.GlobalBool("sync")
-	insecure := c.GlobalBool("insecure")
-	dbPath := c.GlobalString("wallet-db")
+func withWallet(f func(ctx context.Context, c *cli.Context, l *logrus.Logger, wallet *wallet.Wallet) error) func(c *cli.Context) error {
+	return func(c *cli.Context) error {
+		l := logrus.New()
+		ctx := context.Background()
 
-	kp, err := keypair.LoadOrGenerate(l, keypairPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get keypair")
-	}
-	w, err := wallet.NewWallet(l, kp, dbPath, ledgerAddr, insecure)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to open wallet")
-	}
+		keypairPath := c.GlobalString("keypair")
+		ledgerAddr := c.GlobalString("ledger-addr")
+		sync := c.GlobalBool("sync")
+		insecure := c.GlobalBool("insecure")
+		dbPath := c.GlobalString("wallet-db")
 
-	if sync {
-		err = w.FetchBlocks(ctx)
+		kp, err := keypair.LoadOrGenerate(l, keypairPath)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to sync wallet")
+			return errors.Wrap(err, "failed to get keypair")
 		}
+		w, err := wallet.NewWallet(l, kp, dbPath, ledgerAddr, insecure)
+		if err != nil {
+			return errors.Wrap(err, "failed to open wallet")
+		}
+
+		if sync {
+			err = w.FetchBlocks(ctx)
+			if err != nil {
+				return errors.Wrap(err, "failed to sync wallet")
+			}
+		}
+
+		defer w.Close()
+
+		return f(ctx, c, l, w)
+	}
+}
+
+func mainBalance(ctx context.Context, c *cli.Context, l *logrus.Logger, wallet *wallet.Wallet) error {
+	balance, err := wallet.GetBalance(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get balance")
 	}
 
-	return w, nil
+	fmt.Println(balance)
+	return nil
+}
+
+func mainAddress(ctx context.Context, c *cli.Context, l *logrus.Logger, wallet *wallet.Wallet) error {
+	fmt.Println(wallet.Address())
+	return nil
+}
+
+func mainSend(ctx context.Context, c *cli.Context, l *logrus.Logger, wallet *wallet.Wallet) error {
+	to := c.String("to")
+	// TODO: check before casting to uint32
+	amount := uint32(c.Uint("amount"))
+
+	address, err := ledger.ParseAddress(to)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse address")
+	}
+
+	err = wallet.SendCoins(ctx, address, amount)
+	if err != nil {
+		return errors.Wrap(err, "failed to send coins")
+	}
+
+	fmt.Printf("transfer %v -> %v\n", to, amount)
+	return nil
+}
+
+func mainFaucet(ctx context.Context, c *cli.Context, l *logrus.Logger, wallet *wallet.Wallet) error {
+	faucetAddr := c.String("faucet-addr")
+	insecure := c.GlobalBool("insecure")
+
+	conn, err := common.GRPCDial(faucetAddr, insecure)
+	if err != nil {
+		return errors.Wrap(err, "failed to dial ledger service")
+	}
+
+	grpcClient := ccmsg.NewFaucetClient(conn)
+	_, err = grpcClient.GetCoins(ctx, &ccmsg.GetCoinsRequest{
+		Address: wallet.Address(),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func mainC() error {
-	l := logrus.New()
-
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -78,39 +137,14 @@ func mainC() error {
 	}
 	app.Commands = []cli.Command{
 		{
-			Name:  "balance",
-			Usage: "get current balance",
-			Action: func(c *cli.Context) error {
-				ctx := context.Background()
-				wallet, err := openWallet(ctx, l, c)
-				if err != nil {
-					return errors.Wrap(err, "failed to open wallet")
-				}
-				defer wallet.Close()
-
-				balance, err := wallet.GetBalance(ctx)
-				if err != nil {
-					return errors.Wrap(err, "failed to get balance")
-				}
-
-				fmt.Println(balance)
-				return nil
-			},
+			Name:   "balance",
+			Usage:  "get current balance",
+			Action: withWallet(mainBalance),
 		},
 		{
-			Name:  "address",
-			Usage: "get our own address",
-			Action: func(c *cli.Context) error {
-				ctx := context.Background()
-				wallet, err := openWallet(ctx, l, c)
-				if err != nil {
-					return errors.Wrap(err, "failed to open wallet")
-				}
-				defer wallet.Close()
-
-				fmt.Println(wallet.Address())
-				return nil
-			},
+			Name:   "address",
+			Usage:  "get our own address",
+			Action: withWallet(mainAddress),
 		},
 		{
 			Name:  "send",
@@ -127,31 +161,7 @@ func mainC() error {
 					Required: true,
 				},
 			},
-			Action: func(c *cli.Context) error {
-				ctx := context.Background()
-				wallet, err := openWallet(ctx, l, c)
-				if err != nil {
-					return errors.Wrap(err, "failed to open wallet")
-				}
-				defer wallet.Close()
-
-				to := c.String("to")
-				// TODO: check before casting to uint32
-				amount := uint32(c.Uint("amount"))
-
-				address, err := ledger.ParseAddress(to)
-				if err != nil {
-					return errors.Wrap(err, "failed to parse address")
-				}
-
-				err = wallet.SendCoins(ctx, address, amount)
-				if err != nil {
-					return errors.Wrap(err, "failed to send coins")
-				}
-
-				fmt.Printf("transfer %v -> %v\n", to, amount)
-				return nil
-			},
+			Action: withWallet(mainSend),
 		},
 		{
 			Name:  "faucet",
@@ -163,32 +173,7 @@ func mainC() error {
 					Value: "localhost:7781",
 				},
 			},
-			Action: func(c *cli.Context) error {
-				ctx := context.Background()
-				wallet, err := openWallet(ctx, l, c)
-				if err != nil {
-					return errors.Wrap(err, "failed to open wallet")
-				}
-				defer wallet.Close()
-
-				faucetAddr := c.String("faucet-addr")
-				insecure := c.GlobalBool("insecure")
-
-				conn, err := common.GRPCDial(faucetAddr, insecure)
-				if err != nil {
-					return errors.Wrap(err, "failed to dial ledger service")
-				}
-
-				grpcClient := ccmsg.NewFaucetClient(conn)
-				_, err = grpcClient.GetCoins(ctx, &ccmsg.GetCoinsRequest{
-					Address: wallet.Address(),
-				})
-				if err != nil {
-					return err
-				}
-
-				return nil
-			},
+			Action: withWallet(mainFaucet),
 		},
 	}
 	return app.Run(os.Args)

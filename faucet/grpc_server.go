@@ -9,6 +9,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	FAUCET_COIN_AMOUNT = 1337
+)
+
 type grpcFaucetServer struct {
 	faucet *Faucet
 }
@@ -21,7 +25,7 @@ func (s *grpcFaucetServer) GetCoins(ctx context.Context, req *ccmsg.GetCoinsRequ
 		return nil, errors.Wrap(err, "failed to decode address")
 	}
 
-	err = s.faucet.SendCoins(ctx, target, 1337)
+	err = s.faucet.SendCoins(ctx, target, FAUCET_COIN_AMOUNT)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send coins")
 	}
