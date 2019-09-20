@@ -3,7 +3,6 @@ package ccmsg;
 
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
-import "common.proto";
 
 // ------------------------
 // FaucetClient<->FaucetServer protocol
@@ -14,5 +13,5 @@ service Faucet {
 }
 
 message GetCoinsRequest {
-    PublicKey public_key = 1;
+    string address = 1;
 }

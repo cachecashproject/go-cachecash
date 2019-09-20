@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ed25519"
 )
@@ -25,6 +26,7 @@ const (
 
 type Address interface {
 	Bytes() []byte
+	PubKeyHash() []byte
 	Base58Check() string
 }
 
@@ -37,9 +39,7 @@ type P2WPKHAddress struct {
 var _ Address = (*P2WPKHAddress)(nil)
 
 func MakeP2WPKHAddress(pubKey ed25519.PublicKey) *P2WPKHAddress {
-	pubHash := sha256.Sum256(pubKey)
-	pubHash = sha256.Sum256(pubHash[:]) // N.B.: We differ here from Bitcoin, which uses a RIPEMD-160 digest.
-
+	pubHash := txscript.Hash160Sum(pubKey)
 	return &P2WPKHAddress{
 		AddressVersion:        AddressP2WPKHTestnet,
 		WitnessProgramVersion: 0,
@@ -55,6 +55,10 @@ func (a *P2WPKHAddress) Bytes() []byte {
 	}
 	data = append(data, a.PublicKeyHash...)
 	return data
+}
+
+func (a *P2WPKHAddress) PubKeyHash() []byte {
+	return a.PublicKeyHash
 }
 
 func (a *P2WPKHAddress) Base58Check() string {

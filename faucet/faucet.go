@@ -8,6 +8,7 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/kv"
 	"github.com/cachecashproject/go-cachecash/kv/ratelimit"
+	"github.com/cachecashproject/go-cachecash/ledger"
 	"github.com/cachecashproject/go-cachecash/wallet"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -27,6 +28,7 @@ type Faucet struct {
 func NewFaucet(l *logrus.Logger, wallet *wallet.Wallet) (*Faucet, error) {
 	kv := kv.NewClient("faucet", kv.NewMemoryDriver(nil))
 	rateLimiter := ratelimit.NewRateLimiter(ratelimit.Config{
+		Logger:          l,
 		Cap:             2000,
 		RefreshInterval: 5 * time.Minute,
 		RefreshAmount:   10,
@@ -82,12 +84,12 @@ func (f *Faucet) rateLimit(ctx context.Context, target ed25519.PublicKey, amount
 	return nil
 }
 
-func (f *Faucet) SendCoins(ctx context.Context, target ed25519.PublicKey, amount uint32) error {
+func (f *Faucet) SendCoins(ctx context.Context, target ledger.Address, amount uint32) error {
 	l := f.l.WithFields(logrus.Fields{
 		"amount": amount,
 	})
 	l.Info("got coin request")
-	if err := f.rateLimit(ctx, target, amount); err != nil {
+	if err := f.rateLimit(ctx, target.Bytes(), amount); err != nil {
 		l.Info("rejected coins request: rate limit exceeded: ", err)
 		return err
 	}

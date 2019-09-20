@@ -5,3 +5,4 @@ docker-compose.yml
 /deploy/prometheus-grafana/data/
 /data/
 /unittestdata/
+/testdata/
