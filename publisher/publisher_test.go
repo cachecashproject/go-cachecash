@@ -99,7 +99,7 @@ func (suite *PublisherTestSuite) SetupTest() {
 		AddRow(125, cachePublicKeys[2], net.ParseIP("127.0.0.1"), 9002).
 		AddRow(126, cachePublicKeys[3], net.ParseIP("127.0.0.1"), 9003).
 		AddRow(127, cachePublicKeys[3], net.ParseIP("127.0.0.1"), 9004)
-	sqlMock.ExpectQuery("^SELECT \\* FROM \"cache\" WHERE \\(\"id\" IN \\(\\$1,\\$2,\\$3,\\$4\\,\\$5\\)\\);").
+	sqlMock.ExpectQuery("^SELECT \\* FROM \"cache\" WHERE \\(\"cache\"\\.\"id\" IN \\(\\$1,\\$2,\\$3,\\$4\\,\\$5\\)\\);").
 		WithArgs(123, 124, 125, 126, 127).
 		WillReturnRows(rows)
 
