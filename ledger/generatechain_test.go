@@ -203,7 +203,7 @@ func (suite *GenerateChainTestSuite) testChainDatabase(blocks []*Block) {
 	assert.NotNil(t, tx)
 
 	// Test what happens when GetTransaction does not find the transaction.
-	tx, err = cdb.GetTransaction(ccEnd, mustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"))
+	tx, err = cdb.GetTransaction(ccEnd, MustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"))
 	assert.Nil(t, err)
 	assert.Nil(t, tx)
 
