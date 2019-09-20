@@ -356,15 +356,7 @@ func (c *Client) Write(e *logrus.Entry) error {
 
 	f := &types.Struct{Fields: map[string]*types.Value{}}
 	for key, value := range e.Data {
-		var v string
-		switch value.(type) {
-		case string:
-			v = value.(string)
-		default:
-			v = fmt.Sprintf("%v", value)
-		}
-
-		f.Fields[key] = &types.Value{Kind: &types.Value_StringValue{StringValue: v}}
+		f.Fields[key] = &types.Value{Kind: &types.Value_StringValue{StringValue: fmt.Sprintf("%v", value)}}
 	}
 
 	t, err := types.TimestampProto(e.Time)
