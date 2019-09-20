@@ -18,7 +18,7 @@ CREATE TABLE bundle (
     escrow_id SERIAL NOT NULL REFERENCES escrow(id),
     block_id SERIAL NOT NULL,
     raw BYTEA NOT NULL,
-    request_sequence_no NUMERIC NOT NULL,
+    request_sequence_no SERIAL NOT NULL,
     client_public_key VARCHAR NOT NULL,
     objectid VARCHAR NOT NULL
 );

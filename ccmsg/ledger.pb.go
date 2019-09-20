@@ -11,11 +11,8 @@ import (
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -311,17 +308,6 @@ type LedgerServer interface {
 	GetBlocks(context.Context, *GetBlocksRequest) (*GetBlocksResponse, error)
 }
 
-// UnimplementedLedgerServer can be embedded to have forward compatible implementations.
-type UnimplementedLedgerServer struct {
-}
-
-func (*UnimplementedLedgerServer) PostTransaction(ctx context.Context, req *PostTransactionRequest) (*PostTransactionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PostTransaction not implemented")
-}
-func (*UnimplementedLedgerServer) GetBlocks(ctx context.Context, req *GetBlocksRequest) (*GetBlocksResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBlocks not implemented")
-}
-
 func RegisterLedgerServer(s *grpc.Server, srv LedgerServer) {
 	s.RegisterService(&_Ledger_serviceDesc, srv)
 }
@@ -589,7 +575,14 @@ func (m *GetBlocksResponse) Size() (n int) {
 }
 
 func sovLedger(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozLedger(x uint64) (n int) {
 	return sovLedger(uint64((x << 1) ^ uint64((int64(x) >> 63))))

@@ -57,6 +57,10 @@ func roundString(b []byte, mode RoundingMode, pos bool, prec int) []byte {
 		if b[i+1] >= '5' {
 			b[i]++
 		}
+	case ToNearestTowardZero:
+		if b[i+1] > '5' {
+			b[i]++
+		}
 	}
 
 	if b[i] != '9'+1 {
@@ -176,7 +180,7 @@ func (f *formatter) format(x *Big, format format, e byte) {
 		return
 	}
 
-	if x.compact == 0 && o == Go {
+	if x.isZero() && o == Go {
 		// Go mode prints zeros different than GDA.
 		if f.width == noWidth {
 			f.WriteByte('0')
