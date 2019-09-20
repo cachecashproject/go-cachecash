@@ -16,6 +16,11 @@ func (txid TXID) Equal(o TXID) bool {
 	return bytes.Equal(txid[:], o[:])
 }
 
+// String converts the TXID to string.
+func (txid TXID) String() string {
+	return hex.EncodeToString(txid[:])
+}
+
 type BlockID [BlockIDSize]byte
 
 func (bid *BlockID) Zero() bool {
