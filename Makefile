@@ -13,7 +13,7 @@ GEN_PROTO_DIRS=./ccmsg/... ./ledger/... ./log/... ./metrics/...
 GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
 GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
 GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto
-GEN_DOCKER=docker run --rm -it -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} ${BASE_IMAGE}
+GEN_DOCKER=docker run --rm -it -e GO111MODULE=on -e GOCACHE=/tmp/go-cache -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} ${BASE_IMAGE}
 
 .PHONY: dockerfiles clean lint lint-fix fuzz \
 	dev-setup gen gen-docs modules \
@@ -78,7 +78,7 @@ pull-base-image:
 
 gen: pull-base-image
 	$(GEN_DOCKER) \
-		go generate ${GEN_PROTO_DIRS}
+		go generate -mod=vendor ${GEN_PROTO_DIRS}
 
 gen-docs: pull-base-image
 	mkdir -p docs-gen
