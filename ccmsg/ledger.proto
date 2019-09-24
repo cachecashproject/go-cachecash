@@ -26,14 +26,30 @@ message PostTransactionResponse {
     Error error = 1;
 }
 
+// GetBlocksRequest wraps up the requests for blocks. To reliably get all blocks (e.g. replicating the entire dataset),
+// start with a start-depth of 0 and increase it; only blocks higher than or equal to start_depth are returned up to
+// limit. To get more blocks than requested limit at a given start_depth, use the next_page_token to offset into the
+// dataset. Blocks are returned in height and block id ascending order, unless start_depth is -1, in which case blocks
+// are returned in height and block id descending order.
+//
+// Returning blocks in descending order is a blockexplorer support feature; long
+// term block explorer will likely switch to replicating rather than having the
+// ledger support the browser-friendly index, but as a short term priority we
+// want to deliver the explorer to people right now. tl;dr: please do not make
+// the ledger super complicated: add more features by giving the explorer a
+// cache DB of its own where it can derive appropriate indices (such as a
+// projected tree index to show branches of the chain).
 message GetBlocksRequest {
-    uint64 start_depth = 1;
+    int64 start_depth = 1;
     uint64 limit = 2;
+    bytes page_token = 3;
 }
 
 message GetBlocksResponse {
-    bytes prev_block_id = 1;
-    repeated ledger.Block blocks = 2;
+    repeated ledger.Block blocks = 1;
+    // Opaque tokens for walking blocks forward/backward
+    bytes next_page_token = 2;
+    bytes prev_page_token = 3;
 }
 
 // ------------------------

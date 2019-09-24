@@ -88,9 +88,9 @@ func (w *Wallet) PublicKey() ed25519.PublicKey {
 	return w.kp.PublicKey
 }
 
-func (w *Wallet) BlockHeight(ctx context.Context) (uint64, error) {
+func (w *Wallet) BlockHeight(ctx context.Context) (int64, error) {
 	count, err := models.Blocks().Count(ctx, w.db)
-	return uint64(count), err
+	return int64(count), err
 }
 
 func (w *Wallet) FetchBlocks(ctx context.Context) error {

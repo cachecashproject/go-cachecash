@@ -213,7 +213,7 @@ func (s *simulator) submit(tx ledger.Transaction, prevOutputs []ledger.Transacti
 	return nil
 }
 
-func (s *simulator) pollBlock(height uint64) (uint64, error) {
+func (s *simulator) pollBlock(height int64) (int64, error) {
 	ctx := context.Background()
 
 	for {
@@ -226,7 +226,7 @@ func (s *simulator) pollBlock(height uint64) (uint64, error) {
 			return height, errors.Wrap(err, "failed to get blocks")
 		}
 
-		blocks := uint64(len(resp.Blocks))
+		blocks := int64(len(resp.Blocks))
 		height = height + blocks
 		s.l.Info("current blocks height: ", height)
 
@@ -239,7 +239,7 @@ func (s *simulator) pollBlock(height uint64) (uint64, error) {
 }
 
 func (s *simulator) run(rounds int) error {
-	height := uint64(0)
+	height := int64(0)
 
 	for i := 0; i <= rounds; i++ {
 		s.l.Infof("starting round: %d/%d", i, rounds)
