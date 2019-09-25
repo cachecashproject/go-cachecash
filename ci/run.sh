@@ -58,9 +58,6 @@ case "$BUILD_MODE" in
       cachecash-ci goveralls -coverprofile=coverage.out \
       -service=travis-pro -repotoken "$COVERALLS_TOKEN"
     ;;
-  docker)
-    make build
-    ;;
   e2e)
     ci/run-e2e.sh
     ;;
