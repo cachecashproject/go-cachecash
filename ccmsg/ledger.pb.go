@@ -383,9 +383,9 @@ func (m *PostTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintLedger(dAtA, i, uint64(m.Tx.Size()))
-	n1, err1 := m.Tx.MarshalTo(dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := m.Tx.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	if m.XXX_unrecognized != nil {
@@ -413,9 +413,9 @@ func (m *PostTransactionResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintLedger(dAtA, i, uint64(m.Error.Size()))
-		n2, err2 := m.Error.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.Error.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
