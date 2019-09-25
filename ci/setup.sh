@@ -45,11 +45,8 @@ case "$BUILD_MODE" in
     time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --net=cachecash cachecash-ci sql-migrate up -config=publisher/migrations/dbconfig.yml -env=docker-tests
     time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash --rm --net=cachecash cachecash-ci sql-migrate up -config=ledgerservice/migrations/dbconfig.yml -env=docker-tests
     ;;
-  docker)
-    update_docker_compose
-    ;;
   e2e)
     update_docker_compose
-    time docker-compose build
+    time make build
     ;;
 esac
