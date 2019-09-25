@@ -1,8 +1,10 @@
 # Maintainer notes
 
-## Updating Go
+## Updating the Base Image
 
-When a new release of Go is available, the version needs to be updated in the following places:
+The base image contains all the dependencies you need to build our software.
 
-  - `ci/Dockerfile` (when any new release is available)
-  - `deploy/go-cachecash/Dockerfile` (when any new release is available)
+To update the image of base dependencies -- from `Dockerfile.base`, whenever
+this file is modified in master, this should be run:
+
+- `make push-base-image`
