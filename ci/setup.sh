@@ -30,8 +30,6 @@ else
   make pull-base-image
 fi
 
-make build
-
 case "$BUILD_MODE" in
   test)
     docker network create cachecash --opt com.docker.network.bridge.enable_ip_masquerade=false || true
