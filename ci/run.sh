@@ -33,9 +33,8 @@ case "$BUILD_MODE" in
       run_test -p 1 -tags "external_test sqlboiler_test" ./kv/... ./log/server/... \
       --coverprofile=kv.prof
 
-    # Linting is non-fatal right now.  See `.golangci.yml` for configuration.
-    time docker run -e GO111MODULE=on -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
-      --rm cachecash-ci golangci-lint run -v --deadline 5m 
+    time make lint
+
     time docker run -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
       --rm cachecash-ci gocovmerge *.prof > coverage.out
     # Coverage exclusions.
