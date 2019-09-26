@@ -39,6 +39,11 @@ func (m *LedgerMemory) Utxo(ctx context.Context, outpoint ledger.OutpointKey) (*
 	}
 }
 
+func (m *LedgerMemory) HighestBlock(ctx context.Context) (*models.Block, error) {
+	// panic("todo")
+	return nil, nil
+}
+
 func (m *LedgerMemory) InsertBlock(ctx context.Context, blockModel *models.Block) error {
 	// panic("todo")
 	return nil
