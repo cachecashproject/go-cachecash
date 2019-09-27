@@ -1,3 +1,7 @@
+##
+# Questions? Read MAINTAINERS.md!
+##
+
 PREFIX?=$(shell realpath .)
 GOPATH?=$(shell go env GOPATH)
 # use git describe after the first release
