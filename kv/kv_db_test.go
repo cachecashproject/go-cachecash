@@ -89,38 +89,7 @@ func TestDBBasic(t *testing.T) {
 	defer db.Close()
 
 	c := NewClient("basic", NewDBDriver(db, logrus.New()))
-
-	_, _, err = c.GetUint64("one")
-	assert.Equal(t, err, ErrUnsetValue)
-
-	_, err = c.SetUint64("one", 1)
-	assert.Nil(t, err)
-
-	out, _, err := c.GetUint64("one")
-	assert.Nil(t, err)
-	assert.Equal(t, uint64(1), out)
-
-	// test upsert
-
-	_, err = c.SetUint64("one", 2)
-	assert.Nil(t, err)
-	out, _, err = c.GetUint64("one")
-	assert.Nil(t, err)
-	assert.Equal(t, uint64(2), out)
-
-	nonce, err := c.SetUint64("two", 1)
-	assert.Nil(t, err)
-
-	_, err = c.CASUint64("two", nonce, 2, 2)
-	assert.Equal(t, err, ErrNotEqual)
-	_, err = c.CASUint64("two", []byte{1, 2, 3, 4}, 1, 2)
-	assert.Equal(t, err, ErrNotEqual)
-
-	_, err = c.CASUint64("two", nonce, 1, 2)
-	assert.Nil(t, err)
-	out, _, err = c.GetUint64("two")
-	assert.Nil(t, err)
-	assert.Equal(t, uint64(2), out)
+	basicTest(t, c)
 }
 
 type nonceTrack struct {
