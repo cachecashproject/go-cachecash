@@ -384,6 +384,51 @@ func TestClientBasicError(t *testing.T) {
 	<-done // let logrus finish before moving forward
 }
 
+func TestClientCannotConnect(t *testing.T) {
+	f, err := ioutil.TempFile("", "")
+	assert.Nil(t, err)
+	f.Close()
+	defer os.Remove(f.Name())
+
+	tp := NewTestPipeServer(f.Name())
+	sync := make(chan struct{})
+	go func() {
+		close(sync)
+		tp.Serve(":0")
+	}()
+	<-sync
+	tp.Close() // immediately shut it down
+
+	c, l, dir := setupClient(t, tp.ListenAddress(), "", true) // the service is down here
+	defer os.RemoveAll(dir)
+
+	done := make(chan struct{})
+	go writeLogs(l, done)
+	time.Sleep(5 * time.Second)
+	<-done
+
+	fi, err := os.Stat(f.Name())
+	assert.Nil(t, err)
+	assert.Empty(t, fi.Size())
+
+	c.Close()
+
+	sync = make(chan struct{})
+	go func() {
+		close(sync)
+		tp.Serve(":0")
+	}()
+	<-sync
+	c, _, _ = setupClient(t, tp.ListenAddress(), dir, true)
+	time.Sleep(5 * time.Second) // heartbeat interval
+
+	fi, err = os.Stat(f.Name())
+	assert.Nil(t, err)
+	assert.NotEmpty(t, fi.Size())
+
+	assert.Nil(t, c.Close())
+}
+
 func TestClientBackoff(t *testing.T) {
 	f, err := ioutil.TempFile("", "")
 	assert.Nil(t, err)
