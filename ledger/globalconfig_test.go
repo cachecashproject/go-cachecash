@@ -183,3 +183,21 @@ func (suite *GlobalConfigTestSuite) TestListInsertAppends() {
 		[]byte("cat"),
 	}, st2.Lists["FuzzyWombats"])
 }
+
+func (suite *GlobalConfigTestSuite) TestNoOperations() {
+	t := suite.T()
+
+	st := suite.makeListTestState()
+
+	st2, err := st.Apply(&GlobalConfigTransaction{})
+	assert.Nil(t, err)
+	assert.Equal(t, st, st2)
+
+	st2, err = st.Apply(&GlobalConfigTransaction{ScalarUpdates: nil, ListUpdates: nil})
+	assert.Nil(t, err)
+	assert.Equal(t, st, st2)
+
+	st2, err = st.Apply(&GlobalConfigTransaction{ScalarUpdates: []GlobalConfigScalarUpdate{}, ListUpdates: []GlobalConfigListUpdate{}})
+	assert.Nil(t, err)
+	assert.Equal(t, st, st2)
+}
