@@ -1,0 +1,262 @@
+# package name
+package: pkg
+##
+# max_byte_range is the final length check for all byte array operations. If it
+# will be larger than this, it will abort. The value here is 20 megabytes.
+##
+max_byte_range: 20971520
+# definition of types. each definition consists of a Type name as map key and
+# properties as values. Some properties, like `fields`, are required but others
+# can be specified as well. I had a host of validations here that I thought
+# could be implemented at the struct level for length, even post-marshal hooks
+# like encryption.
+#
+# for now, the `fields` key is more or less what is defined.
+##
+types:
+  Transactions:
+    fields:
+      - Transactions:
+          ##
+          # structure_type is the type of structure -- this goes into how we
+          # will marshal it, with prefixed length in the array case, or
+          # pre-calculated size based on type size in the scalar one. The
+          # options are scalar and array -- but I do have support for a map
+          # type in the spec that relies on another field to set the map key
+          # type. We do not need this right now according to
+          # ledger/transaction.go.
+          ##
+          structure_type: array
+          ##
+          # The value_type is the type of the actual item. Together with
+          # structure_type, we can safely marshal structures with special
+          # needs.  If a type is not natively supported it must conform to a
+          # json.Marshaler style interface that we need to define out-of-band
+          # to support codegen.
+          ##
+          value_type: Transaction
+          require:
+            max_length: 20
+  Transaction:
+    fields:
+      - Version:
+          structure_type: scalar
+          value_type: uint8
+          require:
+            max_length: 20
+            static: true
+      - Body:
+          structure_type: scalar
+          value_type: TransactionBody
+          ##
+          # interface means "this conforms to an interface which could be N
+          # types"... the input is read from the head and used to unmarshal the
+          # rest. the individual types are expected to have implementations for
+          # the marshal functions we implement -- e.g., have been at least
+          # partially generated or emulated generation for intricate needs.
+          ##
+          interface:
+            # This is TxType() as a part of the TransactionBody interface; not
+            # the type name. this could be pre-defined as a bit that conforms
+            # to a codegen interface, instead of calling it TxType we coudl
+            # call TransactionBodyType() or something. Then this yaml field
+            # could focus on concrete types (and thus size).
+            output: TxType
+            # I know this is TxType under the hood, but it resolves to uint8 --
+            # I'm not sure we want to be in the type management business this deep.
+            input: uint8
+            cases:
+              - TxTypeTransfer: TransferTransaction
+              - TxTypeGenesis: GenesisTransaction
+              - TxTypeGlobalConfig: GlobalConfigTransaction
+              - TxTypeEscrowOpen: EscrowOpenTransaction
+          require:
+            max_length: 20
+      - Flags:
+          structure_type: scalar
+          value_type: uint16
+          require:
+            max_length: 20
+            static: true
+  TransferTransaction:
+    fields:
+      - Inputs:
+          structure_type: array
+          value_type: TransactionInput
+          ##
+          # matching rules for validations, other things that could be here:
+          #
+          # - enums
+          ##
+          match:
+            ##
+            # this matches a length of a field inside the struct. not sure if
+            # we should require the pair definition but it's there for
+            # posterity for now.
+            ##
+            length_of_field: Witnesses
+          require:
+            max_length: 20
+      - Outputs:
+          structure_type: array
+          value_type: TransactionOutput
+          require:
+            max_length: 20
+      - Witnesses:
+          structure_type: array
+          value_type: TransactionWitness
+          match:
+            length_of_field: Inputs
+          require:
+            max_length: 20
+      - LockTime:
+          structure_type: scalar
+          value_type: uint32
+          marshal: false # this field is not marshaled
+          require:
+            max_length: 20
+  EscrowOpenTransaction:
+    fields:
+  TransactionInput:
+    fields:
+      - Outpoint:
+          structure_type: scalar
+          value_type: Outpoint
+          require:
+            max_length: 20
+          ##
+          # inline_struct intends to allow for inline declarations like
+          # Outpoint is relationship to TransactionInput in
+          # ledger/transaction.go. Outpoint must still be specified, but must
+          # be marshaled independently -- which is not how it's done now.
+          #
+          # not really sure what to do here.
+          ##
+          inline_struct: true
+      - ScriptSig:
+          structure_type: scalar
+          value_type: "[]byte"
+          require:
+            max_length: 520
+      - SequenceNo:
+          structure_type: scalar
+          value_type: uint32
+          require:
+            max_length: 20
+  ##
+  # this is my attempt to model Outpoint
+  ##
+  Outpoint:
+    fields:
+      - PreviousTx:
+          structure_type: scalar
+          value_type: "[]byte"
+          ##
+          # this could be for validation requirements.
+          # other things that could be here:
+          # - format of data (e.g., gzip, or some packet format, etc. basically a mime type)
+          ##
+          require:
+            length: 32
+      - Index:
+          structure_type: scalar
+          value_type: uint8
+          require:
+            max_length: 20
+  TransactionOutput:
+    fields:
+      - Value:
+          structure_type: scalar
+          value_type: uint32
+          require:
+            max_length: 20
+      - ScriptPubKey:
+          structure_type: scalar
+          value_type: "[]byte"
+          require:
+            max_length: 20
+  TransactionWitness:
+    fields:
+      - Data:
+          structure_type: array
+          ##
+          # not sure what the best thing to do to resolve nested arrays is yet.
+          ##
+          value_type: "[]byte"
+          require:
+            max_length: 20
+  GenesisTransaction:
+    fields:
+      - Outputs:
+          structure_type: array
+          value_type: TransactionOutput
+          require:
+            max_length: 20
+  GlobalConfigTransaction:
+    fields:
+      - ActivationBlockHeight:
+          structure_type: scalar
+          value_type: uint64
+          require:
+            max_length: 20
+      - ScalarUpdates:
+          structure_type: array
+          value_type: GlobalConfigScalarUpdate
+          require:
+            max_length: 20
+      - ListUpdates:
+          structure_type: array
+          value_type: GlobalConfigListUpdate
+          require:
+            max_length: 20
+      - SigPublicKey:
+          structure_type: scalar
+          value_type: "[]byte"
+          require:
+            max_length: 20
+      - Signature:
+          structure_type: scalar
+          value_type: "[]byte"
+          require:
+            max_length: 20
+  GlobalConfigScalarUpdate:
+    fields:
+      - Key:
+          structure_type: scalar
+          value_type: string
+          require:
+            max_length: 20
+      - Value:
+          structure_type: scalar
+          value_type: "[]byte"
+          require:
+            max_length: 20
+  GlobalConfigListUpdate:
+    fields:
+      - Key:
+          structure_type: scalar
+          value_type: string
+          require:
+            max_length: 20
+      - Deletions:
+          structure_type: array
+          value_type: uint64
+          require:
+            max_length: 20
+      - Insertions:
+          structure_type: array
+          value_type: GlobalConfigListInsertion
+          require:
+            max_length: 20
+  GlobalConfigListInsertion:
+    fields:
+      - Index:
+          structure_type: scalar
+          value_type: uint64
+          require:
+            max_length: 20
+      - Value:
+          structure_type: scalar
+          value_type: "[]byte"
+          require:
+            max_length: 20

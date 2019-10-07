@@ -51,4 +51,5 @@ this file is modified in master, this should be run:
 
 Only supported for code which supports the go-fuzz toolkit.
 
-- `make fuzz`
+- `FUZZ=pkg make fuzz` - supply `FUZZ=` with a package name to test a specific
+  package. Otherwise, this command will fail.

@@ -97,6 +97,6 @@ modules:
 	GO111MODULE=on go mod vendor
 
 fuzz:
-	mkdir -p fuzz-workdir/corpus
-	go-fuzz-build github.com/cachecashproject/go-cachecash/ledger
-	go-fuzz -bin=./ledger-fuzz.zip -workdir=fuzz-workdir
+	mkdir -p fuzz/$(shell basename ${FUZZ})-fuzz-workdir/corpus
+	go-fuzz-build -tags fuzz github.com/cachecashproject/go-cachecash/${FUZZ}
+	go-fuzz -bin=./$(shell basename ${FUZZ})-fuzz.zip -workdir=fuzz/$(shell basename ${FUZZ})-fuzz-workdir
