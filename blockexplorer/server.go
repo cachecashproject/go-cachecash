@@ -2,6 +2,7 @@ package blockexplorer
 
 import (
 	"context"
+	"encoding/hex"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -220,6 +221,7 @@ func loadTemplates(l *logrus.Logger) (*template.Template, error) {
 	funcMap := template.FuncMap{
 		// The name "title" is what the function will be called in the template text.
 		"flattentransactions": flattenTransactions,
+		"hex":                 hex.EncodeToString,
 	}
 	t.Funcs(funcMap)
 	box := packr.NewBox("./html")

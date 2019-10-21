@@ -13,9 +13,9 @@
   <tr><th>Block ID</th><td><a href="{{.XLinks.Links.self.Href}}">{{.Data.BlockID.String}}</a></td></tr>
   <tr><th>Version</th><td>{{.Data.Header.Version}}</td></tr>
   <tr><th>PreviousBlock</th><td>{{.Data.Header.PreviousBlock}}</td></tr>
-  <tr><th>MerkleRoot</th><td>{{.Data.Header.MerkleRoot}}</td></tr>
+  <tr><th>MerkleRoot</th><td>{{hex .Data.Header.MerkleRoot}}</td></tr>
   <tr><th>Timestamp</th><td>{{.Data.Header.Timestamp}}</td></tr>
-  <tr><th>Signature</th><td>{{.Data.Header.Signature}}</td></tr>
+  <tr><th>Signature</th><td>{{hex .Data.Header.Signature}}</td></tr>
   </table>
   <p>Transactions for block {{.Data.BlockID.String}}</p>
   <p>
@@ -46,12 +46,12 @@ comfort zone. */}}
     <td>{{if .Meta}}{{.Meta.Version}}{{end}}</td>
     <td>{{if .Meta}}{{.Meta.Flags}}{{end}}</td>
     <td>{{if .Input}}{{.Input.SequenceNo}}{{end}}</td>
-    <td>{{if .Input}}{{.Input.ScriptSig}}{{end}}</td>
+    <td>{{if .Input}}{{hex .Input.ScriptSig}}{{end}}</td>
     <td>{{if .Input}}{{.Input.Outpoint.Index}}{{end}}</td>
     <td>{{if .Input}}{{.Input.Outpoint.PreviousTx}}{{end}}</td>
     <td>{{if .Output}}{{.Output.Value}}{{end}}</td>
-    <td>{{if .Output}}{{.Output.ScriptPubKey}}{{end}}</td>
-    <td>{{if .Witness}}{{.Witness}}{{end}}</td>
+    <td>{{if .Output}}{{hex .Output.ScriptPubKey}}{{end}}</td>
+    <td>{{if .Witness}}<ul>{{range .Witness.Data}}<li>{{hex .}}</li>{{end}}</ul>{{end}}</td>
   {{end}}
   </table>
 </p>
