@@ -60,6 +60,24 @@ func (m *LedgerMiner) QueueTX(ctx context.Context, tx *ledger.Transaction) error
 	})
 }
 
+func (m *LedgerMiner) SetupCurrentBlock(ctx context.Context, totalCoins uint32) error {
+	highBlock, err := m.storage.HighestBlock(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to query highest block")
+	}
+	m.CurrentBlock = highBlock
+	if m.CurrentBlock == nil {
+		m.l.Info("creating genesis block")
+		_, err := m.InitGenesisBlock(ctx, 420000000)
+		if err != nil {
+			return errors.Wrap(err, "failed to create genesis block")
+		}
+	} else {
+		m.l.WithField("blockid", m.CurrentBlock.BlockID).Infof("starting miner with existing block")
+	}
+	return nil
+}
+
 func (m *LedgerMiner) InitGenesisBlock(ctx context.Context, totalCoins uint32) (*ledger.Block, error) {
 	pubKeyHash := txscript.Hash160Sum(m.kp.PublicKey)
 	script, err := txscript.MakeP2WPKHInputScript(pubKeyHash)
@@ -422,7 +440,6 @@ func (m *LedgerMiner) BlockSchedulerTimer(ctx context.Context) bool {
 			// exit the go routine
 			return false
 		case <-time.After(remaining):
-			break
 		case <-m.NewTxChan:
 		}
 

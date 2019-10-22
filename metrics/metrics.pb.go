@@ -375,9 +375,9 @@ func (m *Scrape) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintMetrics(dAtA, i, uint64(m.PublicKey.Size()))
-		n1, err1 := m.PublicKey.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.PublicKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}

@@ -111,14 +111,10 @@ func mainC() error {
 		lm.Interval = time.Duration(*mineInterval)
 		newTxChan = &lm.NewTxChan
 
-		if lm.CurrentBlock == nil {
-			l.Info("creating genesis block")
-			_, err = lm.InitGenesisBlock(context.Background(), 420000000)
-			if err != nil {
-				return errors.Wrap(err, "failed to create genesis block")
-			}
+		err = lm.SetupCurrentBlock(context.Background(), 420000000)
+		if err != nil {
+			return errors.Wrap(err, "failed to setup current block for mining")
 		}
-
 		go lm.Run(context.Background())
 	}
 

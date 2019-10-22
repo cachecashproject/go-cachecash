@@ -33,6 +33,10 @@ func (m *LedgerDatabase) Utxo(ctx context.Context, outpoint ledger.OutpointKey) 
 	return models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid[:]}, outputIdx)).One(ctx, m.db)
 }
 
+func (m *LedgerDatabase) HighestBlock(ctx context.Context) (*models.Block, error) {
+	return models.Blocks(qm.OrderBy("height DESC, block_id DESC")).One(ctx, m.db)
+}
+
 func (m *LedgerDatabase) InsertBlock(ctx context.Context, blockModel *models.Block) error {
 	return blockModel.Insert(ctx, m.db, boil.Infer())
 }

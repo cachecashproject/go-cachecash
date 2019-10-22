@@ -1,3 +1,7 @@
+##
+# Questions? Read MAINTAINERS.md!
+##
+
 PREFIX?=$(shell realpath .)
 GOPATH?=$(shell go env GOPATH)
 # use git describe after the first release
@@ -13,7 +17,7 @@ GEN_PROTO_DIRS=./ccmsg/... ./ledger/... ./log/... ./metrics/...
 GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
 GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
 GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto
-GEN_DOCKER=docker run --rm -it -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} ${BASE_IMAGE}
+GEN_DOCKER=docker run --rm -it -e GO111MODULE=on -e GOCACHE=/tmp/go-cache -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} ${BASE_IMAGE}
 
 .PHONY: dockerfiles clean lint lint-fix fuzz \
 	dev-setup gen gen-docs modules \
@@ -55,7 +59,7 @@ clean:
 
 lint:
 	docker build -t cachecash-ci ci
-	docker run -v ${PWD}:/go/src/github.com/cachecashproject/go-cachecash --rm cachecash-ci golangci-lint run
+	docker run -v ${PWD}:/go/src/github.com/cachecashproject/go-cachecash --rm cachecash-ci golangci-lint run -v
 
 lint-fix:
 	docker build -t cachecash-ci ci
@@ -78,7 +82,7 @@ pull-base-image:
 
 gen: pull-base-image
 	$(GEN_DOCKER) \
-		go generate ${GEN_PROTO_DIRS}
+		go generate -mod=vendor ${GEN_PROTO_DIRS}
 
 gen-docs: pull-base-image
 	mkdir -p docs-gen
@@ -90,6 +94,6 @@ modules:
 	GO111MODULE=on go mod vendor
 
 fuzz:
-	mkdir -p mkdir fuzz-workdir/corpus
+	mkdir -p fuzz-workdir/corpus
 	go-fuzz-build github.com/cachecashproject/go-cachecash/ledger
 	go-fuzz -bin=./ledger-fuzz.zip -workdir=fuzz-workdir

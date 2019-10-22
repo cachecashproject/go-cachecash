@@ -183,7 +183,7 @@ func (cdb *simpleChainDatabase) Unspent(cc *ChainContext, op Outpoint) (bool, er
 	return unspent, nil
 }
 
-// TransactionValid determines whether a gievn transaction is valid at a particular place in the block-graph.
+// TransactionValid determines whether a given transaction is valid at a particular place in the block-graph.
 //
 // A transfer transaction is valid iff
 // - it is well-formed (has no obvious syntactic/validity issues);
@@ -202,6 +202,16 @@ func (cdb *simpleChainDatabase) Unspent(cc *ChainContext, op Outpoint) (bool, er
 // script more than once, etc.
 //
 func TransactionValid(cdb ChainDatabase, cc *ChainContext, tx *Transaction) error {
+	switch tx.Body.TxType() {
+	case TxTypeGenesis:
+	case TxTypeTransfer:
+		break
+	default:
+		// TODO: We need to think carefully about validation as we add new transaction types.  This is intended to
+		// prevent us from unintentionally forgetting to do so.
+		return errors.New("unexpected transaction type")
+	}
+
 	// Check if the transaction is well-formed.
 	if err := tx.WellFormed(); err != nil {
 		return errors.Wrap(err, "transaction is not well-formed")
