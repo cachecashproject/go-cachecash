@@ -129,7 +129,7 @@ func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, err
 		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
 	if params.Rounds*uint32(len(chunks)) <= 1 {
-		// XXX: Using a single ruond and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
+		// XXX: Using a single round and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
 		return nil, 0, errors.New("must use at least two puzzle iterations; increase number of rounds or caches")
 	}
 
