@@ -1,3 +1,5 @@
+// +build rangertest
+
 package pkg
 
 import (

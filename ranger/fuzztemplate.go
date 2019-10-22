@@ -3,7 +3,7 @@ package ranger
 import "strings"
 
 var fuzzTemplate = strings.TrimLeft(`
-// +build fuzz
+// +build rangertest
 
 package {{ .Package }}
 

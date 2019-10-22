@@ -3,6 +3,8 @@ package ranger
 import "strings"
 
 var testTemplate = strings.TrimLeft(`
+// +build rangertest
+
 package {{ .Package }}
 
 import (
