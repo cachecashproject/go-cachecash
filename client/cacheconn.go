@@ -24,8 +24,8 @@ type cacheGrpc struct {
 	// working state --
 	// used to discriminate between chunk requests
 	nextSequenceNo uint64
-	// Unsubmitted chunk requests for this cache
-	backlog chan DownloadTask
+	// In flight chunk requests for this cache
+	backlogInt uint64
 	// Client side assessment of the cache - we don't depend solely on the GRPC
 	// connectivity state because we need to cope with running but broken caches
 	status ccmsg.ContentRequest_ClientCacheStatus_Status
@@ -39,8 +39,7 @@ type cacheGrpc struct {
 }
 
 type cacheConnection interface {
-	Run(context.Context)
-	QueueRequest(DownloadTask)
+	SubmitRequest(context.Context, chan DownloadResult, *chunkRequest)
 	ExchangeTicketL2(context.Context, *ccmsg.ClientCacheRequest)
 	Close(context.Context) error
 	GetStatus() ccmsg.ContentRequest_ClientCacheStatus
@@ -51,11 +50,6 @@ type cacheConnection interface {
 type l2payment struct {
 	span *trace.Span
 	req  *ccmsg.ClientCacheRequest
-}
-
-type DownloadTask struct {
-	req          *chunkRequest
-	clientNotify chan DownloadResult
 }
 
 type DownloadResult struct {
@@ -86,7 +80,6 @@ func newCacheConnection(l *logrus.Logger, addr string, pubkey ed25519.PublicKey)
 
 		conn:       conn,
 		grpcClient: grpcClient,
-		backlog:    make(chan DownloadTask, 128),
 		l2Done:     l2Done,
 		l2Queue:    l2Queue,
 	}, nil
@@ -107,28 +100,26 @@ func (cc *cacheGrpc) Close(ctx context.Context) error {
 	return nil
 }
 
-func (cc *cacheGrpc) Run(ctx context.Context) {
+func (cc *cacheGrpc) run(ctx context.Context, clientNotify chan DownloadResult, chunkRequest *chunkRequest) {
+	defer func() { cc.backlogInt-- }()
 	l := cc.l.WithFields(logrus.Fields{
 		"cache": cc.PublicKey(),
 	})
-	for task := range cc.backlog {
-		l.WithFields(logrus.Fields{
-			"len(backlog)": len(cc.backlog),
-		}).Debug("got download request")
-		chunkRequest := task.req
-		err := cc.requestChunk(ctx, chunkRequest)
-		chunkRequest.err = err
-		l.Debug("yielding download result")
-		task.clientNotify <- DownloadResult{
-			resp:  chunkRequest,
-			cache: cc,
-		}
+	l.WithFields(logrus.Fields{
+		"backlog": cc.backlogInt,
+	}).Debug("got download request")
+	err := cc.requestChunk(ctx, chunkRequest)
+	chunkRequest.err = err
+	l.Debug("yielding download result")
+	clientNotify <- DownloadResult{
+		resp:  chunkRequest,
+		cache: cc,
 	}
-	l.Info("downloader successfully terminated")
 }
 
-func (cc *cacheGrpc) QueueRequest(task DownloadTask) {
-	cc.backlog <- task
+func (cc *cacheGrpc) SubmitRequest(ctx context.Context, clientNotify chan DownloadResult, req *chunkRequest) {
+	cc.backlogInt++
+	go cc.run(ctx, clientNotify, req)
 }
 
 func (cc *cacheGrpc) ExchangeTicketL2(ctx context.Context, req *ccmsg.ClientCacheRequest) {
@@ -186,7 +177,7 @@ func (cc *cacheGrpc) requestChunk(ctx context.Context, b *chunkRequest) error {
 
 func (cc *cacheGrpc) GetStatus() ccmsg.ContentRequest_ClientCacheStatus {
 	return ccmsg.ContentRequest_ClientCacheStatus{
-		BacklogDepth: uint64(len(cc.backlog)),
+		BacklogDepth: cc.backlogInt,
 		Status:       cc.status,
 	}
 }
