@@ -2,6 +2,7 @@
 # Questions? Read MAINTAINERS.md!
 ##
 
+FUZZTAGS?=fuzz
 PREFIX?=$(shell realpath .)
 GOPATH?=$(shell go env GOPATH)
 # use git describe after the first release
@@ -98,5 +99,5 @@ modules:
 
 fuzz:
 	mkdir -p fuzz/$(shell basename ${FUZZ})-fuzz-workdir/corpus
-	go-fuzz-build -tags fuzz github.com/cachecashproject/go-cachecash/${FUZZ}
+	go-fuzz-build -tags ${FUZZTAGS} github.com/cachecashproject/go-cachecash/${FUZZ}
 	go-fuzz -bin=./$(shell basename ${FUZZ})-fuzz.zip -workdir=fuzz/$(shell basename ${FUZZ})-fuzz-workdir
