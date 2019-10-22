@@ -4,11 +4,14 @@ import (
 	"github.com/cachecashproject/go-cachecash/ranger"
 )
 
+// XXX this is a shim to help with the TxType interface that lives alongside
+// Transaction in our good.yml definition. The order of these must be preserved
+// otherwise certain fuzz tests may not function the same.
 const (
-	TxTypeTransfer     uint8 = iota
-	TxTypeGenesis      uint8 = iota
-	TxTypeGlobalConfig uint8 = iota
-	TxTypeEscrowOpen   uint8 = iota
+	TxTypeTransfer     uint8 = 0
+	TxTypeGenesis            = 1
+	TxTypeGlobalConfig       = 2
+	TxTypeEscrowOpen         = 3
 )
 
 type TransactionBody interface {
