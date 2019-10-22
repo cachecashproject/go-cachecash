@@ -1,6 +1,8 @@
 package ledger
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 // TODO:
 // - Need mechanism for tracking not-yet-activated transactions and applying them at the right height.
@@ -71,10 +73,15 @@ func (st *GlobalConfigState) applyListUpdate(v [][]byte, lu GlobalConfigListUpda
 		return nil, errors.Wrap(err, "failed to validate list update")
 	}
 
+	// No-ops are not valid.
+	if len(lu.Deletions) == 0 && len(lu.Insertions) == 0 {
+		return nil, errors.New("no operations provided for key")
+	}
+
 	// Apply deletions.
 	v2 := make([][]byte, len(v)-len(lu.Deletions))
 	var j, k int
-	for i := 0; i < len(v2); i++ {
+	for i := 0; i < len(v); i++ {
 		if j < len(lu.Deletions) && lu.Deletions[j] == uint64(i) {
 			// This value has been deleted; skip it.
 			j++
