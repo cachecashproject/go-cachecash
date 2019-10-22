@@ -2,6 +2,7 @@ package ranger
 
 import (
 	"bytes"
+	"go/format"
 	"io/ioutil"
 	"text/template"
 
@@ -168,7 +169,7 @@ func (cf *ConfigFormat) generate(thisTemplate string) ([]byte, error) {
 		return nil, err
 	}
 
-	return byt.Bytes(), nil
+	return format.Source(byt.Bytes())
 }
 
 // GenerateCode generates the source code.
