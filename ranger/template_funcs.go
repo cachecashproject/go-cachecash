@@ -25,9 +25,28 @@ func add(i, j int) int {
 	return i + j
 }
 
+// See declare for more information.
 type declarations map[string]map[string]map[string]struct{}
 
-func (d declarations) declare(item bool, t, fun, typ, typtyp string) string {
+// declare allows the template user to declare variables in a variety of
+// contexts, without trampling go's single declaration or unused variable
+// rules.
+//
+// the generation template specifies a few idioms that are not obvious to the
+// casual reader:
+//
+// * n is the length of the total transaction
+// * ni is the length of the isolated transaction (pulling a uvarint; the length it read, etc)
+// * iLen is the computed length of an object
+// * item is the object when working within a for loop w/ range values.
+//
+// In our declare case, the parameters are that `item` indicates whether or not
+// we are in that item loop (with a different scope), t is the outer type name,
+// fun is the name of the function, varName is the name of the variable we want
+// to declare and typ is the name of the type that variable has.
+// The returned string is either empty, or contains a variable declaration at
+// the first point we have seen this declaration.
+func (d declarations) declare(item bool, t, fun, varName, typ string) string {
 	if _, ok := d[t]; !ok {
 		d[t] = map[string]map[string]struct{}{}
 	}
@@ -36,11 +55,11 @@ func (d declarations) declare(item bool, t, fun, typ, typtyp string) string {
 		d[t][fun] = map[string]struct{}{}
 	}
 
-	if _, ok := d[t][fun][typ]; !ok || item {
+	if _, ok := d[t][fun][varName]; !ok || item {
 		if !item {
-			d[t][fun][typ] = struct{}{}
+			d[t][fun][varName] = struct{}{}
 		}
-		return fmt.Sprintf("var %s %s", typ, typtyp)
+		return fmt.Sprintf("var %s %s", varName, typ)
 	}
 
 	return ""
