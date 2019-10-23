@@ -13,7 +13,7 @@ GIT_VERSION:=$(or \
 
 BASE_IMAGE=cachecash/go-cachecash-build:latest
 
-GEN_PROTO_DIRS=./ccmsg/... ./ledger/... ./log/... ./metrics/...
+GEN_DIRS=./ccmsg/... ./ledger/... ./log/... ./metrics/... ./ranger/templates/...
 GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
 GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
 GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto
@@ -80,9 +80,12 @@ push-base-image: base-image
 pull-base-image:
 	docker pull cachecash/go-cachecash-build:latest
 
-gen: pull-base-image
+gen:
+	@echo >&2
+	@echo >&2 'If this errors, `make pull-base-image`'
+	@echo >&2
 	$(GEN_DOCKER) \
-		go generate -mod=vendor ${GEN_PROTO_DIRS}
+		go generate -mod=vendor ${GEN_DIRS}
 
 gen-docs: pull-base-image
 	mkdir -p docs-gen
