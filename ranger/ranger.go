@@ -147,6 +147,10 @@ func (cf *ConfigFormat) editParams() *ConfigFormat {
 		typ.TypeName = typName
 		for _, item := range typ.Fields {
 			for key, value := range item {
+				if value.StructureType == "" {
+					value.StructureType = "scalar"
+				}
+
 				value.FieldName = key
 				value.TypeName = typName
 				value.MaxByteRange = cf.MaxByteRange

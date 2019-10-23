@@ -34,6 +34,8 @@ types:
           # type in the spec that relies on another field to set the map key
           # type. We do not need this right now according to
           # ledger/transaction.go.
+          #
+          # The default structure_type is `scalar`.
           ##
           structure_type: array
           ##
@@ -54,12 +56,10 @@ types:
   Transaction:
     fields:
       - Version:
-          structure_type: scalar
           value_type: uint8
           require:
             static: true
       - Body:
-          structure_type: scalar
           value_type: TransactionBody
           ##
           # interface means "this conforms to an interface which could be N
@@ -86,7 +86,6 @@ types:
           require:
             max_length: 20
       - Flags:
-          structure_type: scalar
           value_type: uint16
           require:
             static: true
@@ -122,7 +121,6 @@ types:
           require:
             max_length: 20
       - LockTime:
-          structure_type: scalar
           value_type: uint32
           marshal: false # this field is not marshaled
   EscrowOpenTransaction:
@@ -130,7 +128,6 @@ types:
   TransactionInput:
     fields:
       - Outpoint:
-          structure_type: scalar
           value_type: Outpoint
           require:
             max_length: 20
@@ -144,12 +141,10 @@ types:
           ##
           inline_struct: true
       - ScriptSig:
-          structure_type: scalar
           value_type: "[]byte"
           require:
             max_length: 520
       - SequenceNo:
-          structure_type: scalar
           value_type: uint32
   ##
   # this is my attempt to model Outpoint
@@ -157,7 +152,6 @@ types:
   Outpoint:
     fields:
       - PreviousTx:
-          structure_type: scalar
           value_type: "[]byte"
           ##
           # this could be for validation requirements.
@@ -167,15 +161,12 @@ types:
           require:
             length: 32
       - Index:
-          structure_type: scalar
           value_type: uint8
   TransactionOutput:
     fields:
       - Value:
-          structure_type: scalar
           value_type: uint32
       - ScriptPubKey:
-          structure_type: scalar
           value_type: "[]byte"
           require:
             max_length: 20
@@ -199,7 +190,6 @@ types:
   GlobalConfigTransaction:
     fields:
       - ActivationBlockHeight:
-          structure_type: scalar
           value_type: uint64
       - ScalarUpdates:
           structure_type: array
@@ -212,31 +202,26 @@ types:
           require:
             max_length: 20
       - SigPublicKey:
-          structure_type: scalar
           value_type: "[]byte"
           require:
             max_length: 20
       - Signature:
-          structure_type: scalar
           value_type: "[]byte"
           require:
             max_length: 20
   GlobalConfigScalarUpdate:
     fields:
       - Key:
-          structure_type: scalar
           value_type: string
           require:
             max_length: 20
       - Value:
-          structure_type: scalar
           value_type: "[]byte"
           require:
             max_length: 20
   GlobalConfigListUpdate:
     fields:
       - Key:
-          structure_type: scalar
           value_type: string
           require:
             max_length: 20
@@ -251,10 +236,8 @@ types:
   GlobalConfigListInsertion:
     fields:
       - Index:
-          structure_type: scalar
           value_type: uint64
       - Value:
-          structure_type: scalar
           value_type: "[]byte"
           require:
             max_length: 20
