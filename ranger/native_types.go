@@ -11,7 +11,19 @@ const (
 	valueTypeString = "string"
 )
 
+func (cf *ConfigFormat) isMarshalable(value ConfigTypeDefinition) bool {
+	if value.Marshal != nil {
+		return *value.Marshal
+	}
+
+	return true
+}
+
 func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
+	if value.Marshal != nil && !*value.Marshal {
+		return cf.getZeroValue(value.StructureType, value.ValueType, 0, value.Interface)
+	}
+
 	if value.StructureType == "array" {
 		typ := value.ValueType
 		if !cf.isNativeType(value.ValueType) {
@@ -120,7 +132,7 @@ func (cf *ConfigFormat) getIsInterface(ctd ConfigType) bool {
 	return false
 }
 
-func (cf *ConfigFormat) getZeroValue(outerTyp, strTyp, typ string, length uint64, intf *ConfigInterface) string {
+func (cf *ConfigFormat) getZeroValue(strTyp, typ string, length uint64, intf *ConfigInterface) string {
 	if intf != nil {
 		s := fmt.Sprintf("[]%s{", typ)
 		for _, c := range intf.Cases {
@@ -128,7 +140,7 @@ func (cf *ConfigFormat) getZeroValue(outerTyp, strTyp, typ string, length uint64
 				s += fmt.Sprintf("&%s{", v)
 				for _, field := range cf.Types[v].Fields {
 					for key, val := range field {
-						s += fmt.Sprintf("\n%s: %s,", key, cf.getZeroValue(v, val.StructureType, val.ValueType, 0, val.Interface))
+						s += fmt.Sprintf("\n%s: %s,", key, cf.getZeroValue(val.StructureType, val.ValueType, 0, val.Interface))
 					}
 				}
 
@@ -160,7 +172,7 @@ func (cf *ConfigFormat) getZeroValue(outerTyp, strTyp, typ string, length uint64
 		if _, ok := cf.Types[typ]; ok {
 			for _, field := range cf.Types[typ].Fields {
 				for key, value := range field {
-					s += fmt.Sprintf("\n%s: %s,", key, cf.getZeroValue(typ, value.StructureType, value.ValueType, value.Require.Length, value.Interface))
+					s += fmt.Sprintf("\n%s: %s,", key, cf.getZeroValue(value.StructureType, value.ValueType, value.Require.Length, value.Interface))
 				}
 			}
 		}

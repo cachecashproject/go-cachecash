@@ -17,6 +17,7 @@ func (cf *ConfigFormat) funcMap() map[string]interface{} {
 		"size":          cf.size,
 		"truncated":     cf.truncated,
 		"randomField":   cf.randomField,
+		"isMarshalable": cf.isMarshalable,
 		"add":           add,
 	}
 }

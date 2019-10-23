@@ -33,7 +33,9 @@ func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	obj := &{{ $typekey }}{
 		{{ range $foo, $map := $type.Fields -}}
 		{{ range $innerkey, $innervalue := $map -}}
-		{{ $innerkey }}:  {{ zeroValue $innervalue.TypeName $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
+    {{- if (isMarshalable $innervalue) }}
+		{{ $innerkey }}:  {{ zeroValue $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
+		{{- end -}}
 		{{- end -}}
 		{{- end -}}
 	}
@@ -41,7 +43,9 @@ func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	obj2 := &{{ $typekey }}{
 		{{ range $foo, $map := $type.Fields -}}
 		{{ range $innerkey, $innervalue := $map -}}
-		{{ $innerkey }}: {{ zeroValue $typekey $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
+    {{- if (isMarshalable $innervalue) }}
+		{{ $innerkey }}: {{ zeroValue $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
+		{{- end -}}
 		{{- end -}}
 		{{- end -}}
 	}
@@ -54,7 +58,9 @@ func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	obj2 = &{{ $typekey }}{
 		{{ range $foo, $map := $type.Fields -}}
 		{{ range $innerkey, $innervalue := $map -}}
-		{{ $innerkey }}: {{ zeroValue $typekey $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
+    {{- if (isMarshalable $innervalue) }}
+		{{ $innerkey }}: {{ zeroValue $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
+		{{- end -}}
 		{{- end -}}
 		{{- end -}}
 	}
@@ -74,7 +80,9 @@ func Test{{ $typekey }}MarshalUnmarshalRandomData(t *testing.T) {
 		obj := &{{ $typekey }}{}
 		{{ range $foo, $map := $type.Fields -}}
 		{{ range $innerkey, $innervalue := $map -}}
+    {{- if (isMarshalable $innervalue) }}
 		obj.{{ $innerkey }} = {{ randomField $innervalue }}
+		{{ end }}
 		{{ end }}
 		{{ end }}
 

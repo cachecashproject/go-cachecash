@@ -183,7 +183,6 @@
 {{- end -}}
 {{- end -}}
 {{- end }}
-
 {{- define "marshalType" }}
 {{- if (native .ValueType) }}
 {{- if .Require.Static }}
@@ -314,6 +313,7 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
 
 {{ range $foo, $map := $type.Fields -}}
 {{- range $key, $value := $map }}
+{{- if (isMarshalable $value) }}
 {{- if (and $value.Require.Length (not (or .InlineStruct (or (native $value.ValueType) $value.Interface)))) }}
 	if len(obj.{{ $key }}) != {{ $value.Require.Length }} {
 		return 0, errors.Wrapf(ranger.ErrLengthValidation, "{{ $typekey }}.{{ $key }} - %d/{{ $value.Require.Length }}", len(obj.{{ $key }}))
@@ -348,6 +348,7 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
 	{{- template "marshalType" (itemValue $value)}}
 	}
 {{- end }}
+{{- end }}
 {{- end -}}
 {{- end }}
 	return n, nil
@@ -359,6 +360,7 @@ func (obj *{{ $typekey }}) Size() int {
 	var n int
 {{ range $foo, $map := $type.Fields -}}
 {{- range $key, $value := $map }}
+{{- if (isMarshalable $value) }}
 {{- if $value.Interface }}
 	if obj.{{ $key }} == nil {
 		n += ranger.UvarintSize(0)
@@ -394,6 +396,7 @@ func (obj *{{ $typekey }}) Size() int {
 	}
 {{- end -}}
 {{- end -}}
+{{- end -}}
 {{- end }}
 	return n
 }
@@ -416,6 +419,7 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 {{ range $foo, $map := $type.Fields -}}
 {{- range $key, $value := $map }}
+{{- if (isMarshalable $value) }}
 {{ if (eq $value.StructureType "scalar") }}
 {{ if $value.InlineStruct -}}
 	{{ declare false .TypeName "unmarshal" "iL" "uint64" }}
@@ -484,6 +488,7 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 		return 0, errors.Wrapf(ranger.ErrLengthValidation, "{{ $typekey }}.{{ $key }} - %d/{{ $value.Require.Length }}", len(obj.{{ $key }}))
 	}
 {{- end -}}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- range $foo, $map := $type.Fields -}}
