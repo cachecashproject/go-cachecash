@@ -16,18 +16,18 @@ start_db() {
   while ! docker run --rm --net=cachecash postgres:11 psql 'host=kvstore-test port=5432 user=postgres dbname=kvstore sslmode=disable' -c 'select 1;'; do sleep 10; done
 }
 
-make dockerfiles modules gen
-if ! git diff --quiet; then
-  echo 'ERROR: Generated files need to be regenerated'
-  exit 1
-fi
-
 # check the build image's dockerfile; if it's been altered, build it.
 if git diff --stat master..HEAD | head -n -1 | awk '{ print $1 }' | grep -q Dockerfile.base 
 then
   make base-image
 else
   make pull-base-image
+fi
+
+make dockerfiles modules gen
+if ! git diff --quiet; then
+  echo 'ERROR: Generated files need to be regenerated'
+  exit 1
 fi
 
 case "$BUILD_MODE" in
