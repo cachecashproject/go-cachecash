@@ -1,8 +1,3 @@
-package ranger
-
-import "strings"
-
-var fuzzTemplate = strings.TrimLeft(`
 // +build rangertest
 
 package {{ .Package }}
@@ -47,4 +42,3 @@ func Fuzz(data []byte) int {
 
 	return 1
 }
-`, "\n")

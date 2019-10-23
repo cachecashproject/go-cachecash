@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"text/template"
 
+	"github.com/cachecashproject/go-cachecash/ranger/templates"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -165,9 +166,14 @@ func ParseFile(filename string) (*ConfigFormat, error) {
 	return Parse(content)
 }
 
-func (cf *ConfigFormat) generate(thisTemplate string) ([]byte, error) {
+func (cf *ConfigFormat) generate(name string) ([]byte, error) {
+	thisTemplate, err := templates.Get(name)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not retrieve template")
+	}
+
 	tpl := template.New("template").Funcs(cf.funcMap())
-	tpl, err := tpl.Parse(thisTemplate)
+	tpl, err = tpl.Parse(thisTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -183,15 +189,15 @@ func (cf *ConfigFormat) generate(thisTemplate string) ([]byte, error) {
 
 // GenerateCode generates the source code.
 func (cf *ConfigFormat) GenerateCode() ([]byte, error) {
-	return cf.generate(goTemplate)
+	return cf.generate("go.gotmpl")
 }
 
 // GenerateTest generates the test code.
 func (cf *ConfigFormat) GenerateTest() ([]byte, error) {
-	return cf.generate(testTemplate)
+	return cf.generate("test.gotmpl")
 }
 
 // GenerateFuzz generates the fuzzer code.
 func (cf *ConfigFormat) GenerateFuzz() ([]byte, error) {
-	return cf.generate(fuzzTemplate)
+	return cf.generate("fuzz.gotmpl")
 }

@@ -1,8 +1,3 @@
-package ranger
-
-import "strings"
-
-var goTemplate = strings.TrimLeft(`
 {{ define "unmarshalType" }}
 {{- if (native .ValueType) }}
 {{- if (isBytes .ValueType) -}}
@@ -509,4 +504,3 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 }
 
 {{ end }}
-`, "\n")
