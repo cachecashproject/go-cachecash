@@ -23,6 +23,9 @@ type ConfigFormat struct {
 	// an error is returned.
 	MaxByteRange uint64 `yaml:"max_byte_range"`
 
+	// Comment adds a comment to the package declaration.
+	Comment string `yaml:"comment"`
+
 	decls declarations
 }
 
@@ -33,6 +36,9 @@ type ConfigType struct {
 	// Fields is a list of single keyed hash tables that correspond member names
 	// to type definitions.
 	Fields []map[string]*ConfigTypeDefinition `yaml:"fields"`
+
+	// Comment is a field to add a comment to the type's declaration.
+	Comment string `yaml:"comment"`
 
 	TypeName string `yaml:"-"` // populated by parse
 }
@@ -58,6 +64,9 @@ type ConfigTypeDefinition struct {
 	// InlineStruct defines this type as inline in the struct. It must still
 	// marshal independently.
 	InlineStruct bool `yaml:"inline_struct"`
+
+	// Comment is a field to add a comment to the field's declaration.
+	Comment string `yaml:"comment"`
 
 	FieldName    string `yaml:"-"` // populated by parse
 	MaxByteRange uint64 `yaml:"-"` // populated by parse

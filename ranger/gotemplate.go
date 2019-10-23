@@ -270,6 +270,9 @@ n += {{ marshaler .ValueType (printf "obj.%s" .FieldName) .Require.Static }}
 {{- end -}}
 {{- end -}}
 {{- $outer := . }}
+{{- if .Comment }}
+// Package {{ .Package }} {{ .Comment }}
+{{- end }}
 package {{ .Package }}
 
 import (
@@ -280,14 +283,21 @@ import (
 )
 
 {{ range $typekey, $type := .Types -}}
+{{- if $type.Comment }}
+// {{ $typekey }} {{ $type.Comment }}
+{{- end }}
 type {{ $typekey }} struct {
 {{- range $foo, $map := $type.Fields -}}
 {{- range $key, $value := $map }}
+	{{- if $value.Comment }}
+	// {{ $key }} {{ $value.Comment }}
+	{{- end }}
 	{{ if $value.InlineStruct }}*{{ end }}{{ $key }} {{ if (not $value.InlineStruct) }}{{ if (eq $value.StructureType "array") }}[]{{ end }}{{ end }}{{ if (and (and (not $value.InlineStruct) (not $value.Interface)) (not (native $value.ValueType))) }}*{{ end }}{{ if (not $value.InlineStruct) }}{{ $value.ValueType }}{{ end }}
 {{- end }}
 {{- end }}
 }
 
+// Marshal returns a byte array containing the marshaled representation of {{ $typekey }}, or nil and an error.
 func (obj *{{ $typekey }}) Marshal() ([]byte, error) {
 	data := make([]byte, obj.Size())
 	n, err := obj.MarshalTo(data)
@@ -302,6 +312,8 @@ func (obj *{{ $typekey }}) Marshal() ([]byte, error) {
 	return data, nil
 }
 
+// MarshalTo accepts a byte array with pre-allocated space (see Size()) for {{ $typekey }}.
+// It returns how many bytes it wrote to the array, or 0 and an error.
 func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
 	var n int
 
@@ -346,6 +358,8 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
 	return n, nil
 }
 
+// Size returns the computed size of {{ $typekey }} as would-be marshaled
+// without actually marshaling it.
 func (obj *{{ $typekey }}) Size() int {
 	var n int
 {{ range $foo, $map := $type.Fields -}}
@@ -389,11 +403,14 @@ func (obj *{{ $typekey }}) Size() int {
 	return n
 }
 
+// Unmarshal accepts {{ $typekey }}'s binary representation and transforms the
+// {{ $typekey }} used as the object. It returns any error.
 func (obj *{{ $typekey }}) Unmarshal(data []byte) error {
 	_, err := obj.UnmarshalFrom(data)
 	return err
 }
 
+// UnmarshalFrom is very similar to Unmarshal, but also returns the count of data it read.
 func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 {{- if (eq (len $type.Fields) 0) }}
 	return 0, nil

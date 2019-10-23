@@ -5,6 +5,11 @@ package: pkg
 # will be larger than this, it will abort. The value here is 20 megabytes.
 ##
 max_byte_range: 20971520
+##
+# a comment that goes with the package's godoc. Formed in golint-compatible
+# format.
+comment: "is for testing ranger"
+##
 # definition of types. each definition consists of a Type name as map key and
 # properties as values. Some properties, like `fields`, are required but others
 # can be specified as well. I had a host of validations here that I thought
@@ -15,6 +20,10 @@ max_byte_range: 20971520
 ##
 types:
   Transactions:
+    ##
+    # comment is a comment that goes with the type, in golint-compatible format.
+    ##
+    comment: "is for holding a list of transaction structs."
     fields:
       - Transactions:
           ##
@@ -37,6 +46,11 @@ types:
           value_type: Transaction
           require:
             max_length: 20
+          ##
+          # comment, like the other attributes is golint-compatible and belongs
+          # to the struct member's documentation here.
+          ##
+          comment: "is the list of transactions"
   Transaction:
     fields:
       - Version:
