@@ -128,7 +128,11 @@ func (cf *ConfigFormat) validate() error {
 	for typName, typ := range cf.Types {
 		for _, item := range typ.Fields {
 			for key, value := range item {
-				if value.Require.MaxLength == 0 && value.Require.Length == 0 {
+				if cf.isNativeType(value.ValueType) && !cf.isBytesType(value.ValueType) {
+					if value.Require.MaxLength != 0 || value.Require.Length != 0 {
+						return errors.Errorf("%s.%s is invalid; contains a length but is a fixed integer type", typName, key)
+					}
+				} else if value.Require.MaxLength == 0 && value.Require.Length == 0 {
 					return errors.Errorf("%s.%s is missing a required length parameter: either specify `length` or `max_length`", typName, key)
 				}
 			}

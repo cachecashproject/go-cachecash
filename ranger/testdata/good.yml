@@ -57,7 +57,6 @@ types:
           structure_type: scalar
           value_type: uint8
           require:
-            max_length: 20
             static: true
       - Body:
           structure_type: scalar
@@ -90,7 +89,6 @@ types:
           structure_type: scalar
           value_type: uint16
           require:
-            max_length: 20
             static: true
   TransferTransaction:
     fields:
@@ -127,8 +125,6 @@ types:
           structure_type: scalar
           value_type: uint32
           marshal: false # this field is not marshaled
-          require:
-            max_length: 20
   EscrowOpenTransaction:
     fields:
   TransactionInput:
@@ -155,8 +151,6 @@ types:
       - SequenceNo:
           structure_type: scalar
           value_type: uint32
-          require:
-            max_length: 20
   ##
   # this is my attempt to model Outpoint
   ##
@@ -175,15 +169,11 @@ types:
       - Index:
           structure_type: scalar
           value_type: uint8
-          require:
-            max_length: 20
   TransactionOutput:
     fields:
       - Value:
           structure_type: scalar
           value_type: uint32
-          require:
-            max_length: 20
       - ScriptPubKey:
           structure_type: scalar
           value_type: "[]byte"
@@ -211,8 +201,6 @@ types:
       - ActivationBlockHeight:
           structure_type: scalar
           value_type: uint64
-          require:
-            max_length: 20
       - ScalarUpdates:
           structure_type: array
           value_type: GlobalConfigScalarUpdate
@@ -255,8 +243,6 @@ types:
       - Deletions:
           structure_type: array
           value_type: uint64
-          require:
-            max_length: 20
       - Insertions:
           structure_type: array
           value_type: GlobalConfigListInsertion
@@ -267,8 +253,6 @@ types:
       - Index:
           structure_type: scalar
           value_type: uint64
-          require:
-            max_length: 20
       - Value:
           structure_type: scalar
           value_type: "[]byte"
