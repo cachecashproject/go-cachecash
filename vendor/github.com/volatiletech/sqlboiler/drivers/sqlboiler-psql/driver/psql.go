@@ -12,7 +12,7 @@ import (
 
 	"github.com/volatiletech/sqlboiler/importers"
 
-	"github.com/pkg/errors"
+	"github.com/friendsofgo/errors"
 	"github.com/volatiletech/sqlboiler/drivers"
 	"github.com/volatiletech/sqlboiler/strmangle"
 
@@ -467,7 +467,7 @@ func (p *PostgresDriver) TranslateColumnType(c drivers.Column) drivers.Column {
 			var dbType string
 			c.Type, dbType = getArrayType(c)
 			// Make DBType something like ARRAYinteger for parsing with randomize.Struct
-			c.DBType = c.DBType + dbType
+			c.DBType += dbType
 		case "USER-DEFINED":
 			switch c.UDTName {
 			case "hstore":
@@ -526,7 +526,7 @@ func (p *PostgresDriver) TranslateColumnType(c drivers.Column) drivers.Column {
 			var dbType string
 			c.Type, dbType = getArrayType(c)
 			// Make DBType something like ARRAYinteger for parsing with randomize.Struct
-			c.DBType = c.DBType + dbType
+			c.DBType += dbType
 		case "USER-DEFINED":
 			switch c.UDTName {
 			case "hstore":
@@ -633,7 +633,7 @@ func (p PostgresDriver) Imports() (importers.Collection, error) {
 			},
 			ThirdParty: importers.List{
 				`"github.com/kat-co/vala"`,
-				`"github.com/pkg/errors"`,
+				`"github.com/friendsofgo/errors"`,
 				`"github.com/spf13/viper"`,
 				`"github.com/volatiletech/sqlboiler/drivers/sqlboiler-psql/driver"`,
 				`"github.com/volatiletech/sqlboiler/randomize"`,

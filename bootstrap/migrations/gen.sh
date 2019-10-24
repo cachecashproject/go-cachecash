@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 set -eu -o pipefail
-shopt -s failglob
 
 packr -v
 
@@ -10,11 +9,12 @@ packr -v
 # different sets of models.  Otherwise, it looks only `outputDirDepth` levels above the models (here, it was looking in
 # the repository's root).
 pushd ../models/
- rm -f bootstrapd.db
+rm -f bootstrapd.db
 rm -f *.go
 sql-migrate up -config=../migrations/dbconfig.yml -env=bootstrapd-development
 sqlboiler -c ../migrations/sqlboiler.toml -o . sqlite3
 popd
+shopt -s failglob
 
 # Add build tag to generated tests.
 for SRCFILE in ../models/*_test.go; do

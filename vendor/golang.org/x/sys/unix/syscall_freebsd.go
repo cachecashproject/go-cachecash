@@ -36,8 +36,6 @@ var (
 // INO64_FIRST from /usr/src/lib/libc/sys/compat-ino64.h
 const _ino64First = 1200031
 
-//sys	sysctl(mib []_C_int, old *byte, oldlen *uintptr, new *byte, newlen uintptr) (err error) = SYS___SYSCTL
-
 func supportsABI(ver uint32) bool {
 	osreldateOnce.Do(func() { osreldate, _ = SysctlUint32("kern.osreldate") })
 	return osreldate >= ver
@@ -202,6 +200,8 @@ func setattrlistTimes(path string, times []Timespec, flags int) error {
 }
 
 //sys   ioctl(fd int, req uint, arg uintptr) (err error)
+
+//sys   sysctl(mib []_C_int, old *byte, oldlen *uintptr, new *byte, newlen uintptr) (err error) = SYS___SYSCTL
 
 func Uname(uname *Utsname) error {
 	mib := []_C_int{CTL_KERN, KERN_OSTYPE}
@@ -653,7 +653,7 @@ func PtraceSingleStep(pid int) (err error) {
 //sys	Revoke(path string) (err error)
 //sys	Rmdir(path string) (err error)
 //sys	Seek(fd int, offset int64, whence int) (newoffset int64, err error) = SYS_LSEEK
-//sys	Select(n int, r *FdSet, w *FdSet, e *FdSet, timeout *Timeval) (err error)
+//sys	Select(nfd int, r *FdSet, w *FdSet, e *FdSet, timeout *Timeval) (n int, err error)
 //sysnb	Setegid(egid int) (err error)
 //sysnb	Seteuid(euid int) (err error)
 //sysnb	Setgid(gid int) (err error)

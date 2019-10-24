@@ -17,6 +17,7 @@ require (
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/ericlagergren/decimal v0.0.0-20190912144844-2c3e3e1ef942 // indirect
+	github.com/friendsofgo/errors v0.9.2
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.4.0
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
@@ -35,7 +36,7 @@ require (
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0
-	github.com/pelletier/go-toml v1.4.0 // indirect
+	github.com/pelletier/go-toml v1.5.0 // indirect
 	github.com/pires/go-proxyproto v0.0.0-20190615163442-2c19fd512994
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0
@@ -54,13 +55,14 @@ require (
 	github.com/urfave/cli v1.22.1
 	github.com/volatiletech/inflect v0.0.0-20170731032912-e7201282ae8d // indirect
 	github.com/volatiletech/null v8.0.0+incompatible
-	github.com/volatiletech/sqlboiler v3.5.0+incompatible
+	github.com/volatiletech/sqlboiler v3.6.0+incompatible
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	github.com/zsais/go-gin-prometheus v0.1.0
 	go.opencensus.io v0.22.0
 	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7
 	golang.org/x/net v0.0.0-20190918130420-a8b05e9114ab // indirect
-	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13 // indirect
+	golang.org/x/sys v0.0.0-20191023151326-f89234f9a2c2 // indirect
+	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
 	google.golang.org/api v0.7.0 // indirect
 	google.golang.org/appengine v1.6.2 // indirect
 	google.golang.org/genproto v0.0.0-20190916214212-f660b8655731 // indirect
