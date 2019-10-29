@@ -38,13 +38,9 @@ func (suite *DaemonTestSuite) TestNewDaemonErrors() {
 		Root:       "%2",
 		StatusAddr: "fred",
 	}
-	// Ledger failure path
-	daemon, err := NewDaemon(suite.l, &conf)
-	assert.Nil(t, daemon)
-	assert.Regexp(t, "create ledger client", err)
-	conf.Insecure = true
+	// Ledger failures are async for both secure and insecure code paths
 	// api server failure path
-	daemon, err = NewDaemon(suite.l, &conf)
+	daemon, err := NewDaemon(suite.l, &conf)
 	assert.Nil(t, daemon)
 	assert.Regexp(t, "create explorer server", err)
 }

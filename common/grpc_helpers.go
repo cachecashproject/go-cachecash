@@ -4,6 +4,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"go.opencensus.io/plugin/ocgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // GRPCDial creates a client connection to the given target.
@@ -15,6 +16,8 @@ func GRPCDial(target string, insecure bool, opts ...grpc.DialOption) (*grpc.Clie
 		opts...)
 	if insecure {
 		opts = append(opts, grpc.WithInsecure())
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	}
 	return grpc.Dial(target, opts...)
 }
