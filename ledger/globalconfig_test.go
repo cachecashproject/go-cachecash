@@ -13,6 +13,7 @@ package ledger
 // - Delete of element that doesn't exist
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -200,4 +201,71 @@ func (suite *GlobalConfigTestSuite) TestNoOperations() {
 	st2, err = st.Apply(&GlobalConfigTransaction{ScalarUpdates: []GlobalConfigScalarUpdate{}, ListUpdates: []GlobalConfigListUpdate{}})
 	assert.Nil(t, err)
 	assert.Equal(t, st, st2)
+}
+
+func (suite *GlobalConfigTestSuite) TestListNoop() {
+	t := suite.T()
+
+	st := suite.makeListTestState()
+	_, err := st.Apply(&GlobalConfigTransaction{
+		ListUpdates: []GlobalConfigListUpdate{
+			{Key: "FuzzyWombats"}, // No insertions or deletions; this is not valid.
+		},
+	})
+
+	assert.NotNil(t, err)
+}
+
+func (suite *GlobalConfigTestSuite) TestListDeletionErrors() {
+	t := suite.T()
+
+	for i, tt := range []struct {
+		lu GlobalConfigListUpdate
+	}{
+		// Deletions past the end of the list (when the list is empty).
+		{lu: GlobalConfigListUpdate{Key: "nonexistent", Deletions: []uint64{1}}},
+		// Invalid sequence of deletion indices: out of order.
+		{lu: GlobalConfigListUpdate{Key: "FuzzyWombats", Deletions: []uint64{2, 1, 0}}},
+		// Invalid sequence of deletion indices: duplicates.
+		{lu: GlobalConfigListUpdate{Key: "FuzzyWombats", Deletions: []uint64{2, 2, 2}}},
+	} {
+		st := suite.makeListTestState()
+		st2, err := st.Apply(&GlobalConfigTransaction{ListUpdates: []GlobalConfigListUpdate{tt.lu}})
+
+		assert.NotNil(t, err, fmt.Sprintf("[case %v] no error, but expected one", i))
+		assert.Nil(t, st2, fmt.Sprintf("[case %v] got return value, but expected nil", i))
+	}
+}
+
+func (suite *GlobalConfigTestSuite) TestListDeletion() {
+	t := suite.T()
+
+	for i, tt := range []struct {
+		lu       GlobalConfigListUpdate
+		expected [][]byte
+	}{
+		{
+			lu:       GlobalConfigListUpdate{Key: "FuzzyWombats", Deletions: []uint64{0, 1}},
+			expected: [][]byte{[]byte("green")},
+		},
+		{
+			lu:       GlobalConfigListUpdate{Key: "FuzzyWombats", Deletions: []uint64{1, 2}},
+			expected: [][]byte{[]byte("red")},
+		},
+		{
+			lu:       GlobalConfigListUpdate{Key: "FuzzyWombats", Deletions: []uint64{0, 2}},
+			expected: [][]byte{[]byte("blue")},
+		},
+		{
+			lu:       GlobalConfigListUpdate{Key: "FuzzyWombats", Deletions: []uint64{1}},
+			expected: [][]byte{[]byte("red"), []byte("green")},
+		},
+	} {
+		st := suite.makeListTestState()
+		st2, err := st.Apply(&GlobalConfigTransaction{ListUpdates: []GlobalConfigListUpdate{tt.lu}})
+
+		assert.Nil(t, err, fmt.Sprintf("[case %v] got error, but expected nil", i))
+		assert.Equal(t, tt.expected, st2.Lists["FuzzyWombats"],
+			fmt.Sprintf("[case %v] unexpected value for list after applying update", i))
+	}
 }
