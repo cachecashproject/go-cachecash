@@ -174,6 +174,7 @@ func TestMineOneTransaction(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
 	assert.Equal(t, 1, len(block.Transactions.Transactions))
+	r1 := block.Header.Random
 
 	txos, err := block2txos(block)
 	assert.Nil(t, err)
@@ -193,6 +194,8 @@ func TestMineOneTransaction(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
 	assert.Equal(t, 1, len(block.Transactions.Transactions))
+	assert.NotEqual(t, 0, block.Header.Random)
+	assert.NotEqual(t, r1, block.Header.Random)
 }
 
 func TestMineMultipleOutputs(t *testing.T) {

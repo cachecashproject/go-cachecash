@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
 	"math"
@@ -24,6 +25,7 @@ type BlockHeader struct {
 	Timestamp     uint32
 	// Bits          uint32
 	// Nonce         uint32
+	Random uint64 // Random bytes everyone can agree on.
 
 	// Signature is a signature over the canonical digest of the block header.  It is produced by the centralized ledger
 	// authority.
@@ -56,6 +58,8 @@ func (header *BlockHeader) MarshalTo(data []byte) (int, error) {
 		return 0, errors.New("MerkleRoot didn't write 32 bytes")
 	}
 	n += a
+	binary.LittleEndian.PutUint64(data[n:], header.Random)
+	n += 8
 	a = copy(data[n:], header.Signature)
 	if a != ed25519.SignatureSize {
 		// XXX: Signature shouldn't be dynamic length
@@ -95,6 +99,12 @@ func (header *BlockHeader) UnmarshalFrom(data []byte) (int, error) {
 	}
 	n += copy(header.MerkleRoot, data[n:n+merkleRootByteLength])
 
+	if len(data[n:]) < 8 {
+		return 0, errors.New("incomplete Random field")
+	}
+	header.Random = binary.LittleEndian.Uint64(data[n:])
+	n += 8
+
 	if len(data[n:]) < ed25519.SignatureSize {
 		return 0, errors.New("incomplete Signature field")
 	}
@@ -113,6 +123,7 @@ func (header *BlockHeader) Size() int {
 	n += 4                     // version uint32
 	n += BlockIDSize           // len(block.Header.PreviousBlock)
 	n += merkleRootByteLength  // len(block.Header.MerkleRoot)
+	n += 8                     // Size(header.Random)
 	n += ed25519.SignatureSize // len(block.Header.Signature)
 	n += 4
 	return n
@@ -122,16 +133,22 @@ func (header *BlockHeader) Size() int {
 
 // NewBlock creates a new block containing the given transactions and sign it
 func NewBlock(sigKey ed25519.PrivateKey, previousBlock BlockID, txs []*Transaction) (*Block, error) {
+	rand_bytes := make([]byte, 8)
+	_, err := rand.Read(rand_bytes)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get Random data")
+	}
+	temp := binary.LittleEndian.Uint64(rand_bytes)
 	b := &Block{
 		Header: &BlockHeader{
 			Version:       0,
 			PreviousBlock: previousBlock,
 			Timestamp:     0, // XXX: Populate this correctly.
+			Random:        temp,
 		},
 		Transactions: &Transactions{Transactions: txs},
 	}
 
-	var err error
 	b.Header.MerkleRoot, err = b.MerkleRoot()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to compute merkle root")
