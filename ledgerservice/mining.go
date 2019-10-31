@@ -129,20 +129,16 @@ func (m *LedgerMiner) GenerateBlock(ctx context.Context) (*ledger.Block, error) 
 		return nil, err
 	}
 
-	modified := true
-	for modified {
-		mempoolTXs, modified, err = m.FillBlock(ctx, state, mempoolTXs)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to fill block")
-		}
+	mempoolTXs, err = m.FillBlock(ctx, state, mempoolTXs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fill block")
+	} else {
+		m.l.Info("did not accept txs: ", len(mempoolTXs))
 	}
 
 	// TODO: start postgres transaction
 	txs := state.AcceptedTransactions()
 	m.l.Info("accepted txs into this block: ", len(txs))
-	if len(txs) == 0 {
-		return nil, nil
-	}
 
 	previousBlock := ledger.BlockID{}
 	copy(previousBlock[:], m.CurrentBlock.BlockID)
@@ -156,21 +152,15 @@ func (m *LedgerMiner) GenerateBlock(ctx context.Context) (*ledger.Block, error) 
 	return m.ApplyBlock(ctx, block, state.SpentUTXOs())
 }
 
-func (m *LedgerMiner) FillBlock(ctx context.Context, state *ledger.SpendingState, mempoolTXs []*models.MempoolTransaction) ([]*models.MempoolTransaction, bool, error) {
-	if len(mempoolTXs) == 0 {
-		// no pending transactions
-		m.l.Debug("no pending transactions in mempool")
-		return nil, false, nil
-	}
+func (m *LedgerMiner) FillBlock(ctx context.Context, state *ledger.SpendingState, mempoolTXs []*models.MempoolTransaction) ([]*models.MempoolTransaction, error) {
 	m.l.Debug("found transactions in mempool: ", len(mempoolTXs))
 
 	unaccepted := []*models.MempoolTransaction{}
-	modified := false
 	for _, txRow := range mempoolTXs {
 		tx := ledger.Transaction{}
 		err := tx.Unmarshal(txRow.Raw)
 		if err != nil {
-			return nil, false, errors.New("found invalid transaction in mempool")
+			return nil, errors.Wrap(err, "found invalid transaction in mempool")
 		}
 
 		err = m.ValidateTX(ctx, tx, state)
@@ -189,11 +179,10 @@ func (m *LedgerMiner) FillBlock(ctx context.Context, state *ledger.SpendingState
 		}
 
 		m.l.Info("added tx to block", tx)
-		modified = true
 		// XXX: if the block is almost full we're going to loop through all remaining transactions regardless
 	}
 
-	return unaccepted, modified, nil
+	return unaccepted, nil
 }
 
 func (m *LedgerMiner) ValidateTX(ctx context.Context, tx ledger.Transaction, state *ledger.SpendingState) error {

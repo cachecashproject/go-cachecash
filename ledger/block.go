@@ -179,7 +179,8 @@ func (block *Block) MerkleRoot() ([]byte, error) {
 	txs := block.Transactions
 
 	if len(txs.Transactions) == 0 {
-		return nil, errors.New("transaction list is empty")
+		emptysha := sha256.Sum256([]byte{})
+		return emptysha[:], nil
 	}
 
 	dd := make([][]byte, len(txs.Transactions))

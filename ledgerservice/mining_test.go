@@ -41,7 +41,7 @@ type output struct {
 	amount uint32
 }
 
-func TestMineNoBlockWithEmptyMempool(t *testing.T) {
+func TestMineBlockWithEmptyMempool(t *testing.T) {
 	ctx := context.Background()
 
 	kp, err := keypair.Generate()
@@ -54,7 +54,7 @@ func TestMineNoBlockWithEmptyMempool(t *testing.T) {
 
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
-	assert.Nil(t, block)
+	assert.NotNil(t, block)
 }
 
 func block2txos(block *ledger.Block) ([]txo, error) {
@@ -334,10 +334,10 @@ func TestMineOutputTwice(t *testing.T) {
 	err = lm.QueueTX(ctx, tx)
 	assert.Nil(t, err)
 
-	// verify this fails
+	// The transaction won't be selected for mining
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
-	assert.Nil(t, block)
+	assert.Len(t, block.Transactions.Transactions, 0)
 }
 
 func TestMineConflictingTXs(t *testing.T) {
@@ -491,7 +491,7 @@ func TestMineWrongWallet(t *testing.T) {
 	// no transaction is going to be mined
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
-	assert.Nil(t, block)
+	assert.Len(t, block.Transactions.Transactions, 0)
 }
 
 func TestMultipleGenesisBlocks(t *testing.T) {
@@ -527,7 +527,7 @@ func TestMultipleGenesisBlocks(t *testing.T) {
 	// transaction is going to get rejected
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
-	assert.Nil(t, block)
+	assert.Len(t, block.Transactions.Transactions, 0)
 }
 
 func TestMineInflation(t *testing.T) {
@@ -566,7 +566,7 @@ func TestMineInflation(t *testing.T) {
 	// no transaction is going to be mined
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
-	assert.Nil(t, block)
+	assert.Len(t, block.Transactions.Transactions, 0)
 }
 
 // fees are currently not required/supported
@@ -598,5 +598,5 @@ func TestMineDeflation(t *testing.T) {
 	// no transaction is going to be mined
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
-	assert.Nil(t, block)
+	assert.Len(t, block.Transactions.Transactions, 0)
 }
