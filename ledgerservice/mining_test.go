@@ -417,7 +417,7 @@ func TestMineDependingTXs(t *testing.T) {
 	block, err = lm.GenerateBlock(ctx)
 	assert.Nil(t, err)
 	assert.NotNil(t, block)
-	assert.Equal(t, 2, len(block.Transactions.Transactions))
+	assert.Len(t, block.Transactions.Transactions, 2)
 }
 
 func TestMineMultipleWallets(t *testing.T) {

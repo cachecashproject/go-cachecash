@@ -18,6 +18,8 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+const MAX_PACKING_ATTEMPTS = 10
+
 type LedgerMiner struct {
 	l       *logrus.Logger
 	storage LedgerStorage
@@ -152,34 +154,52 @@ func (m *LedgerMiner) GenerateBlock(ctx context.Context) (*ledger.Block, error) 
 	return m.ApplyBlock(ctx, block, state.SpentUTXOs())
 }
 
+type candidateTX struct {
+	txRow *models.MempoolTransaction
+	tx    ledger.Transaction
+}
+
 func (m *LedgerMiner) FillBlock(ctx context.Context, state *ledger.SpendingState, mempoolTXs []*models.MempoolTransaction) ([]*models.MempoolTransaction, error) {
 	m.l.Debug("found transactions in mempool: ", len(mempoolTXs))
 
-	unaccepted := []*models.MempoolTransaction{}
+	pending := []candidateTX{}
 	for _, txRow := range mempoolTXs {
-		tx := ledger.Transaction{}
-		err := tx.Unmarshal(txRow.Raw)
-		if err != nil {
+		tx := candidateTX{txRow: txRow}
+		if err := tx.tx.Unmarshal(tx.txRow.Raw); err != nil {
 			return nil, errors.Wrap(err, "found invalid transaction in mempool")
 		}
+		pending = append(pending, tx)
+	}
 
-		err = m.ValidateTX(ctx, tx, state)
-		if err != nil {
-			m.l.Info("failed to validate tx, skipping: ", err)
-			unaccepted = append(unaccepted, txRow)
-			continue
+	for attempts := 0; attempts < MAX_PACKING_ATTEMPTS; attempts++ {
+		unaccepted := []candidateTX{}
+		for _, tx := range pending {
+			if err := m.ValidateTX(ctx, tx.tx, state); err != nil {
+				m.l.Info("failed to validate tx, skipping: ", err)
+				unaccepted = append(unaccepted, tx)
+				continue
+			}
+
+			// try to add tx into block
+			if err := state.AddTx(&tx.tx); err != nil {
+				m.l.Warn("failed to add tx to block, possibly conflicts with other tx: ", err)
+				unaccepted = append(unaccepted, tx)
+				continue
+			}
+
+			m.l.Info("added tx to block", tx)
+			// XXX: if the block is almost full we're going to loop through all remaining transactions regardless
 		}
-
-		// try to add tx into block
-		err = state.AddTx(&tx)
-		if err != nil {
-			m.l.Warn("failed to add tx to block, possibly conflicts with other tx: ", err)
-			unaccepted = append(unaccepted, txRow)
-			continue
+		if len(pending) == len(unaccepted) {
+			// none of the pending transactions were accepted, they aren't mutually dependent.
+			break
 		}
+		pending = unaccepted
+	}
 
-		m.l.Info("added tx to block", tx)
-		// XXX: if the block is almost full we're going to loop through all remaining transactions regardless
+	unaccepted := []*models.MempoolTransaction{}
+	for _, tx := range pending {
+		unaccepted = append(unaccepted, tx.txRow)
 	}
 
 	return unaccepted, nil
