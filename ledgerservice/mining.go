@@ -294,17 +294,9 @@ func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spent
 		}
 
 		// add new UTXOs
-		switch v := tx.Body.(type) {
-		case *ledger.TransferTransaction:
-			err = m.AddOutputsToDatabase(ctx, txid, v.Outputs)
-			if err != nil {
-				return nil, err
-			}
-		case *ledger.GenesisTransaction:
-			err = m.AddOutputsToDatabase(ctx, txid, v.Outputs)
-			if err != nil {
-				return nil, err
-			}
+		err = m.AddOutputsToDatabase(ctx, txid, tx.Body.TxOutputs())
+		if err != nil {
+			return nil, err
 		}
 	}
 
