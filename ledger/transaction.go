@@ -538,12 +538,17 @@ func NewOutpointKey(txid []byte, idx byte) (*OutpointKey, error) {
 	return &outpoint, nil
 }
 
-func (o *OutpointKey) TXID() []byte {
-	return o[:32]
+func (o *OutpointKey) TXID() TXID {
+	v, _ := BytesToTXID(o[:32])
+	return v
 }
 
 func (o *OutpointKey) Idx() byte {
 	return o[32]
+}
+
+func (o OutpointKey) String() string {
+	return fmt.Sprintf("%v.%v", o.TXID(), o.Idx())
 }
 
 type TransactionInput struct {

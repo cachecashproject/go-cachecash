@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/cachecashproject/go-cachecash/testutil"
@@ -314,6 +315,19 @@ func (suite *TransactionTestSuite) TestMarshal() {
 	err = transactions2.Unmarshal(transactionsBytes)
 	assert.Nil(t, err)
 	assert.Equal(t, transactions, transactions2)
+}
+
+func (suite *TransactionTestSuite) TestString() {
+	t := suite.T()
+
+	// TXID
+	txid := MustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+	assert.Equal(t, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", fmt.Sprintf("%v", txid))
+
+	// OutpointKey
+	var opk OutpointKey
+	copy(opk[:], testutil.MustDecodeString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefde"))
+	assert.Equal(t, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.222", fmt.Sprintf("%v", opk))
 }
 
 func (suite *TransactionTestSuite) makeGlobalConfigTransaction() *Transaction {

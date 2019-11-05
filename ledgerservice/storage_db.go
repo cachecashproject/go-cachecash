@@ -30,7 +30,7 @@ func (m *LedgerDatabase) MempoolTXs(ctx context.Context) ([]*models.MempoolTrans
 func (m *LedgerDatabase) Utxo(ctx context.Context, outpoint ledger.OutpointKey) (*models.Utxo, error) {
 	txid := outpoint.TXID()
 	outputIdx := outpoint.Idx()
-	return models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid}, outputIdx)).One(ctx, m.db)
+	return models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid[:]}, outputIdx)).One(ctx, m.db)
 }
 
 func (m *LedgerDatabase) HighestBlock(ctx context.Context) (*models.Block, error) {
@@ -56,7 +56,7 @@ func (m *LedgerDatabase) UpdateAuditLog(ctx context.Context, txid ledger.TXID, s
 func (m *LedgerDatabase) DeleteUtxo(ctx context.Context, outpoint ledger.OutpointKey) error {
 	txid := outpoint.TXID()
 	outputIdx := outpoint.Idx()
-	_, err := models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid}, outputIdx)).DeleteAll(ctx, m.db)
+	_, err := models.Utxos(qm.Where("txid=? and output_idx=?", types.BytesArray{0: txid[:]}, outputIdx)).DeleteAll(ctx, m.db)
 	return err
 }
 
