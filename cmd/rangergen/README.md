@@ -12,6 +12,35 @@ structure; integer types supported are the `uint`s of various sizes which we
 pass to `binary.Uvarint` for generation of both the integers themselves as
 data, as well as array lengths for array structure data.
 
+## Building/Running
+
+It's simplest to run `rangergen` as a part of `go run`, but you can optionally compile it as well:
+
+- `go run ./cmd/rangergen --help`
+or
+- `go install ./cmd/rangergen/... && rangergen --help`
+
+## Using
+
+`rangergen` will be used here -- see `Building/Running` for other methods of invocation.
+
+`rangergen` generates test and fuzz code along with its generated corpus. To
+suppress this; see the options.
+
+`rangergen` supports making parent directories if necessary.
+
+`rangergen definition.yaml path/prefix/to/file`
+
+Will generate:
+
+* `path/prefix/to/file.go` -- generated corpus
+* `path/prefix/to/file_test.go` -- test files that test randomized i/o through the system briefly
+* `path/prefix/to/file_fuzz.go` -- supporting tooling for
+  [go-fuzz](https://github.com/dvyukov/go-fuzz). Read go-fuzz's linked docs for
+  more information.
+
+## Format
+
 Fields are specified in a YAML format that you can see here:
 
 ```yaml
@@ -22,7 +51,6 @@ package: ledger
 # will be larger than this, it will abort. The value here is 20 megabytes.
 ##
 max_byte_range: 20971520
-##
 # definition of types. each definition consists of a Type name as map key and
 # properties as values. Some properties, like `fields`, are required but others
 # can be specified as well. I had a host of validations here that I thought
@@ -56,12 +84,16 @@ types:
   Transaction:
     fields:
       - Version:
-          structure_type: scalar
           value_type: uint8
+          ##
+          # the require block sets constraints about the type, and/or its value.
+          ###
           require:
+            ##
+            # static indicates that it is a fixed length parameter
+            ##
             static: true
       - Body:
-          structure_type: scalar
           value_type: TransactionBody
           ##
           # interface means "this conforms to an interface which could be N
@@ -86,7 +118,6 @@ types:
               - TxTypeGlobalConfig: GlobalConfigTransaction
               - TxTypeEscrowOpen: EscrowOpenTransaction
       - Flags:
-          structure_type: scalar
           value_type: uint16
           require:
             static: true
@@ -116,7 +147,6 @@ types:
           match:
             length_of_field: Inputs
       - LockTime:
-          structure_type: scalar
           value_type: uint32
           marshal: false # this field is not marshaled
   EscrowOpenTransaction:
@@ -124,7 +154,6 @@ types:
   TransactionInput:
     fields:
       - Outpoint:
-          structure_type: scalar
           value_type: Outpoint
           ##
           # inline_struct intends to allow for inline declarations like
@@ -132,16 +161,17 @@ types:
           # ledger/transaction.go. Outpoint must still be specified, but must
           # be marshaled independently -- which is not how it's done now.
           #
-          # not really sure what to do here.
+          # This is called a "promoted field" in golang traditionally:
+          #
+          # https://medium.com/golangspec/promoted-fields-and-methods-in-go-4e8d7aefb3e3
+          #
           ##
           inline_struct: true
       - ScriptSig:
-          structure_type: scalar
           value_type: "[]byte"
           require:
             max_length: 520
       - SequenceNo:
-          structure_type: scalar
           value_type: uint32
   ##
   # this is my attempt to model Outpoint
@@ -149,7 +179,6 @@ types:
   Outpoint:
     fields:
       - PreviousTx:
-          structure_type: scalar
           value_type: TXID
           ##
           # this could be for validation requirements.
@@ -157,17 +186,17 @@ types:
           # - format of data (e.g., gzip, or some packet format, etc. basically a mime type)
           ##
           require:
+            ##
+            # require that the TXID be length of 32 bytes.
+            ##
             length: 32
       - Index:
-          structure_type: scalar
           value_type: uint8
   TransactionOutput:
     fields:
       - Value:
-          structure_type: scalar
           value_type: uint32
       - ScriptPubKey:
-          structure_type: scalar
           value_type: "[]byte"
   TransactionWitness:
     fields:
@@ -185,7 +214,6 @@ types:
   GlobalConfigTransaction:
     fields:
       - ActivationBlockHeight:
-          structure_type: scalar
           value_type: uint64
       - ScalarUpdates:
           structure_type: array
@@ -194,23 +222,18 @@ types:
           structure_type: array
           value_type: GlobalConfigListUpdate
       - SigPublicKey:
-          structure_type: scalar
           value_type: "[]byte"
       - Signature:
-          structure_type: scalar
           value_type: "[]byte"
   GlobalConfigScalarUpdate:
     fields:
       - Key:
-          structure_type: scalar
           value_type: string
       - Value:
-          structure_type: scalar
           value_type: "[]byte"
   GlobalConfigListUpdate:
     fields:
       - Key:
-          structure_type: scalar
           value_type: string
       - Deletions:
           structure_type: array
@@ -221,10 +244,8 @@ types:
   GlobalConfigListInsertion:
     fields:
       - Index:
-          structure_type: scalar
           value_type: uint64
       - Value:
-          structure_type: scalar
           value_type: "[]byte"
 ```
 
