@@ -3,14 +3,16 @@ package ledger
 import (
 	"testing"
 
-	"github.com/cachecashproject/go-cachecash/keypair"
-	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledger/models"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 )
 
-func makeInput(pubkey ed25519.PublicKey, txid TXID) (*TransactionInput, error) {
+func makeInput(pubkey ed25519.PublicKey, txid models.TXID) (*TransactionInput, error) {
 	idx := uint8(0)
 
 	inputScriptBytes, err := txscript.MakeOutputScript(pubkey)

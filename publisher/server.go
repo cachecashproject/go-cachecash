@@ -7,15 +7,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cachecashproject/go-cachecash/bootstrap"
-	"github.com/cachecashproject/go-cachecash/ccmsg"
-	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/dbtx"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+
+	"github.com/cachecashproject/go-cachecash/bootstrap"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
+	"github.com/cachecashproject/go-cachecash/ledgerclient"
 )
 
 // An Application is the top-level content publisher.  It takes a configuration struct.  Its children are the several
@@ -31,7 +33,9 @@ type ConfigFile struct {
 	GrpcAddr             string
 	StatusAddr           string
 	BootstrapAddr        string
+	LedgerAddr           string
 	DefaultCacheDuration time.Duration
+	SyncInterval         time.Duration
 	Insecure             bool
 
 	UpstreamURL string `json:"upstreamURL"`
@@ -49,9 +53,9 @@ type application struct {
 var _ Application = (*application)(nil)
 
 // NewApplication constructs a new publisher application.
-func NewApplication(l *logrus.Logger, p *ContentPublisher, db *sql.DB, conf *ConfigFile) (Application, error) {
+func NewApplication(l *logrus.Logger, p *ContentPublisher, db *sql.DB, conf *ConfigFile, r *ledgerclient.Replicator) (Application, error) {
 	// XXX: Should this take p as an argument, or be responsible for setting it up?
-	publisherServer, err := newPublisherServer(l, p, db, conf)
+	publisherServer, err := newPublisherServer(l, p, db, conf, r)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create publisher server")
 	}
@@ -96,11 +100,12 @@ type publisherServer struct {
 	httpServer     *http.Server
 	cancelFunction context.CancelFunc
 	db             *sql.DB
+	replicator     *ledgerclient.Replicator
 }
 
 var _ common.StarterShutdowner = (*publisherServer)(nil)
 
-func newPublisherServer(l *logrus.Logger, p *ContentPublisher, db *sql.DB, conf *ConfigFile) (*publisherServer, error) {
+func newPublisherServer(l *logrus.Logger, p *ContentPublisher, db *sql.DB, conf *ConfigFile, r *ledgerclient.Replicator) (*publisherServer, error) {
 	grpcServer := common.NewDBGRPCServer(db)
 	ccmsg.RegisterCachePublisherServer(grpcServer, &grpcPublisherServer{publisher: p})
 	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcPublisherServer{publisher: p})
@@ -115,6 +120,7 @@ func newPublisherServer(l *logrus.Logger, p *ContentPublisher, db *sql.DB, conf 
 		grpcServer: grpcServer,
 		httpServer: httpServer,
 		db:         db,
+		replicator: r,
 	}, nil
 }
 
@@ -178,6 +184,7 @@ func (s *publisherServer) Start() error {
 	}()
 
 	ctx, cancel := context.WithCancel(dbtx.ContextWithExecutor(context.Background(), s.db))
+	go s.replicator.SyncChain(ctx, s.conf.SyncInterval)
 	go func() {
 		for {
 			caches, err := bootstrapClient.FetchCaches(ctx)

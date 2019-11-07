@@ -9,15 +9,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cachecashproject/go-cachecash/bootstrap"
-	"github.com/cachecashproject/go-cachecash/ccmsg"
-	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/keypair"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+
+	"github.com/cachecashproject/go-cachecash/bootstrap"
+	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
+	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledgerclient"
 )
 
 // An Application is the top-level content publisher.  It takes a configuration struct.  Its children are the several
@@ -31,12 +34,14 @@ type ConfigFile struct {
 	ClientProtocolHttpAddr string
 	StatusAddr             string
 	BootstrapAddr          string
+	LedgerAddr             string
 
-	BadgerDirectory string `json:"badger_directory"`
-	Database        string `json:"database"`
-	ContactUrl      string `json:"contact_url"`
-	MetricsEndpoint string `json:"metrics_endpoint"`
-	Insecure        bool   `json:"insecure"`
+	BadgerDirectory string        `json:"badger_directory"`
+	Database        string        `json:"database"`
+	ContactUrl      string        `json:"contact_url"`
+	MetricsEndpoint string        `json:"metrics_endpoint"`
+	SyncInterval    time.Duration `json:"sync_interval"`
+	Insecure        bool          `json:"insecure"`
 }
 
 type application struct {
@@ -50,8 +55,8 @@ type application struct {
 
 var _ Application = (*application)(nil)
 
-func NewApplication(l *logrus.Logger, c *Cache, db *sql.DB, conf *ConfigFile, kp *keypair.KeyPair) (Application, error) {
-	clientProtocolServer, err := newClientProtocolServer(l, c, db, conf)
+func NewApplication(l *logrus.Logger, c *Cache, db *sql.DB, conf *ConfigFile, kp *keypair.KeyPair, r *ledgerclient.Replicator) (Application, error) {
+	clientProtocolServer, err := newClientProtocolServer(l, c, db, conf, r)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client protocol server")
 	}
@@ -103,12 +108,14 @@ type clientProtocolServer struct {
 	cache          *Cache
 	grpcServer     *grpc.Server
 	httpServer     *http.Server
+	replicator     *ledgerclient.Replicator
+	db             *sql.DB
 	cancelFunction context.CancelFunc
 }
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 
-func newClientProtocolServer(l *logrus.Logger, c *Cache, db *sql.DB, conf *ConfigFile) (*clientProtocolServer, error) {
+func newClientProtocolServer(l *logrus.Logger, c *Cache, db *sql.DB, conf *ConfigFile, r *ledgerclient.Replicator) (*clientProtocolServer, error) {
 	grpcServer := common.NewDBGRPCServer(db)
 	ccmsg.RegisterClientCacheServer(grpcServer, &grpcClientCacheServer{cache: c})
 	ccmsg.RegisterPublisherCacheServer(grpcServer, &grpcPublisherCacheServer{cache: c})
@@ -122,6 +129,8 @@ func newClientProtocolServer(l *logrus.Logger, c *Cache, db *sql.DB, conf *Confi
 		cache:      c,
 		grpcServer: grpcServer,
 		httpServer: httpServer,
+		replicator: r,
+		db:         db,
 	}, nil
 }
 
@@ -199,7 +208,9 @@ func (s *clientProtocolServer) Start() error {
 		}
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := dbtx.ContextWithExecutor(context.Background(), s.db)
+	ctx, cancel := context.WithCancel(ctx)
+	go s.replicator.SyncChain(ctx, s.conf.SyncInterval)
 	go func() {
 		for {
 			stats := bootstrap.NewCacheStats()
@@ -237,7 +248,7 @@ func (s *clientProtocolServer) Start() error {
 }
 
 func (s *clientProtocolServer) Shutdown(ctx context.Context) error {
-	// stop announcing our cache
+	// stop announcing our cache and syncing the chain
 	s.cancelFunction()
 
 	// TODO: Should use `GracefulStop` until context expires, and then fall back on `Stop`.

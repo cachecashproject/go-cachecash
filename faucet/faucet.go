@@ -19,10 +19,9 @@ import (
 )
 
 type Faucet struct {
-	l            *logrus.Logger
-	wallet       *wallet.Wallet
-	syncInterval time.Duration
-	rateLimiter  *ratelimit.RateLimiter
+	l           *logrus.Logger
+	wallet      *wallet.Wallet
+	rateLimiter *ratelimit.RateLimiter
 }
 
 func NewFaucet(l *logrus.Logger, wallet *wallet.Wallet) (*Faucet, error) {
@@ -35,20 +34,19 @@ func NewFaucet(l *logrus.Logger, wallet *wallet.Wallet) (*Faucet, error) {
 	}, kv)
 
 	return &Faucet{
-		l:            l,
-		wallet:       wallet,
-		syncInterval: 10 * time.Second,
-		rateLimiter:  rateLimiter,
+		l:           l,
+		wallet:      wallet,
+		rateLimiter: rateLimiter,
 	}, nil
 }
 
-func (f *Faucet) SyncChain(ctx context.Context) {
+func (f *Faucet) SyncChain(ctx context.Context, syncInterval time.Duration) {
 	for {
 		err := f.FetchBlocks(ctx)
 		if err != nil {
 			f.l.Error(err)
 		}
-		time.Sleep(f.syncInterval)
+		time.Sleep(syncInterval)
 	}
 }
 

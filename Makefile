@@ -14,7 +14,11 @@ GIT_VERSION:=$(or \
 
 BASE_IMAGE=cachecash/go-cachecash-build:latest
 
-GEN_DIRS=./ccmsg/... ./ledger/... ./log/... ./metrics/... ./blockexplorer/... ./bootstrap/... ./ranger/...
+# These contain the dirs that can be generated without SQL or other servers
+# running. Full generation requires a docker-compose-up + then running `go
+# generate ./...`, but that can then lead to tool skew issues. So the canonical
+# thing to do is to do that, and then run `make gen` one last time.
+GEN_DIRS=./ccmsg/... ./ledger ./log/... ./metrics/... ./blockexplorer/... ./bootstrap/... ./ranger/...
 GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
 GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
 GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto

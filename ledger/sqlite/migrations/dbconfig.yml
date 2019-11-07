@@ -1,0 +1,5 @@
+sqlite:
+  dialect: sqlite3
+  datasource: "./chain.db"
+  dir: "../migrations/"
+  table: chain-migrations

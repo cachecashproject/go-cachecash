@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/cachecashproject/go-cachecash/dbtx"
-	"github.com/cachecashproject/go-cachecash/ledger"
-	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"github.com/volatiletech/sqlboiler/types"
+
+	"github.com/cachecashproject/go-cachecash/dbtx"
+	"github.com/cachecashproject/go-cachecash/ledger"
+	ledger_models "github.com/cachecashproject/go-cachecash/ledger/models"
+	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 )
 
 type LedgerDatabase struct{}
@@ -42,13 +44,13 @@ func (m *LedgerDatabase) InsertBlock(ctx context.Context, blockModel *models.Blo
 	return blockModel.Insert(ctx, dbtx.ExecutorFromContext(ctx), boil.Infer())
 }
 
-func (m *LedgerDatabase) DeleteMempoolTX(ctx context.Context, txid ledger.TXID) error {
+func (m *LedgerDatabase) DeleteMempoolTX(ctx context.Context, txid ledger_models.TXID) error {
 	dbTxID := types.BytesArray{0: txid[:]}
 	_, err := models.MempoolTransactions(qm.Where("txid=?", dbTxID)).DeleteAll(ctx, dbtx.ExecutorFromContext(ctx))
 	return err
 }
 
-func (m *LedgerDatabase) UpdateAuditLog(ctx context.Context, txid ledger.TXID, status string) error {
+func (m *LedgerDatabase) UpdateAuditLog(ctx context.Context, txid ledger_models.TXID, status string) error {
 	dbTxID := types.BytesArray{0: txid[:]}
 	_, err := models.TransactionAuditlogs(qm.Where("txid=?", dbTxID)).UpdateAll(ctx, dbtx.ExecutorFromContext(ctx), models.M{"status": status})
 	return err

@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/cachecashproject/go-cachecash/ledger/models"
 	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 )
 
@@ -209,10 +210,10 @@ func (tx *Transaction) Size() int {
 	return 4 + tx.Body.Size()
 }
 
-func (tx *Transaction) TXID() (TXID, error) {
+func (tx *Transaction) TXID() (models.TXID, error) {
 	data, err := tx.Marshal()
 	if err != nil {
-		return TXID{}, errors.Wrap(err, "failed to marshal transaction")
+		return models.TXID{}, errors.Wrap(err, "failed to marshal transaction")
 	}
 
 	d := sha256.Sum256(data)
@@ -509,7 +510,7 @@ func (tx *EscrowOpenTransaction) TxWitnesses() []TransactionWitness {
 
 // XXX: This is a bad name, because we use this struct to describe both inpoints and outpoints.
 type Outpoint struct {
-	PreviousTx TXID
+	PreviousTx models.TXID
 	Index      uint8 // (of output in PreviousTx) // TODO: type
 }
 
@@ -538,8 +539,8 @@ func NewOutpointKey(txid []byte, idx byte) (*OutpointKey, error) {
 	return &outpoint, nil
 }
 
-func (o *OutpointKey) TXID() TXID {
-	v, _ := BytesToTXID(o[:32])
+func (o *OutpointKey) TXID() models.TXID {
+	v, _ := models.BytesToTXID(o[:32])
 	return v
 }
 
@@ -563,7 +564,7 @@ func (ti *TransactionInput) Size() int {
 }
 
 func (ti *TransactionInput) MarshalTo(data []byte) (int, error) {
-	if len(ti.PreviousTx) != TransactionIDSize {
+	if len(ti.PreviousTx) != models.TransactionIDSize {
 		return 0, errors.New("bad size for previous transaction ID")
 	}
 	n := copy(data, ti.PreviousTx[:])
@@ -583,11 +584,11 @@ func (ti *TransactionInput) MarshalTo(data []byte) (int, error) {
 func (ti *TransactionInput) UnmarshalFrom(data []byte) (int, error) {
 	var n int
 
-	if len(data[n:]) < TransactionIDSize+1 {
+	if len(data[n:]) < models.TransactionIDSize+1 {
 		return 0, errors.New("TransactionInput is below minimum length")
 	}
 
-	n += copy(ti.PreviousTx[:], data[n:n+TransactionIDSize])
+	n += copy(ti.PreviousTx[:], data[n:n+models.TransactionIDSize])
 
 	ti.Index = uint8(data[n])
 	n += 1

@@ -4,13 +4,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cachecashproject/go-cachecash/keypair"
-	"github.com/cachecashproject/go-cachecash/ledger"
-	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledger"
+	ledger_models "github.com/cachecashproject/go-cachecash/ledger/models"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 )
 
 func SetupGenesis(kp *keypair.KeyPair) (*LedgerMiner, *ledger.Block, error) {
@@ -30,7 +32,7 @@ func SetupGenesis(kp *keypair.KeyPair) (*LedgerMiner, *ledger.Block, error) {
 }
 
 type txo struct {
-	txid   ledger.TXID
+	txid   ledger_models.TXID
 	idx    uint8
 	amount uint32
 	script []byte

@@ -7,17 +7,20 @@ import (
 	_ "net/http/pprof"
 	"time"
 
+	"github.com/pkg/errors"
+	migrate "github.com/rubenv/sql-migrate"
+	"github.com/sirupsen/logrus"
+
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledger"
+	"github.com/cachecashproject/go-cachecash/ledgerclient"
 	"github.com/cachecashproject/go-cachecash/log"
 	"github.com/cachecashproject/go-cachecash/publisher"
 	"github.com/cachecashproject/go-cachecash/publisher/migrations"
-	"github.com/pkg/errors"
-	migrate "github.com/rubenv/sql-migrate"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -42,10 +45,12 @@ func loadConfigFile(l *logrus.Logger, path string) (*publisher.ConfigFile, error
 	conf.GrpcAddr = p.GetString("grpc_addr", ":7070")
 	conf.StatusAddr = p.GetString("status_addr", ":8100")
 	conf.BootstrapAddr = p.GetString("bootstrap_addr", "bootstrapd:7777")
-	conf.DefaultCacheDuration = time.Duration(p.GetInt64("default_cache_duration", 300)) * time.Second
+	conf.LedgerAddr = p.GetString("ledger_addr", "ledger:7778")
+	conf.DefaultCacheDuration = p.GetSeconds("default_cache_duration", 300)
 
 	conf.UpstreamURL = p.GetString("upstream", "")
 	conf.Database = p.GetString("database", "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable")
+	conf.SyncInterval = p.GetSeconds("sync-interval", ledgerclient.DEFAULT_SYNC_INTERVAL)
 	conf.Insecure = p.GetInsecure()
 
 	return &conf, nil
@@ -116,6 +121,16 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
+	persistence := ledger.NewChainStorageSQL(&l.Logger, ledger.NewChainStoragePostgres())
+	if err := persistence.RunMigrations(db); err != nil {
+		return err
+	}
+	storage := ledger.NewDatabase(persistence)
+	r, err := ledgerclient.NewReplicator(&l.Logger, storage, cf.LedgerAddr, cf.Insecure)
+	if err != nil {
+		return errors.Wrap(err, "failed to create replicator")
+	}
+
 	var publisherAddr string
 	if len(cf.PublisherAddr) == 0 {
 		publisherAddr = cf.GrpcAddr
@@ -134,7 +149,7 @@ func mainC() error {
 	}
 	l.Infof("loaded %d escrows from database", num)
 
-	app, err := publisher.NewApplication(&l.Logger, p, db, cf)
+	app, err := publisher.NewApplication(&l.Logger, p, db, cf, r)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}

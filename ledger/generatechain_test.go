@@ -1,14 +1,16 @@
 package ledger
 
 import (
+	"context"
 	"testing"
 
-	"github.com/cachecashproject/go-cachecash/ledger/txscript"
-	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 )
 
 type GenerateChainTestSuite struct {
@@ -39,32 +41,22 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 	}
 	_ = pubCLA
 
-	pubA, privA, err := ed25519.GenerateKey(nil)
+	kpA, err := keypair.Generate()
 	if err != nil {
 		t.Fatalf("failed to generate keypair: %v", err)
 	}
-	addrA := MakeP2WPKHAddress(pubA)
-	outScrA, err := txscript.MakeP2WPKHOutputScript(addrA.PublicKeyHash)
+	outScrBufA, err := txscript.MakeInputScript(kpA.PublicKey)
 	if err != nil {
 		t.Fatalf("failed to generate output script: %v", err)
-	}
-	outScrBufA, err := outScrA.Marshal()
-	if err != nil {
-		t.Fatalf("failed to marshal output script: %v", err)
 	}
 
 	pubB, privB, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		t.Fatalf("failed to generate keypair: %v", err)
 	}
-	addrB := MakeP2WPKHAddress(pubB)
-	outScrB, err := txscript.MakeP2WPKHOutputScript(addrB.PublicKeyHash)
+	outScrBufB, err := txscript.MakeInputScript(pubB)
 	if err != nil {
 		t.Fatalf("failed to generate output script: %v", err)
-	}
-	outScrBufB, err := outScrB.Marshal()
-	if err != nil {
-		t.Fatalf("failed to marshal output script: %v", err)
 	}
 
 	// Block 0
@@ -106,6 +98,11 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 		t.Fatalf("failed to get previous transaction ID: %v", err)
 	}
 
+	// These commented lines would make this be the same as test_scriptsig - see issue #274
+	//   inputScriptBytes, err := txscript.MakeOutputScript(kpA.PublicKey)
+	//   assert.NoError(t, err)
+	//  ... ScriptSig: inputScriptBytes // below
+
 	txs = []*Transaction{
 		{
 			Version: 0x01,
@@ -116,14 +113,6 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 						Outpoint:   Outpoint{PreviousTx: prevTXID, Index: 0},
 						ScriptSig:  nil, // N.B.: For P2WPKH transactions, this must always be empty.
 						SequenceNo: 0xFFFFFFFF,
-					},
-				},
-				Witnesses: []TransactionWitness{
-					{
-						Data: [][]byte{
-							testutil.MustDecodeString("cafebabe"), // XXX: Replace once we have sighash.
-							pubA,
-						},
 					},
 				},
 				Outputs: []TransactionOutput{
@@ -139,6 +128,9 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 			},
 		},
 	}
+	prevOutputs := block0.Transactions.Transactions[0].Outputs()[0:1]
+	err = txs[0].GenerateWitnesses(kpA, prevOutputs)
+	assert.NoError(t, err)
 
 	block1, err := NewBlock(privCLA, block0.BlockID(), txs)
 	assert.Nil(t, err, "failed to create genesis block")
@@ -154,28 +146,35 @@ func (suite *GenerateChainTestSuite) TestGenerateChain() {
 			}
 		}
 	}
-	assert.Equal(t, 4, len(us.utxos))
+	assert.Equal(t, 4, us.Length())
+
+	// a block with a parent not in the chain
+
+	badBlock, err := NewBlock(privCLA, MustDecodeBlockID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"), []*Transaction{})
+	assert.NoError(t, err)
 
 	// XXX: This should be moved to separate unit tests.
-	suite.testChainDatabase([]*Block{block0, block1})
+	suite.testChainDatabase([]*Block{block0, block1}, []*Block{badBlock})
 
 	// Done.
-	_ = privA
 	_ = privB
 }
 
-func (suite *GenerateChainTestSuite) testChainDatabase(blocks []*Block) {
+func (suite *GenerateChainTestSuite) testChainDatabase(blocks []*Block, badBlocks []*Block) {
 	t := suite.T()
+	ctx := context.Background()
 
 	// Build chain database.
-	cdb, err := NewSimpleChainDatabase(blocks[0])
-	if !assert.Nil(t, err) {
-		return
-	}
+	cdb := NewDatabase(NewChainStorageMemory(blocks[0]))
 	for i := 1; i < len(blocks); i++ {
-		if !assert.Nil(t, cdb.AddBlock(blocks[i])) {
+		height, err := cdb.Height(ctx)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(i), height)
+		newHeight, err := cdb.AddBlock(ctx, blocks[i])
+		if !assert.NoError(t, err) {
 			return
 		}
+		assert.Equal(t, uint64(i), newHeight)
 	}
 
 	tx := blocks[1].Transactions.Transactions[0]
@@ -184,28 +183,55 @@ func (suite *GenerateChainTestSuite) testChainDatabase(blocks []*Block) {
 		return
 	}
 
-	ccEnd := &ChainContext{BlockID: blocks[1].BlockID(), TxIndex: 1}
+	ccEnd := &Position{BlockID: blocks[1].BlockID(), TxIndex: 1}
+	ccBeforeSpend := &Position{BlockID: blocks[1].BlockID(), TxIndex: 0}
 
-	// The input to this transaction should be unspent when we give the correct ChainContext.
-	unspent, err := cdb.Unspent(&ChainContext{BlockID: blocks[1].BlockID(), TxIndex: 0}, tx.Inpoints()[0])
+	// The input to this transaction should be unspent when we give the correct chain.Position.
+	unspent, err := cdb.Unspent(ctx, ccBeforeSpend, tx.Inpoints()[0])
 	assert.Nil(t, err)
 	assert.True(t, unspent)
+	// See #274
+	// assert.NoError(t, cdb.TransactionValid(ctx, ccBeforeSpend, tx))
 
 	// ... but if we start one transaction later (as though we were examining a second transaction spending the same
 	// input), we should find that the output has already been spent.
-	unspent, err = cdb.Unspent(ccEnd, tx.Inpoints()[0])
+	unspent, err = cdb.Unspent(ctx, ccEnd, tx.Inpoints()[0])
 	assert.Nil(t, err)
 	assert.False(t, unspent)
 
 	// Test that GetTransaction fetches transactions correctly.
-	tx, err = cdb.GetTransaction(ccEnd, txid)
+	tx, err = cdb.GetTransaction(ctx, ccEnd, txid)
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
 
 	// Test what happens when GetTransaction does not find the transaction.
-	tx, err = cdb.GetTransaction(ccEnd, MustDecodeTXID("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"))
+	ccStart := &Position{BlockID: blocks[0].BlockID(), TxIndex: 1}
+	tx, err = cdb.GetTransaction(ctx, ccStart, txid)
 	assert.Nil(t, err)
 	assert.Nil(t, tx)
 
-	_ = cdb
+	// bad blocks
+	for _, block := range badBlocks {
+		height, err := cdb.Height(ctx)
+		assert.NoError(t, err)
+		addHeight, err := cdb.AddBlock(ctx, block)
+		assert.Error(t, err)
+		assert.Equal(t, uint64(0), addHeight)
+		newHeight, err := cdb.Height(ctx)
+		assert.NoError(t, err)
+		assert.Equal(t, height, newHeight)
+	}
+
+	// existing blocks should not succeed either
+	for _, block := range blocks {
+		height, err := cdb.Height(ctx)
+		assert.NoError(t, err)
+		addHeight, err := cdb.AddBlock(ctx, block)
+		assert.Error(t, err)
+		assert.Equal(t, uint64(0), addHeight)
+		newHeight, err := cdb.Height(ctx)
+		assert.NoError(t, err)
+		assert.Equal(t, height, newHeight)
+	}
+
 }

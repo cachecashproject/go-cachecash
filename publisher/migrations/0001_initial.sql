@@ -39,6 +39,7 @@ CREATE TABLE escrow_caches (
     inner_master_key BYTEA NOT NULL
 );
 
+
 -- +migrate Down
 DROP TABLE escrow_caches;
 DROP TABLE cache;

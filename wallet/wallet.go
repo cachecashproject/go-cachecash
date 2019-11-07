@@ -5,14 +5,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 
-	"github.com/cachecashproject/go-cachecash/ccmsg"
-	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/dbtx"
-	"github.com/cachecashproject/go-cachecash/keypair"
-	"github.com/cachecashproject/go-cachecash/ledger"
-	"github.com/cachecashproject/go-cachecash/ledger/txscript"
-	"github.com/cachecashproject/go-cachecash/wallet/migrations"
-	"github.com/cachecashproject/go-cachecash/wallet/models"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	migrate "github.com/rubenv/sql-migrate"
@@ -20,6 +12,16 @@ import (
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
+	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledger"
+	ledger_models "github.com/cachecashproject/go-cachecash/ledger/models"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
+	"github.com/cachecashproject/go-cachecash/wallet/migrations"
+	"github.com/cachecashproject/go-cachecash/wallet/models"
 )
 
 type Account struct {
@@ -213,7 +215,7 @@ func (w *Wallet) generateTX(ctx context.Context, target ledger.Address, amount u
 	for _, utxo := range utxos {
 		spendingSum += uint32(utxo.Amount)
 
-		txid := ledger.TXID{}
+		txid := ledger_models.TXID{}
 		copy(txid[:], utxo.Txid)
 
 		pubKeyHash := txscript.Hash160Sum(w.kp.PublicKey)

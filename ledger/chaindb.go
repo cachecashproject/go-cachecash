@@ -1,73 +1,71 @@
 package ledger
 
 import (
-	"fmt"
+	"context"
+	"database/sql"
 
-	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 	"github.com/pkg/errors"
+
+	"github.com/cachecashproject/go-cachecash/dbtx"
+	"github.com/cachecashproject/go-cachecash/ledger/models"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 )
 
-type ChainContext struct {
+// Position is the location of a transaction: the Nth transaction in a specific block.
+type Position struct {
 	BlockID BlockID
 	TxIndex uint32
 }
 
-// ChainDatabase describes an interface to querying blockchain data.
+// Persistence descibes the storage backend that is used to store blocks and transactions
+type Persistence interface {
+	Height(ctx context.Context) (uint64, error)
+	AddBlock(ctx context.Context, height uint64, blk *Block) error
+	GetBlock(ctx context.Context, blkid BlockID) (*Block, uint64, error)
+	AddTx(ctx context.Context, txid models.TXID, tx *Transaction) error
+	GetTx(ctx context.Context, txid models.TXID) (*Transaction, error)
+}
+
+// NewBlockSubscriber describes the in-transaction callback made by
+// Database for new blocks.
+type NewBlockSubscriber interface {
+	NewBlock(ctx context.Context, height uint64, block *Block) error
+}
+
+// Database describes an interface to query blockchain data.
 //
 // When considering transaction visiblity, remember that an individual transaction may be included in more than one
 // block, and that the block-graph is a tree (since each block has a single parent and cycles are not possible).
 //
 // TODO: Add functions for walking the block-graph.
-type ChainDatabase interface {
-	// GetTransaction returns a transaction by ID.  If cc is non-nil, the transaction is returned only if it is visible
-	// from that position (that is, if it occurs earlier in the same block or anywhere in an ancestor block).  If cc is
-	// nil, the transaction is returned no matter where it is in the block-graph.
-	//
-	// If the transaction does not exist or is not visible from cc, returns (nil, nil).
-	GetTransaction(cc *ChainContext, txid TXID) (*Transaction, error)
-
-	// Unspent returns true iff no transaction spending the output identified by op is visible from the position in the
-	// block-graph described by cc.
-	Unspent(cc *ChainContext, op Outpoint) (bool, error)
+type Database struct {
+	storage     Persistence
+	subscribers []NewBlockSubscriber
 }
 
-// simpleChainDatabase is a simple, in-memory chain database.
-//
-// Its mutative operations are not atomic; if e.g. AddBlock returns an error, the state of the database may be
-// inconsistent.
-type simpleChainDatabase struct {
-	genesisBlock BlockID
-	blocks       map[BlockID]*Block
-	txns         map[TXID]*Transaction
+func NewDatabase(storage Persistence) *Database {
+	return &Database{
+		storage: storage,
+	}
 }
 
-var _ ChainDatabase = (*simpleChainDatabase)(nil)
-
-func NewSimpleChainDatabase(genesisBlock *Block) (*simpleChainDatabase, error) {
-	gbID := genesisBlock.BlockID()
-	if !genesisBlock.Header.PreviousBlock.Zero() {
-		return nil, errors.New("genesis block must have all-zero parent ID")
+func (chain *Database) Height(ctx context.Context) (uint64, error) {
+	height, err := chain.storage.Height(ctx)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get block height")
 	}
-
-	cdb := &simpleChainDatabase{
-		genesisBlock: gbID,
-		blocks:       map[BlockID]*Block{gbID: genesisBlock},
-		txns:         map[TXID]*Transaction{},
-	}
-	if err := cdb.addTransactions(genesisBlock); err != nil {
-		return nil, err
-	}
-
-	return cdb, nil
+	return height, nil
 }
 
-func (cdb *simpleChainDatabase) addTransactions(blk *Block) error {
+func (chain *Database) addTransactions(ctx context.Context, blk *Block) error {
 	for _, tx := range blk.Transactions.Transactions {
 		txid, err := tx.TXID()
 		if err != nil {
 			return errors.Wrap(err, "failed to compute TXID")
 		}
-		cdb.txns[txid] = tx
+		if err := chain.storage.AddTx(ctx, txid, tx); err != nil {
+			return errors.Wrap(err, "failed to store TX")
+		}
 	}
 
 	return nil
@@ -75,28 +73,83 @@ func (cdb *simpleChainDatabase) addTransactions(blk *Block) error {
 
 // AddBlock adds a new block to the database.  Its parent must already be in the database; no block with a matching ID
 // may already be in the database.
-func (cdb *simpleChainDatabase) AddBlock(blk *Block) error {
-	if _, ok := cdb.blocks[blk.Header.PreviousBlock]; !ok {
-		return errors.New("parent block is not in database")
+//
+// Every subscriber is called and has the opportunity to error if this block would be invalid/inconsistent with their
+// logic. Note that a new block may have an equal or lower height than the current highest block when a fork is being
+// incorporated (to be a fork there must at least two blocks of the same height).
+//
+// It is not yet clear whether all data derived from the chain should be calculated transactionally in subscriber
+// callbacks, or nontransactionally in some sort of cache layer built above this; but for clarity, this transactional
+// callback feature exists to provide loose coupling within the core components, not to tie together caching or other
+// layers.
+//
+// As a special case, if there are no subscribers, no transaction is created. This exists to support the in-memory DB
+// which doesn't support transactional semantics, and for which we thus cannot support the callback mechanism.
+func (chain *Database) AddBlock(ctx context.Context, blk *Block) (height uint64, err error) {
+	var tx *sql.Tx
+	if len(chain.subscribers) != 0 {
+		ctx, tx, err = dbtx.BeginTx(ctx)
 	}
-	blkID := blk.BlockID()
-	if _, ok := cdb.blocks[blkID]; ok {
-		return errors.New("block ID already present in database")
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to begin transaction")
+	}
+	defer func() {
+		if err != nil && tx != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				err = errors.Wrapf(err, "failed to rollback transaction with error (%q)", rollbackErr)
+			}
+		}
+	}()
+
+	height = uint64(0)
+	parentBlockID := blk.Header.PreviousBlock
+	if parentBlockID.Zero() {
+		height, err := chain.storage.Height(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if height > 0 {
+			return 0, errors.New("genesis blocks must be height #0")
+		}
+	} else {
+		_, parentHeight, err := chain.storage.GetBlock(ctx, blk.Header.PreviousBlock)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to find parent block")
+		}
+		height = parentHeight + 1
 	}
 
-	cdb.blocks[blkID] = blk
-	return cdb.addTransactions(blk)
+	if err := chain.storage.AddBlock(ctx, height, blk); err != nil {
+		return 0, errors.Wrap(err, "failed to store block")
+	}
+	if err := chain.addTransactions(ctx, blk); err != nil {
+		return 0, errors.Wrap(err, "failed to store transactions")
+	}
+
+	for _, sub := range chain.subscribers {
+		if err := sub.NewBlock(ctx, height, blk); err != nil {
+			return 0, errors.Wrap(err, "failed to update subscriber")
+		}
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return 0, errors.Wrap(err, "failed to commit transaction")
+		}
+	}
+
+	return height, nil
 }
 
 type txVisitor func(tx *Transaction) (bool, error)
 
-func (cdb *simpleChainDatabase) visitTransactions(cc *ChainContext, vis txVisitor) error {
+func (chain *Database) visitTransactions(ctx context.Context, cc *Position, vis txVisitor) error {
 	blkid := cc.BlockID
 
 	for !blkid.Zero() {
-		blk, ok := cdb.blocks[blkid]
-		if !ok {
-			return fmt.Errorf("block not in database: %v", blkid)
+		blk, _, err := chain.storage.GetBlock(ctx, blkid)
+		if err != nil {
+			return err
 		}
 
 		startIdx := len(blk.Transactions.Transactions) - 1
@@ -123,13 +176,18 @@ func (cdb *simpleChainDatabase) visitTransactions(cc *ChainContext, vis txVisito
 	return nil
 }
 
-func (cdb *simpleChainDatabase) GetTransaction(cc *ChainContext, txid TXID) (*Transaction, error) {
+// GetTransaction returns a transaction by ID.  If cc is non-nil, the transaction is returned only if it is visible
+// from that position (that is, if it occurs earlier in the same block or anywhere in an ancestor block).  If cc is
+// nil, the transaction is returned no matter where it is in the block-graph.
+//
+// If the transaction does not exist or is not visible from cc, returns (nil, nil).
+func (chain *Database) GetTransaction(ctx context.Context, cc *Position, txid models.TXID) (*Transaction, error) {
 	if cc == nil {
 		return nil, errors.New("cc==nil case not implemented")
 	}
 
 	var resultTx *Transaction
-	if err := cdb.visitTransactions(cc, func(vtx *Transaction) (bool, error) {
+	if err := chain.visitTransactions(ctx, cc, func(vtx *Transaction) (bool, error) {
 		vtxid, err := vtx.TXID()
 		if err != nil {
 			return false, errors.Wrap(err, "failed to compute TXID")
@@ -145,13 +203,21 @@ func (cdb *simpleChainDatabase) GetTransaction(cc *ChainContext, txid TXID) (*Tr
 	return resultTx, nil
 }
 
-func (cdb *simpleChainDatabase) Unspent(cc *ChainContext, op Outpoint) (bool, error) {
+// Subscribe adds a new NewBlockSubscriber. The subscriber will be called back on new blocks added to the chain, within
+// the transaction that is adding the block.
+func (chain *Database) Subscribe(subscriber NewBlockSubscriber) {
+	chain.subscribers = append(chain.subscribers, subscriber)
+}
+
+// Unspent returns true iff no transaction spending the output identified by op is visible from the position in the
+// block-graph described by cc.
+func (chain *Database) Unspent(ctx context.Context, cc *Position, op Outpoint) (bool, error) {
 	if cc == nil {
 		return false, errors.New("cc must not be nil")
 	}
 
 	var found, unspent bool
-	if err := cdb.visitTransactions(cc, func(vtx *Transaction) (bool, error) {
+	if err := chain.visitTransactions(ctx, cc, func(vtx *Transaction) (bool, error) {
 		vtxid, err := vtx.TXID()
 		if err != nil {
 			return false, errors.Wrap(err, "failed to compute TXID")
@@ -201,7 +267,7 @@ func (cdb *simpleChainDatabase) Unspent(cc *ChainContext, op Outpoint) (bool, er
 // XXX: We clearly need to do some refactoring.  We wind up searching the chain database multiple times, parsing each
 // script more than once, etc.
 //
-func TransactionValid(cdb ChainDatabase, cc *ChainContext, tx *Transaction) error {
+func (cdb *Database) TransactionValid(ctx context.Context, cc *Position, tx *Transaction) error {
 	switch tx.Body.TxType() {
 	case TxTypeGenesis:
 	case TxTypeTransfer:
@@ -224,7 +290,7 @@ func TransactionValid(cdb ChainDatabase, cc *ChainContext, tx *Transaction) erro
 
 	// Check that all inputs are previously unspent.
 	for _, ip := range tx.Inpoints() {
-		ok, err := cdb.Unspent(cc, ip)
+		ok, err := cdb.Unspent(ctx, cc, ip)
 		if err != nil {
 			return errors.Wrap(err, "failed to check inpoint")
 		}
@@ -236,7 +302,7 @@ func TransactionValid(cdb ChainDatabase, cc *ChainContext, tx *Transaction) erro
 	// Get matching output for each input.
 	var prevOuts []TransactionOutput
 	for _, ip := range tx.Inpoints() {
-		prevTx, err := cdb.GetTransaction(cc, ip.PreviousTx)
+		prevTx, err := cdb.GetTransaction(ctx, cc, ip.PreviousTx)
 		if err != nil {
 			return errors.Wrap(err, "failed to get previous transaction")
 		}

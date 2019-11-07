@@ -6,16 +6,18 @@ import (
 	"math"
 	"time"
 
-	"github.com/cachecashproject/go-cachecash/keypair"
-	"github.com/cachecashproject/go-cachecash/ledger"
-	"github.com/cachecashproject/go-cachecash/ledger/txscript"
-	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/types"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledger"
+	ledger_models "github.com/cachecashproject/go-cachecash/ledger/models"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
+	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 )
 
 const MAX_PACKING_ATTEMPTS = 10
@@ -335,7 +337,7 @@ func (m *LedgerMiner) ApplyBlock(ctx context.Context, block *ledger.Block, spent
 	return block, nil
 }
 
-func (m *LedgerMiner) AddOutputsToDatabase(ctx context.Context, txid ledger.TXID, outputs []ledger.TransactionOutput) error {
+func (m *LedgerMiner) AddOutputsToDatabase(ctx context.Context, txid ledger_models.TXID, outputs []ledger.TransactionOutput) error {
 	for idx, output := range outputs {
 		dbTxID := types.BytesArray{0: txid[:]}
 

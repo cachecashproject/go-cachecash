@@ -35,11 +35,8 @@ CREATE TABLE escrow (
 
 
 -- +migrate Down
--- DROP TABLE escrow;
-
-DROP TABLE logical_cache_mapping;
-
 DROP TABLE escrow;
+DROP TABLE logical_cache_mapping;
 
 -- DROP TABLE request;
 

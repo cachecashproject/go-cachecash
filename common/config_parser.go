@@ -2,6 +2,7 @@ package common
 
 import (
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -58,6 +59,12 @@ func (p *ConfigParser) GetString(key string, fallback string) string {
 func (p *ConfigParser) GetInt64(key string, fallback int64) int64 {
 	p.v.SetDefault(key, fallback)
 	return p.v.GetInt64(key)
+}
+
+func (p *ConfigParser) GetSeconds(key string, fallback int64) time.Duration {
+	p.v.SetDefault(key, fallback)
+	seconds := p.v.GetInt64(key)
+	return time.Duration(seconds) * time.Second
 }
 
 // GetInsecure returns the well known insecure setting, logging it for
