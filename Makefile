@@ -20,8 +20,9 @@ GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
 GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto
 GEN_DOCKER=docker run --rm -it -e GO111MODULE=on -e GOCACHE=/tmp/go-cache -w ${GEN_CONTAINER_DIR} -u $$(id -u):$$(id -g) -v ${PWD}:${GEN_CONTAINER_DIR} ${BASE_IMAGE}
 
-.PHONY: dockerfiles clean lint lint-fix fuzz \
-	dev-setup gen gen-docs modules \
+.PHONY: dockerfiles clean lint lint-fix dev-setup \
+	fuzz fuzz-ledger fuzz-ranger \
+	gen gen-docs modules \
 	base-image pull-base-image push-base-image \
 	restart stop build start
 
@@ -97,7 +98,24 @@ modules:
 	GO111MODULE=on go mod tidy
 	GO111MODULE=on go mod vendor
 
-fuzz:
+# Fuzz everything (with -j to get parallelism)
+fuzz: fuzz-ledger fuzz-ranger
+
+.PHONY: ledger.unfuzzed ranger.unfuzzed ranger-sample
+%.fuzzed : %.unfuzzed
 	mkdir -p fuzz/$(shell basename ${FUZZ})-fuzz-workdir/corpus
 	go-fuzz-build -tags ${FUZZTAGS} github.com/cachecashproject/go-cachecash/${FUZZ}
 	go-fuzz -bin=./$(shell basename ${FUZZ})-fuzz.zip -workdir=fuzz/$(shell basename ${FUZZ})-fuzz-workdir
+
+
+
+fuzz-ledger: FUZZ=ledger
+fuzz-ledger: ledger.fuzzed
+
+fuzz-ranger : FUZZ=ranger/testdata/pkg
+fuzz-ranger : FUZZTAGS=rangertest
+fuzz-ranger : ranger.fuzzed
+ranger.fuzzed +: ranger-sample
+
+ranger-sample:
+	go test -race -v ./ranger

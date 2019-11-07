@@ -51,5 +51,8 @@ this file is modified in master, this should be run:
 
 Only supported for code which supports the go-fuzz toolkit.
 
-- `FUZZ=pkg make fuzz` - supply `FUZZ=` with a package name to test a specific
-  package. Otherwise, this command will fail.
+- `make fuzz -j`
+- `make fuzz-ledger`
+- `make fuzz-ranger`
+
+See the Makefile for the plumbing.
