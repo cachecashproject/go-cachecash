@@ -50,7 +50,7 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 		return s
 	}
 
-	if cf.isBytesType(value.ValueType) {
+	if value.IsBytesType() {
 		if value.Require.Length != 0 {
 			return fmt.Sprintf("%s(genRandom(%d))", value.ValueType, value.Require.Length)
 		} else if value.Require.MaxLength != 0 {
@@ -111,10 +111,12 @@ func (cf *ConfigFormat) size() string {
 }
 
 // itemValue is a hack to get us to work within array ranges over a static item.
-func (cf *ConfigFormat) itemValue(ctd ConfigTypeDefinition) ConfigTypeDefinition {
-	ctd.Item = true
-
-	return ctd
+// looks ugly as we transition: this is going to be removed.
+func (cf *ConfigFormat) itemValue(ctd *ConfigTypeDefinition) *ConfigTypeDefinition {
+	result := &ConfigTypeDefinition{}
+	*result = *ctd
+	result.Item = true
+	return result
 }
 
 func (cf *ConfigFormat) getIsInterface(ctd ConfigType) bool {
@@ -185,8 +187,8 @@ func (cf *ConfigFormat) isNativeType(typ string) bool {
 	}
 }
 
-func (cf *ConfigFormat) isBytesType(typ string) bool {
-	switch typ {
+func (value *ConfigTypeDefinition) IsBytesType() bool {
+	switch value.ValueType {
 	case valueTypeString, valueTypeBytes:
 		return true
 	default:
