@@ -26,7 +26,7 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 
 	if value.StructureType == "array" {
 		typ := value.ValueType
-		if !cf.isNativeType(value.ValueType) {
+		if !value.IsNativeType() {
 			typ = "*" + typ
 		}
 		s := fmt.Sprintf("[]%s{", typ)
@@ -58,7 +58,7 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 		} else {
 			return "<HERE> // should have a length"
 		}
-	} else if cf.isNativeType(value.ValueType) {
+	} else if value.IsNativeType() {
 		return fmt.Sprintf("%s(rand.Uint64()&%s)", value.ValueType, cf.truncated(value.ValueType))
 	}
 
@@ -152,7 +152,7 @@ func (cf *ConfigFormat) DefaultValueFor(value *ConfigTypeDefinition) string {
 
 	if value.StructureType == "array" {
 		ptr := ""
-		if !cf.isNativeType(value.ValueType) {
+		if !value.IsNativeType() {
 			ptr = "*"
 		}
 		return fmt.Sprintf("make([]%s%s, %d)", ptr, value.ValueType, value.Require.Length)
@@ -178,8 +178,8 @@ func (cf *ConfigFormat) DefaultValueFor(value *ConfigTypeDefinition) string {
 	}
 }
 
-func (cf *ConfigFormat) isNativeType(typ string) bool {
-	switch typ {
+func (value *ConfigTypeDefinition) IsNativeType() bool {
+	switch value.ValueType {
 	case valueTypeBytes, valueTypeString, valueTypeUint8, valueTypeUint16, valueTypeUint32, valueTypeUint64:
 		return true
 	default:

@@ -136,7 +136,7 @@ func (cf *ConfigFormat) validate() error {
 			if field.Marshal != nil && !*field.Marshal {
 				continue
 			}
-			if cf.isNativeType(field.ValueType) && !field.IsBytesType() && field.StructureType != "array" {
+			if field.IsNativeType() && !field.IsBytesType() && field.StructureType != "array" {
 				if field.Require.MaxLength != 0 || field.Require.Length != 0 {
 					return errors.Errorf("%s.%s is invalid; contains a length but is a fixed integer type", typName, field.FieldName)
 				}

@@ -4,7 +4,6 @@ import "fmt"
 
 func (cf *ConfigFormat) funcMap() map[string]interface{} {
 	return map[string]interface{}{
-		"native":        cf.isNativeType,
 		"typeLength":    cf.getLength,
 		"marshaler":     cf.getMarshaler,
 		"marshalLength": cf.getLengthMarshaler,
