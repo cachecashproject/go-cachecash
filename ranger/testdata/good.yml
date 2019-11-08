@@ -228,6 +228,8 @@ types:
       - Deletions:
           structure_type: array
           value_type: uint64
+          require:
+            max_length: 20
       - Insertions:
           structure_type: array
           value_type: GlobalConfigListInsertion
