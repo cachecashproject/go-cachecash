@@ -21,7 +21,7 @@ func (cf *ConfigFormat) isMarshalable(value ConfigTypeDefinition) bool {
 
 func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 	if value.Marshal != nil && !*value.Marshal {
-		return cf.getZeroValue(value.StructureType, value.ValueType, 0, value.Interface)
+		return cf.DefaultValueFor(value)
 	}
 
 	if value.StructureType == "array" {
@@ -127,44 +127,47 @@ func (cf *ConfigFormat) getIsInterface(ctd ConfigType) bool {
 	return false
 }
 
-func (cf *ConfigFormat) getZeroValue(strTyp, typ string, length uint64, intf *ConfigInterface) string {
-	if intf != nil {
-		s := fmt.Sprintf("[]%s{", typ)
-		for _, c := range intf.Cases {
+// DefaultValueFor creates a default of a type. This differs very slightly from
+// a zero value in that a pointer type is initialised to a default value of that
+// type rather than to nil.
+func (cf *ConfigFormat) DefaultValueFor(value *ConfigTypeDefinition) string {
+	if value.Interface != nil {
+		s := fmt.Sprintf("[]%s{", value.ValueType)
+		for _, c := range value.Interface.Cases {
 			for _, v := range c {
 				s += fmt.Sprintf("&%s{", v)
 				for _, field := range cf.Types[v].Fields {
-					s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.getZeroValue(field.StructureType, field.ValueType, 0, field.Interface))
+					s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.DefaultValueFor(field))
 				}
 
 				s += "},"
 			}
 		}
-		s += fmt.Sprintf("}[rand.Int()%%%d]", len(intf.Cases))
+		s += fmt.Sprintf("}[rand.Int()%%%d]", len(value.Interface.Cases))
 
 		return s
 	}
 
-	if strTyp == "array" {
+	if value.StructureType == "array" {
 		ptr := ""
-		if !cf.isNativeType(typ) {
+		if !cf.isNativeType(value.ValueType) {
 			ptr = "*"
 		}
-		return fmt.Sprintf("make([]%s%s, %d)", ptr, typ, length)
+		return fmt.Sprintf("make([]%s%s, %d)", ptr, value.ValueType, value.Require.Length)
 	}
 
-	switch typ {
+	switch value.ValueType {
 	case valueTypeUint8, valueTypeUint16, valueTypeUint32, valueTypeUint64:
 		return "0"
 	case valueTypeString:
 		return `""`
 	case valueTypeBytes:
-		return fmt.Sprintf("make([]byte, %d)", length)
+		return fmt.Sprintf("make([]byte, %d)", value.Require.Length)
 	default:
-		s := fmt.Sprintf("&%s{", typ)
-		if _, ok := cf.Types[typ]; ok {
-			for _, field := range cf.Types[typ].Fields {
-				s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.getZeroValue(field.StructureType, field.ValueType, field.Require.Length, field.Interface))
+		s := fmt.Sprintf("&%s{", value.ValueType)
+		if _, ok := cf.Types[value.ValueType]; ok {
+			for _, field := range cf.Types[value.ValueType].Fields {
+				s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.DefaultValueFor(field))
 			}
 		}
 		s += "\n}"

@@ -12,7 +12,6 @@ func (cf *ConfigFormat) funcMap() map[string]interface{} {
 		"unmarshaler":   cf.getUnmarshaler,
 		"isBytes":       cf.isBytesType,
 		"declare":       cf.decls.declare,
-		"zeroValue":     cf.getZeroValue,
 		"isInterface":   cf.getIsInterface,
 		"size":          cf.size,
 		"truncated":     cf.truncated,

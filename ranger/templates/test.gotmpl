@@ -34,7 +34,7 @@ func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	obj := &{{ $typekey }}{
 		{{ range $innervalue := $type.Fields -}}{{- with $innerkey := $innervalue.FieldName -}}
     {{- if (isMarshalable $innervalue) }}
-		{{ $innerkey }}:  {{ zeroValue $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
+		{{ $innerkey }}:  {{ $.DefaultValueFor $innervalue }},
 		{{- end -}}
 		{{- end -}}
 		{{- end -}}
@@ -43,7 +43,7 @@ func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	obj2 := &{{ $typekey }}{
 		{{ range $innervalue := $type.Fields -}}{{- with $innerkey := $innervalue.FieldName -}}
     {{- if (isMarshalable $innervalue) }}
-		{{ $innerkey }}: {{ zeroValue $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
+		{{ $innerkey }}: {{ $.DefaultValueFor $innervalue }},
 		{{- end -}}
 		{{- end -}}
 		{{- end -}}
@@ -57,7 +57,7 @@ func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	obj2 = &{{ $typekey }}{
 		{{ range $innervalue := $type.Fields -}}{{- with $innerkey := $innervalue.FieldName -}}
     {{- if (isMarshalable $innervalue) }}
-		{{ $innerkey }}: {{ zeroValue $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
+		{{ $innerkey }}: {{ $.DefaultValueFor $innervalue }},
 		{{- end -}}
 		{{- end -}}
 		{{- end -}}
