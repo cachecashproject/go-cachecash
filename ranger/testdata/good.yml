@@ -61,34 +61,35 @@ types:
           static: true
       - name: Body
         value_type: TransactionBody
-        ##
-        # interface means "this conforms to an interface which could be N
-        # types"... the input is read from the head and used to unmarshal the
-        # rest. the individual types are expected to have implementations for
-        # the marshal functions we implement -- e.g., have been at least
-        # partially generated or emulated generation for intricate needs.
-        ##
-        interface:
-          # This is TxType() as a part of the TransactionBody interface; not
-          # the type name. this could be pre-defined as a bit that conforms
-          # to a codegen interface, instead of calling it TxType we coudl
-          # call TransactionBodyType() or something. Then this yaml field
-          # could focus on concrete types (and thus size).
-          output: TxType
-          # I know this is TxType under the hood, but it resolves to uint8 --
-          # I'm not sure we want to be in the type management business this deep.
-          input: uint8
-          cases:
-            - TxTypeTransfer: TransferTransaction
-            - TxTypeGenesis: GenesisTransaction
-            - TxTypeGlobalConfig: GlobalConfigTransaction
-            - TxTypeEscrowOpen: EscrowOpenTransaction
         require:
           max_length: 20
       - name: Flags
         value_type: uint16
         require:
           static: true
+  TransactionBody:
+    #
+    # interface means "this conforms to an interface which could be N types"...
+    # the input is read from the head and used to unmarshal the rest. the
+    # individual types are expected to have implementations for the marshal
+    # functions we implement -- e.g., have been at least partially generated or
+    # emulated generation for intricate needs.
+    #
+    interface:
+      # This is TxType() as a part of the TransactionBody interface; not
+      # the type name. this could be pre-defined as a bit that conforms
+      # to a codegen interface, instead of calling it TxType we coudl
+      # call TransactionBodyType() or something. Then this yaml field
+      # could focus on concrete types (and thus size).
+      output: TxType
+      # I know this is TxType under the hood, but it resolves to uint8 --
+      # I'm not sure we want to be in the type management business this deep.
+      input: uint8
+      cases:
+        - TxTypeTransfer: TransferTransaction
+        - TxTypeGenesis: GenesisTransaction
+        - TxTypeGlobalConfig: GlobalConfigTransaction
+        - TxTypeEscrowOpen: EscrowOpenTransaction
   TransferTransaction:
     fields:
       - name: Inputs

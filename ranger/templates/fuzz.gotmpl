@@ -15,6 +15,7 @@ func Fuzz(data []byte) int {
 	switch int(data[0])%{{ size }}{
 	{{ $i := 0 }}
 	{{ range $typekey, $type := .Types -}}
+	{{ if not .IsInterface }}
 	case {{ $i }}:
 		obj{{ $typekey }} := &{{ $typekey }}{}
 		_, err := obj{{ $typekey }}.UnmarshalFrom(data[1:])
@@ -37,7 +38,7 @@ func Fuzz(data []byte) int {
 		}
 
 		{{- $i = (add $i 1) }}
-	{{ end -}}
+	{{end}}{{ end -}}
 	}
 
 	return 1

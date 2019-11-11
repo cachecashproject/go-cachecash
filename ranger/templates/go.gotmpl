@@ -61,17 +61,17 @@
 	{{- end }}
 {{- end -}}
 {{- else -}}
-{{- if .Interface }}
-	if len(data[n:]) < {{ typeLength .Interface.Input .FieldName true }} {
+{{- if .IsInterface }}
+	if len(data[n:]) < {{ typeLength .GetInterface.Input .FieldName true }} {
 		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }} ({{ .ValueType }})")
 	}
-	var intf {{ .Interface.Input }}
-	{{ unmarshaler .Interface.Input "intf" .Item true }}
+	var intf {{ .GetInterface.Input }}
+	{{ unmarshaler .GetInterface.Input "intf" .Item true }}
 
 	var v {{ .ValueType }}
 
 	switch intf {
-	{{ range $foo, $map := .Interface.Cases -}}
+	{{ range $foo, $map := .GetInterface.Cases -}}
 	{{ range $key, $value := $map -}}
 	case {{ $key }}:
 		v = {{ printf "&%s{}" $value }}
@@ -213,15 +213,15 @@ n += {{ marshaler .ValueType (printf "obj.%s" .FieldName) .Require.Static }}
 {{- end }}
 {{- end -}}
 {{- else -}}
-{{- if .Interface }}
+{{- if .IsInterface }}
 	{{ declare .Item .TypeName "marshal" "ni" "int" }}
 	{{ declare .Item .TypeName "marshal" "err" "error" }}
 	{{- if .Item }}
-		{{ marshaler .Interface.Input "item" true }}
+		{{ marshaler .GetInterface.Input "item" true }}
 		if len(data[n:]) < {{ typeLength .ValueType "item" .Require.Static }} {
 			return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
 		}
-		n += {{ typeLength .Interface.Input "item" true }}
+		n += {{ typeLength .GetInterface.Input "item" true }}
 		ni, err = {{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.MarshalTo(data[n:n+{{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.Size()])
 		if err != nil {
 			return 0, errors.Wrap(err, "{{ .QualName }}")
@@ -229,8 +229,8 @@ n += {{ marshaler .ValueType (printf "obj.%s" .FieldName) .Require.Static }}
 		n += ni
 	{{- else }}
 	if obj.{{ .FieldName }} != nil {
-		{{ marshaler .Interface.Input (printf "obj.%s.%s()" .FieldName .Interface.Output) true }}
-		n += {{ typeLength .Interface.Input (printf "obj.%s.%s()" .FieldName .Interface.Output) true }}
+		{{ marshaler .GetInterface.Input (printf "obj.%s.%s()" .FieldName .GetInterface.Output) true }}
+		n += {{ typeLength .GetInterface.Input (printf "obj.%s.%s()" .FieldName .GetInterface.Output) true }}
 		if len(data[n:]) < obj.{{ .FieldName }}.Size() {
 			return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
 		}
@@ -281,12 +281,13 @@ import (
 {{- if $type.Comment }}
 // {{ $typekey }} {{ $type.Comment }}
 {{- end }}
+{{ if not $type.IsInterface }}
 type {{ $typekey }} struct {
 {{- range $value := $type.Fields -}}{{- with $key := $value.FieldName -}}
 	{{- if $value.Comment }}
 	// {{ $key }} {{ $value.Comment }}
 	{{- end }}
-	{{ if $value.Embedded }}*{{ end }}{{ $key }} {{ if (not $value.Embedded) }}{{ if (eq $value.StructureType "array") }}[]{{ end }}{{ end }}{{ if (and (and (not $value.Embedded) (not $value.Interface)) (not $value.IsNativeType)) }}*{{ end }}{{ if (not $value.Embedded) }}{{ $value.ValueType }}{{ end }}
+	{{ if $value.Embedded }}*{{ end }}{{ $key }} {{ if (not $value.Embedded) }}{{ if (eq $value.StructureType "array") }}[]{{ end }}{{ end }}{{ if (and (and (not $value.Embedded) (not $value.IsInterface)) (not $value.IsNativeType)) }}*{{ end }}{{ if (not $value.Embedded) }}{{ $value.ValueType }}{{ end }}
 {{- end }}
 {{- end }}
 }
@@ -313,12 +314,12 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
 
 {{ range $value := $type.Fields }}{{ with $key := $value.FieldName }}
 {{- if (isMarshalable $value) }}
-{{- if (and $value.Require.Length (not (or $value.Embedded (or $value.IsNativeType $value.Interface)))) }}
+{{- if (and $value.Require.Length (not (or $value.Embedded (or $value.IsNativeType $value.IsInterface)))) }}
 	if len(obj.{{ $key }}) != {{ $value.Require.Length }} {
 		return 0, errors.Wrapf(ranger.ErrLengthValidation, "{{ $typekey }}.{{ $key }} - %d/{{ $value.Require.Length }}", len(obj.{{ $key }}))
 	}
 {{- end }}
-{{- if (and $value.Require.MaxLength (not (or $value.Embedded (or $value.IsNativeType $value.Interface)))) }}
+{{- if (and $value.Require.MaxLength (not (or $value.Embedded (or $value.IsNativeType $value.IsInterface)))) }}
 	if len(obj.{{ $key }}) > {{ $value.Require.MaxLength }} {
 		return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
 	}
@@ -333,11 +334,11 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
 	}
 	{{- end }}
 
-	{{- if (and $value.Require.Length (not (or $value.IsNativeType $value.Interface))) }}
+	{{- if (and $value.Require.Length (not (or $value.IsNativeType $value.IsInterface))) }}
 	if len(obj.{{ $key }}) != {{ $value.Require.Length }} {
 		return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ $typekey }}.{{ $key }}")
 	}
-	{{- else if (and $value.Require.MaxLength (not (or $value.IsNativeType $value.Interface))) }}
+	{{- else if (and $value.Require.MaxLength (not (or $value.IsNativeType $value.IsInterface))) }}
 	if len(obj.{{ $key }}) > {{ $value.Require.MaxLength }} {
 		return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
 	}
@@ -359,11 +360,11 @@ func (obj *{{ $typekey }}) Size() int {
 	var n int
 {{ range $value := $type.Fields }}{{ with $key := $value.FieldName }}
 {{- if (isMarshalable $value) }}
-{{- if $value.Interface }}
+{{- if $value.IsInterface }}
 	if obj.{{ $key }} == nil {
 		n += ranger.UvarintSize(0)
 	} else {
-		n += {{ typeLength $value.Interface.Input "" true }}
+		n += {{ typeLength $value.GetInterface.Input "" true }}
 	}
 {{- end -}}
 {{- if (eq $value.StructureType "scalar") }}
@@ -443,7 +444,7 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 		return 0, errors.Wrap(ranger.ErrUnmarshalLength, "{{ $typekey }}.{{ $key }}")
 	}
 {{- else -}}
-	{{- if (and $value.Require.MaxLength (or (and (not $value.Embedded) (and (not $value.Interface) (not $value.IsNativeType))) $value.IsBytesType))}}
+	{{- if (and $value.Require.MaxLength (or (and (not $value.Embedded) (and (not $value.IsInterface) (not $value.IsNativeType))) $value.IsBytesType))}}
 	if len(obj.{{ $key }}) > {{ $value.Require.MaxLength }} {
 		return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
 	}
@@ -480,7 +481,7 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 		{{ template "unmarshalType" (itemValue $value) -}}
 	}
 {{- end }}
-{{- if (and $value.Require.Length (or (and (not $value.Embedded) (and (not $value.Interface) (not $value.IsNativeType))) $value.IsBytesType))}}
+{{- if (and $value.Require.Length (or (and (not $value.Embedded) (and (not $value.IsInterface) (not $value.IsNativeType))) $value.IsBytesType))}}
 	if len(obj.{{ $key }}) != {{ $value.Require.Length }} {
 		return 0, errors.Wrapf(ranger.ErrLengthValidation, "{{ $typekey }}.{{ $key }} - %d/{{ $value.Require.Length }}", len(obj.{{ $key }}))
 	}
@@ -504,4 +505,4 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 {{ end }}
 }
 
-{{ end }}
+{{ end }}{{end}}

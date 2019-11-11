@@ -18,3 +18,14 @@ func (field *ConfigTypeDefinition) SetConfigFormat(cf *ConfigFormat) {
 func (field *ConfigTypeDefinition) ConfigFormat() *ConfigFormat {
 	return field.cf
 }
+
+func (field *ConfigTypeDefinition) IsInterface() bool {
+	if field.IsNativeType() {
+		return false
+	}
+	return field.GetInterface() != nil
+}
+
+func (field *ConfigTypeDefinition) GetInterface() *ConfigInterface {
+	return field.cf.Types[field.ValueType].Interface
+}

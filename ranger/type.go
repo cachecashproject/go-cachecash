@@ -9,3 +9,7 @@ func (typ *ConfigType) SetConfigFormat(cf *ConfigFormat) {
 func (typ *ConfigType) ConfigFormat() *ConfigFormat {
 	return typ.cf
 }
+
+func (ct *ConfigType) IsInterface() bool {
+	return ct.Interface != nil
+}

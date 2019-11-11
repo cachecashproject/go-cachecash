@@ -62,9 +62,9 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 		return fmt.Sprintf("%s(rand.Uint64()&%s)", value.ValueType, cf.truncated(value.ValueType))
 	}
 
-	if value.Interface != nil {
+	if value.IsInterface() {
 		s := fmt.Sprintf("[]%s{", value.ValueType)
-		for _, c := range value.Interface.Cases {
+		for _, c := range value.GetInterface().Cases {
 			for _, v := range c {
 				s += fmt.Sprintf("&%s{", v)
 				for _, field := range cf.Types[v].Fields {
@@ -74,7 +74,7 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 				s += "},"
 			}
 		}
-		s += fmt.Sprintf("}[rand.Int()%%%d]", len(value.Interface.Cases))
+		s += fmt.Sprintf("}[rand.Int()%%%d]", len(value.GetInterface().Cases))
 
 		return s
 	}
@@ -121,7 +121,7 @@ func (cf *ConfigFormat) itemValue(ctd *ConfigTypeDefinition) *ConfigTypeDefiniti
 
 func (cf *ConfigFormat) getIsInterface(ctd ConfigType) bool {
 	for _, field := range ctd.Fields {
-		if field.Interface != nil {
+		if field.IsInterface() {
 			return true
 		}
 	}
@@ -133,9 +133,9 @@ func (cf *ConfigFormat) getIsInterface(ctd ConfigType) bool {
 // a zero value in that a pointer type is initialised to a default value of that
 // type rather than to nil.
 func (cf *ConfigFormat) DefaultValueFor(value *ConfigTypeDefinition) string {
-	if value.Interface != nil {
+	if value.IsInterface() {
 		s := fmt.Sprintf("[]%s{", value.ValueType)
-		for _, c := range value.Interface.Cases {
+		for _, c := range value.GetInterface().Cases {
 			for _, v := range c {
 				s += fmt.Sprintf("&%s{", v)
 				for _, field := range cf.Types[v].Fields {
@@ -145,7 +145,7 @@ func (cf *ConfigFormat) DefaultValueFor(value *ConfigTypeDefinition) string {
 				s += "},"
 			}
 		}
-		s += fmt.Sprintf("}[rand.Int()%%%d]", len(value.Interface.Cases))
+		s += fmt.Sprintf("}[rand.Int()%%%d]", len(value.GetInterface().Cases))
 
 		return s
 	}

@@ -30,6 +30,7 @@ func genRandom(n int) []byte {
 }
 
 {{ range $typekey, $type := .Types -}}
+{{ if not .IsInterface}}
 func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	obj := &{{ $typekey }}{
 		{{ range $innervalue := $type.Fields -}}{{- with $innerkey := $innervalue.FieldName -}}
@@ -102,4 +103,4 @@ func Test{{ $typekey }}MarshalUnmarshalRandomData(t *testing.T) {
 		assert.True(t, reflect.DeepEqual(obj, obj2))
 	}
 }
-{{ end -}}
+{{end}}{{ end -}}

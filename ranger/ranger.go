@@ -41,6 +41,9 @@ type ConfigType struct {
 	// Fields is a list of fields in serialisation order. This is ordered because byte stability in the
 	// serialisation format is a requirement.
 	Fields []*ConfigTypeDefinition `yaml:"fields"`
+	// Interface is a polymorphic type definition; see ConfigInterface for more. A type defined with an interface
+	// configuration must have no fields defined.
+	Interface *ConfigInterface `yaml:"interface,omitempty"`
 
 	// Comment is a field to add a comment to the type's declaration.
 	Comment string `yaml:"comment"`
@@ -63,8 +66,6 @@ type ConfigTypeDefinition struct {
 	// ValueType must conform to ranger.Marshaler or be a built in type (uint,
 	// string, etc) that we support marshaling to/from natively.
 	ValueType string `yaml:"value_type"`
-	// Interface is a polymorphic type definition; see ConfigInterface for more.
-	Interface *ConfigInterface `yaml:"interface,omitempty"`
 	// Match is a list of matching rules for validations.
 	Match ConfigMatch `yaml:"match,omitempty"`
 	// Require is a list of requirements for validations.
@@ -136,6 +137,9 @@ func (cf *ConfigFormat) validate() error {
 	}
 
 	for typName, typ := range cf.Types {
+		if len(typ.Fields) > 0 && typ.Interface != nil {
+			return errors.Errorf("%s is invalid: both fields and an interface defined", typName)
+		}
 		for _, field := range typ.Fields {
 			if field.Marshal != nil && !*field.Marshal {
 				continue
