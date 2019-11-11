@@ -62,14 +62,6 @@ func TestFuzzInputsBasic(t *testing.T) {
 			&GlobalConfigListUpdate{},
 			ranger.ErrTooMany,
 		},
-		"U0\x00\xd20": {
-			&Transaction{},
-			ranger.ErrShortRead,
-		},
-		"@\x00\x00\x02\x00\x00\x00": {
-			&TransferTransaction{},
-			ranger.ErrShortRead,
-		},
 		"0��0\x00": {
 			&TransactionOutput{},
 			ranger.ErrTooLarge,
@@ -96,7 +88,7 @@ func TestFuzzInputsBasic(t *testing.T) {
 
 func TestFuzzInputsRoundTrip(t *testing.T) {
 	tt := &Transaction{}
-	_, err := tt.UnmarshalFrom([]byte("H0\x03\x0000")[1:])
+	_, err := tt.UnmarshalFrom([]byte("0\x03\x0000"))
 	assert.Nil(t, err)
 	data, err := tt.Marshal()
 	assert.Nil(t, err)
@@ -104,19 +96,19 @@ func TestFuzzInputsRoundTrip(t *testing.T) {
 	assert.Nil(t, err)
 
 	gt := &GenesisTransaction{}
-	_, err = gt.UnmarshalFrom([]byte("\x01\x01\x020\x00")[1:])
+	_, err = gt.UnmarshalFrom([]byte("\x010\x00"))
 	assert.Nil(t, err)
 	_, err = gt.Marshal()
 	assert.Nil(t, err)
 
 	tt = &Transaction{}
-	_, err = tt.UnmarshalFrom([]byte("\xbd0\x01\x01\x0000")[1:])
+	_, err = tt.UnmarshalFrom([]byte("0\x01\x0000"))
 	assert.Nil(t, err)
 	_, err = tt.Marshal()
 	assert.Nil(t, err)
 
 	tt = &Transaction{}
-	_, err = tt.UnmarshalFrom([]byte("\a0\x02\a0\x00\x00\x0200\x0000")[1:])
+	_, err = tt.UnmarshalFrom([]byte("0\x020\x00\x00\x0200\x0000"))
 	assert.Nil(t, err)
 	data, err = tt.Marshal()
 	assert.Nil(t, err)

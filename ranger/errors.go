@@ -5,9 +5,6 @@ import "errors"
 // ErrMarshalLength is returned when the marshal length does not match the generated content.
 var ErrMarshalLength = errors.New("marshal length does not match generated content")
 
-// ErrUnmarshalLength reports when a size check did not match it's read data.
-var ErrUnmarshalLength = errors.New("unmarshal size != marshal size")
-
 // ErrShortRead indicates to users when an unmarshaling error has occurred because we ran out of bytes.
 var ErrShortRead = errors.New("short read during unmarshal")
 

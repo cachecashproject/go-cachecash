@@ -32,7 +32,6 @@ type ConfigFormat struct {
 	Comment string `yaml:"comment"`
 
 	templates *template.Template
-	decls     declarations
 }
 
 // ConfigType is the type definition wrapper; used for specifying member fields
@@ -81,7 +80,6 @@ type ConfigTypeDefinition struct {
 
 	MaxByteRange uint64 `yaml:"-"` // populated by parse
 	TypeName     string `yaml:"-"` // populated by parse
-	Item         bool   `yaml:"-"` // populated by itemValue
 
 	cf *ConfigFormat // populated by editParams
 }
@@ -179,8 +177,6 @@ func (cf *ConfigFormat) editParams() *ConfigFormat {
 			field.SetConfigFormat(cf)
 		}
 	}
-
-	cf.decls = declarations{}
 
 	return cf
 }

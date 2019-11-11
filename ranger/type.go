@@ -79,15 +79,16 @@ func (ct *ConfigType) HasLen(instance TypeInstance) bool {
 }
 
 // MinimumSize returns the minimum serialized size of the type.
-func (ct *ConfigType) MinimumSize(instance TypeInstance) uint64 {
-	if ct.IsInterface() {
+// This is the sum of the minimum size of the serialized fields of the type.
+func (typ *ConfigType) MinimumSize(instance TypeInstance) uint64 {
+	if typ.IsInterface() {
 		// The switch marker
 		// TODO: switch to the marker + the minimum of the defined cases.
-		return ct.cf.GetType(ct.Interface.Input).MinimumSize(
-			ct.InterfaceAdapter(instance))
+		return typ.cf.GetType(typ.Interface.Input).MinimumSize(
+			typ.InterfaceAdapter(instance))
 	}
 	var minimum uint64
-	for _, field := range ct.Fields {
+	for _, field := range typ.Fields {
 		// roughly:
 		// if structural, can delegate already
 		// if variable, a varint

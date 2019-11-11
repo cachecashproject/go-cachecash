@@ -1,0 +1,21 @@
+{
+    var intf {{ .Type.Interface.Input }}
+    {{ .ReadInput }}
+
+    var v {{ .Type.Name }}
+
+	switch intf {
+	{{ range $foo, $map := .Type.Interface.Cases -}}
+	{{ range $key, $value := $map -}}
+	case {{ $key }}:
+		v = &{{ $value }}{}
+	{{ end -}}
+	{{ end -}}
+	default:
+		return 0, errors.Wrap(ranger.ErrBadInterface, "{{ .Instance.QualName }}")
+	}
+
+    {{/* The symbol is now a zero instance of the type */}}
+    {{ .Instance.ReadSymbolName }} = v
+}
+   {{ .ReadStruct }}
