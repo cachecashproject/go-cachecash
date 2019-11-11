@@ -68,9 +68,7 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 			for _, v := range c {
 				s += fmt.Sprintf("&%s{", v)
 				for _, field := range cf.Types[v].Fields {
-					for key, val := range field {
-						s += fmt.Sprintf("\n%s: %s,", key, cf.randomField(val))
-					}
+					s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.randomField(field))
 				}
 
 				s += "},"
@@ -84,9 +82,7 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 	s := fmt.Sprintf("&%s{", value.ValueType)
 	if _, ok := cf.Types[value.ValueType]; ok {
 		for _, field := range cf.Types[value.ValueType].Fields {
-			for key, v := range field {
-				s += fmt.Sprintf("\n%s: %s,", key, cf.randomField(v))
-			}
+			s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.randomField(field))
 		}
 	}
 	s += "\n}"
@@ -122,11 +118,9 @@ func (cf *ConfigFormat) itemValue(ctd ConfigTypeDefinition) ConfigTypeDefinition
 }
 
 func (cf *ConfigFormat) getIsInterface(ctd ConfigType) bool {
-	for _, typ := range ctd.Fields {
-		for _, value := range typ {
-			if value.Interface != nil {
-				return true
-			}
+	for _, field := range ctd.Fields {
+		if field.Interface != nil {
+			return true
 		}
 	}
 
@@ -140,9 +134,7 @@ func (cf *ConfigFormat) getZeroValue(strTyp, typ string, length uint64, intf *Co
 			for _, v := range c {
 				s += fmt.Sprintf("&%s{", v)
 				for _, field := range cf.Types[v].Fields {
-					for key, val := range field {
-						s += fmt.Sprintf("\n%s: %s,", key, cf.getZeroValue(val.StructureType, val.ValueType, 0, val.Interface))
-					}
+					s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.getZeroValue(field.StructureType, field.ValueType, 0, field.Interface))
 				}
 
 				s += "},"
@@ -172,9 +164,7 @@ func (cf *ConfigFormat) getZeroValue(strTyp, typ string, length uint64, intf *Co
 		s := fmt.Sprintf("&%s{", typ)
 		if _, ok := cf.Types[typ]; ok {
 			for _, field := range cf.Types[typ].Fields {
-				for key, value := range field {
-					s += fmt.Sprintf("\n%s: %s,", key, cf.getZeroValue(value.StructureType, value.ValueType, value.Require.Length, value.Interface))
-				}
+				s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.getZeroValue(field.StructureType, field.ValueType, field.Require.Length, field.Interface))
 			}
 		}
 		s += "\n}"

@@ -32,8 +32,7 @@ func genRandom(n int) []byte {
 {{ range $typekey, $type := .Types -}}
 func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	obj := &{{ $typekey }}{
-		{{ range $foo, $map := $type.Fields -}}
-		{{ range $innerkey, $innervalue := $map -}}
+		{{ range $innervalue := $type.Fields -}}{{- with $innerkey := $innervalue.FieldName -}}
     {{- if (isMarshalable $innervalue) }}
 		{{ $innerkey }}:  {{ zeroValue $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
 		{{- end -}}
@@ -42,8 +41,7 @@ func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	}
 
 	obj2 := &{{ $typekey }}{
-		{{ range $foo, $map := $type.Fields -}}
-		{{ range $innerkey, $innervalue := $map -}}
+		{{ range $innervalue := $type.Fields -}}{{- with $innerkey := $innervalue.FieldName -}}
     {{- if (isMarshalable $innervalue) }}
 		{{ $innerkey }}: {{ zeroValue $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
 		{{- end -}}
@@ -57,8 +55,7 @@ func Test{{ $typekey }}MarshalUnmarshalZeroValue(t *testing.T) {
 	assert.Nil(t, obj2.Unmarshal(data), "{{ $typekey }} zero value unmarshal test")
 	assert.Equal(t, obj, obj2, "{{ $typekey }} unmarshal equality test")
 	obj2 = &{{ $typekey }}{
-		{{ range $foo, $map := $type.Fields -}}
-		{{ range $innerkey, $innervalue := $map -}}
+		{{ range $innervalue := $type.Fields -}}{{- with $innerkey := $innervalue.FieldName -}}
     {{- if (isMarshalable $innervalue) }}
 		{{ $innerkey }}: {{ zeroValue $innervalue.StructureType $innervalue.ValueType $innervalue.Require.Length $innervalue.Interface }},
 		{{- end -}}
@@ -79,8 +76,7 @@ func Test{{ $typekey }}MarshalUnmarshalRandomData(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		obj := &{{ $typekey }}{}
-		{{ range $foo, $map := $type.Fields -}}
-		{{ range $innerkey, $innervalue := $map -}}
+		{{ range $innervalue := $type.Fields -}}{{- with $innerkey := $innervalue.FieldName -}}
     {{- if (isMarshalable $innervalue) }}
 		obj.{{ $innerkey }} = {{ randomField $innervalue }}
 		{{ end }}

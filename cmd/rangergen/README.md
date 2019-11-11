@@ -61,192 +61,230 @@ max_byte_range: 20971520
 ##
 types:
   Transactions:
+    ##
+    # comment is a comment that goes with the type, in golint-compatible format.
+    ##
+    comment: "is for holding a list of transaction structs."
     fields:
-      - Transactions:
-          ##
-          # structure_type is the type of structure -- this goes into how we
-          # will marshal it, with prefixed length in the array case, or
-          # pre-calculated size based on type size in the scalar one. The
-          # options are scalar and array -- but I do have support for a map
-          # type in the spec that relies on another field to set the map key
-          # type. We do not need this right now according to
-          # ledger/transaction.go.
-          ##
-          structure_type: array
-          ##
-          # The value_type is the type of the actual item. Together with
-          # structure_type, we can safely marshal structures with special
-          # needs.  If a type is not natively supported it must conform to a
-          # json.Marshaler style interface that we need to define out-of-band
-          # to support codegen.
-          ##
-          value_type: Transaction
+      - name: Transactions
+        ##
+        # structure_type is the type of structure -- this goes into how we
+        # will marshal it, with prefixed length in the array case, or
+        # pre-calculated size based on type size in the scalar one. The
+        # options are scalar and array -- but I do have support for a map
+        # type in the spec that relies on another field to set the map key
+        # type. We do not need this right now according to
+        # ledger/transaction.go.
+        #
+        # The default structure_type is `scalar`.
+        ##
+        structure_type: array
+        ##
+        # The value_type is the type of the actual item. Together with
+        # structure_type, we can safely marshal structures with special
+        # needs.  If a type is not natively supported it must conform to a
+        # json.Marshaler style interface that we need to define out-of-band
+        # to support codegen.
+        ##
+        value_type: Transaction
+        require:
+          max_length: 20
+        ##
+        # comment, like the other attributes is golint-compatible and belongs
+        # to the struct member's documentation here.
+        ##
+        comment: "is the list of transactions"
   Transaction:
     fields:
-      - Version:
-          value_type: uint8
-          ##
-          # the require block sets constraints about the type, and/or its value.
-          ###
-          require:
-            ##
-            # static indicates that it is a fixed length parameter
-            ##
-            static: true
-      - Body:
-          value_type: TransactionBody
-          ##
-          # interface means "this conforms to an interface which could be N
-          # types"... the input is read from the head and used to unmarshal the
-          # rest. the individual types are expected to have implementations for
-          # the marshal functions we implement -- e.g., have been at least
-          # partially generated or emulated generation for intricate needs.
-          ##
-          interface:
-            # This is TxType() as a part of the TransactionBody interface; not
-            # the type name. this could be pre-defined as a bit that conforms
-            # to a codegen interface, instead of calling it TxType we coudl
-            # call TransactionBodyType() or something. Then this yaml field
-            # could focus on concrete types (and thus size).
-            output: TxType
-            # I know this is TxType under the hood, but it resolves to uint8 --
-            # I'm not sure we want to be in the type management business this deep.
-            input: uint8
-            cases:
-              - TxTypeTransfer: TransferTransaction
-              - TxTypeGenesis: GenesisTransaction
-              - TxTypeGlobalConfig: GlobalConfigTransaction
-              - TxTypeEscrowOpen: EscrowOpenTransaction
-      - Flags:
-          value_type: uint16
-          require:
-            static: true
+      - name: Version
+        value_type: uint8
+        require:
+          static: true
+      - name: Body
+        value_type: TransactionBody
+        ##
+        # interface means "this conforms to an interface which could be N
+        # types"... the input is read from the head and used to unmarshal the
+        # rest. the individual types are expected to have implementations for
+        # the marshal functions we implement -- e.g., have been at least
+        # partially generated or emulated generation for intricate needs.
+        ##
+        interface:
+          # This is TxType() as a part of the TransactionBody interface; not
+          # the type name. this could be pre-defined as a bit that conforms
+          # to a codegen interface, instead of calling it TxType we coudl
+          # call TransactionBodyType() or something. Then this yaml field
+          # could focus on concrete types (and thus size).
+          output: TxType
+          # I know this is TxType under the hood, but it resolves to uint8 --
+          # I'm not sure we want to be in the type management business this deep.
+          input: uint8
+          cases:
+            - TxTypeTransfer: TransferTransaction
+            - TxTypeGenesis: GenesisTransaction
+            - TxTypeGlobalConfig: GlobalConfigTransaction
+            - TxTypeEscrowOpen: EscrowOpenTransaction
+        require:
+          max_length: 20
+      - name: Flags
+        value_type: uint16
+        require:
+          static: true
   TransferTransaction:
     fields:
-      - Inputs:
-          structure_type: array
-          value_type: TransactionInput
+      - name: Inputs
+        structure_type: array
+        value_type: TransactionInput
+        ##
+        # matching rules for validations, other things that could be here:
+        #
+        # - enums
+        ##
+        match:
           ##
-          # matching rules for validations, other things that could be here:
-          #
-          # - enums
+          # this matches a length of a field inside the struct. not sure if
+          # we should require the pair definition but it's there for
+          # posterity for now.
           ##
-          match:
-            ##
-            # this matches a length of a field inside the struct. not sure if
-            # we should require the pair definition but it's there for
-            # posterity for now.
-            ##
-            length_of_field: Witnesses
-      - Outputs:
-          structure_type: array
-          value_type: TransactionOutput
-      - Witnesses:
-          structure_type: array
-          value_type: TransactionWitness
-          match:
-            length_of_field: Inputs
-      - LockTime:
-          value_type: uint32
-          marshal: false # this field is not marshaled
+          length_of_field: Witnesses
+        require:
+          max_length: 20
+      - name: Outputs
+        structure_type: array
+        value_type: TransactionOutput
+        require:
+          max_length: 20
+      - name: Witnesses
+        structure_type: array
+        value_type: TransactionWitness
+        match:
+          length_of_field: Inputs
+        require:
+          max_length: 20
+      - name: LockTime
+        value_type: uint32
+        marshal: false # this field is not marshaled
   EscrowOpenTransaction:
     fields:
   TransactionInput:
     fields:
-      - Outpoint:
-          value_type: Outpoint
-          ##
-          # embedded intends to allow for inline declarations like
-          # Outpoint is relationship to TransactionInput in
-          # ledger/transaction.go. Outpoint must still be specified, but must
-          # be marshaled independently -- which is not how it's done now.
-          #
-          # This is called a "promoted field" in golang traditionally:
-          #
-          # https://medium.com/golangspec/promoted-fields-and-methods-in-go-4e8d7aefb3e3
-          #
-          ##
-          embedded: true
-      - ScriptSig:
-          value_type: "[]byte"
-          require:
-            max_length: 520
-      - SequenceNo:
-          value_type: uint32
+      - name: Outpoint
+        value_type: Outpoint
+        require:
+          max_length: 20
+        ##
+        # embedded intends to allow for inline declarations like
+        # Outpoint is relationship to TransactionInput in
+        # ledger/transaction.go. Outpoint must still be specified, but must
+        # be marshaled independently -- which is not how it's done now.
+        #
+        # not really sure what to do here.
+        ##
+        embedded: true
+      - name: ScriptSig
+        value_type: "[]byte"
+        require:
+          max_length: 520
+      - name: SequenceNo
+        value_type: uint32
   ##
   # this is my attempt to model Outpoint
   ##
   Outpoint:
     fields:
-      - PreviousTx:
-          value_type: TXID
-          ##
-          # this could be for validation requirements.
-          # other things that could be here:
-          # - format of data (e.g., gzip, or some packet format, etc. basically a mime type)
-          ##
-          require:
-            ##
-            # require that the TXID be length of 32 bytes.
-            ##
-            length: 32
-      - Index:
-          value_type: uint8
+      - name: PreviousTx
+        value_type: "[]byte"
+        ##
+        # this could be for validation requirements.
+        # other things that could be here:
+        # - format of data (e.g., gzip, or some packet format, etc. basically a mime type)
+        ##
+        require:
+          length: 32
+      - name: Index
+        value_type: uint8
   TransactionOutput:
     fields:
-      - Value:
-          value_type: uint32
-      - ScriptPubKey:
-          value_type: "[]byte"
+      - name: Value
+        value_type: uint32
+      - name: ScriptPubKey
+        value_type: "[]byte"
+        require:
+          max_length: 20
   TransactionWitness:
     fields:
-      - Data:
-          structure_type: array
-          ##
-          # not sure what the best thing to do to resolve nested arrays is yet.
-          ##
-          value_type: "[]byte"
+      - name: Data
+        structure_type: array
+        ##
+        # not sure what the best thing to do to resolve nested arrays is yet.
+        ##
+        value_type: "[]byte"
+        require:
+          max_length: 20
   GenesisTransaction:
     fields:
-      - Outputs:
-          structure_type: array
-          value_type: TransactionOutput
+      - name: Outputs
+        structure_type: array
+        value_type: TransactionOutput
+        require:
+          max_length: 20
   GlobalConfigTransaction:
     fields:
-      - ActivationBlockHeight:
-          value_type: uint64
-      - ScalarUpdates:
-          structure_type: array
-          value_type: GlobalConfigScalarUpdate
-      - ListUpdates:
-          structure_type: array
-          value_type: GlobalConfigListUpdate
-      - SigPublicKey:
-          value_type: "[]byte"
-      - Signature:
-          value_type: "[]byte"
+      - name: ActivationBlockHeight
+        value_type: uint64
+      - name: ScalarUpdates
+        structure_type: array
+        value_type: GlobalConfigScalarUpdate
+        require:
+          max_length: 20
+      - name: ListUpdates
+        structure_type: array
+        value_type: GlobalConfigListUpdate
+        require:
+          max_length: 20
+      - name: SigPublicKey
+        value_type: "[]byte"
+        require:
+          max_length: 20
+      - name: Signature
+        value_type: "[]byte"
+        require:
+          max_length: 20
   GlobalConfigScalarUpdate:
     fields:
-      - Key:
-          value_type: string
-      - Value:
-          value_type: "[]byte"
+      - name: Key
+        value_type: string
+        require:
+          max_length: 20
+      - name: Value
+        value_type: "[]byte"
+        require:
+          max_length: 20
   GlobalConfigListUpdate:
     fields:
-      - Key:
-          value_type: string
-      - Deletions:
-          structure_type: array
-          value_type: uint64
-      - Insertions:
-          structure_type: array
-          value_type: GlobalConfigListInsertion
+      - name: Key
+        value_type: string
+        require:
+          max_length: 20
+      - name: Deletions
+        structure_type: array
+        value_type: uint64
+        require:
+          max_length: 20
+      - name: Insertions
+        structure_type: array
+        value_type: GlobalConfigListInsertion
+        require:
+          max_length: 20
   GlobalConfigListInsertion:
     fields:
-      - Index:
-          value_type: uint64
-      - Value:
-          value_type: "[]byte"
+      - name: Index
+        value_type: uint64
+      - name: Value
+        value_type: "[]byte"
+        require:
+          max_length: 20
+
 ```
 
 You can see additional examples in `/ranger/testdata` off the root of the tree.

@@ -34,9 +34,9 @@ type ConfigFormat struct {
 // as well as any struct-level operations to apply such as validations or
 // filtering.
 type ConfigType struct {
-	// Fields is a list of single keyed hash tables that correspond member names
-	// to type definitions.
-	Fields []map[string]*ConfigTypeDefinition `yaml:"fields"`
+	// Fields is a list of fields in serialisation order. This is ordered because byte stability in the
+	// serialisation format is a requirement.
+	Fields []*ConfigTypeDefinition `yaml:"fields"`
 
 	// Comment is a field to add a comment to the type's declaration.
 	Comment string `yaml:"comment"`
@@ -46,6 +46,9 @@ type ConfigType struct {
 
 // ConfigTypeDefinition is the definition of an individual type member.
 type ConfigTypeDefinition struct {
+	// FieldName is the name of the field in the containing type. While the yaml file can represent multiple fields with
+	// the same name this is a semantic error and will produce bad code that won't compile.
+	FieldName string `yaml:"name"`
 	// StructureType is the type of data structure; this may be "struct" or
 	// "array". This determines how the field is marshaled by wrapping length
 	// headers over array sections for ease of reading.
@@ -69,7 +72,6 @@ type ConfigTypeDefinition struct {
 	// Comment is a field to add a comment to the field's declaration.
 	Comment string `yaml:"comment"`
 
-	FieldName    string `yaml:"-"` // populated by parse
 	MaxByteRange uint64 `yaml:"-"` // populated by parse
 	TypeName     string `yaml:"-"` // populated by parse
 	Item         bool   `yaml:"-"` // populated by itemValue
@@ -126,18 +128,16 @@ func (cf *ConfigFormat) validate() error {
 	}
 
 	for typName, typ := range cf.Types {
-		for _, item := range typ.Fields {
-			for key, value := range item {
-				if value.Marshal != nil && !*value.Marshal {
-					continue
+		for _, field := range typ.Fields {
+			if field.Marshal != nil && !*field.Marshal {
+				continue
+			}
+			if cf.isNativeType(field.ValueType) && !cf.isBytesType(field.ValueType) && field.StructureType != "array" {
+				if field.Require.MaxLength != 0 || field.Require.Length != 0 {
+					return errors.Errorf("%s.%s is invalid; contains a length but is a fixed integer type", typName, field.FieldName)
 				}
-				if cf.isNativeType(value.ValueType) && !cf.isBytesType(value.ValueType) && value.StructureType != "array" {
-					if value.Require.MaxLength != 0 || value.Require.Length != 0 {
-						return errors.Errorf("%s.%s is invalid; contains a length but is a fixed integer type", typName, key)
-					}
-				} else if value.Require.MaxLength == 0 && value.Require.Length == 0 {
-					return errors.Errorf("%s.%s is missing a required length parameter: either specify `length` or `max_length`", typName, key)
-				}
+			} else if field.Require.MaxLength == 0 && field.Require.Length == 0 {
+				return errors.Errorf("%s.%s is missing a required length parameter: either specify `length` or `max_length`", typName, field.FieldName)
 			}
 		}
 	}
@@ -148,16 +148,13 @@ func (cf *ConfigFormat) validate() error {
 func (cf *ConfigFormat) editParams() *ConfigFormat {
 	for typName, typ := range cf.Types {
 		typ.TypeName = typName
-		for _, item := range typ.Fields {
-			for key, value := range item {
-				if value.StructureType == "" {
-					value.StructureType = "scalar"
-				}
-
-				value.FieldName = key
-				value.TypeName = typName
-				value.MaxByteRange = cf.MaxByteRange
+		for _, field := range typ.Fields {
+			if field.StructureType == "" {
+				field.StructureType = "scalar"
 			}
+
+			field.TypeName = typName
+			field.MaxByteRange = cf.MaxByteRange
 		}
 	}
 
