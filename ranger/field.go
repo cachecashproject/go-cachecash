@@ -30,6 +30,16 @@ func (field *ConfigTypeDefinition) IsInterface() bool {
 	return field.GetInterface() != nil
 }
 
+// GetType returns the type of this field. For array fields this is the type of
+// the items of the array.
+func (field *ConfigTypeDefinition) GetType() Type {
+	return field.cf.GetType(field.ValueType)
+}
+
+func (field *ConfigTypeDefinition) SymbolName() string {
+	return fmt.Sprintf("obj.%s", field.FieldName)
+}
+
 // FieldInstance returns a TypeInstance implementation adapted to the field in
 // structure form.
 func (field *ConfigTypeDefinition) FieldInstance() TypeInstance {
