@@ -338,4 +338,36 @@ func (cf *ConfigFormat) getLength(typ, v string, static bool) string {
 
 func (cf *ConfigFormat) populateNativeTypes() {
 	cf.nativeTypes = make(map[string]Type)
+	cf.nativeTypes["uint8"] = &UInt8{}
+}
+
+// A static sized UInt8
+type UInt8 struct{}
+
+func (typ *UInt8) HasLen(instance TypeInstance) bool {
+	return instance.HasLen()
+}
+
+func (typ *UInt8) MinimumSize(instance TypeInstance) uint64 {
+	return 1
+}
+
+func (typ *UInt8) Name() string {
+	return "uint8"
+}
+
+func (typ *UInt8) PointerType(instance TypeInstance) bool {
+	return false
+}
+
+func (typ *UInt8) Read(instance TypeInstance) string {
+	return fmt.Sprintf("%s = data[n]\nn += 1\n", instance.ReadSymbolName())
+}
+
+func (typ *UInt8) WriteSize(instance TypeInstance) string {
+	return "1"
+}
+
+func (typ *UInt8) Write(instance TypeInstance) string {
+	return fmt.Sprintf("data[n] = %s\n    n += 1", instance.WriteSymbolName())
 }
