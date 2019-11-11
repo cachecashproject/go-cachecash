@@ -79,6 +79,8 @@ type ConfigTypeDefinition struct {
 	MaxByteRange uint64 `yaml:"-"` // populated by parse
 	TypeName     string `yaml:"-"` // populated by parse
 	Item         bool   `yaml:"-"` // populated by itemValue
+
+	cf *ConfigFormat // populated by editParams
 }
 
 // ConfigInterface defines a polymorphic type to marshal. It requires an input
@@ -159,6 +161,7 @@ func (cf *ConfigFormat) editParams() *ConfigFormat {
 
 			field.TypeName = typName
 			field.MaxByteRange = cf.MaxByteRange
+			field.SetConfigFormat(cf)
 		}
 	}
 
