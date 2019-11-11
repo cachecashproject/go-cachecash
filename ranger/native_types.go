@@ -335,3 +335,7 @@ func (cf *ConfigFormat) getLength(typ, v string, static bool) string {
 		return cf.getLengthSpecial(typ, v)
 	}
 }
+
+func (cf *ConfigFormat) populateNativeTypes() {
+	cf.nativeTypes = make(map[string]Type)
+}

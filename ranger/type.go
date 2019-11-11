@@ -62,3 +62,39 @@ func (typ *ConfigType) ConfigFormat() *ConfigFormat {
 func (ct *ConfigType) IsInterface() bool {
 	return ct.Interface != nil
 }
+
+// Does the type support len()
+func (ct *ConfigType) HasLen(_ TypeInstance) bool {
+	panic("not implemented")
+}
+
+// MinimumSize returns the minimum serialized size of the type.
+func (ct *ConfigType) MinimumSize(_ TypeInstance) uint64 {
+	panic("not implemented")
+}
+
+// The name of the type
+func (ct *ConfigType) Name() string {
+	panic("not implemented")
+}
+
+// PointerType returns whether the type instance is a value or a pointer to
+// value
+func (ct *ConfigType) PointerType(_ TypeInstance) bool {
+	panic("not implemented")
+}
+
+// Read returns code to deserialise an instance of the type
+func (ct *ConfigType) Read(_ TypeInstance) string {
+	panic("not implemented")
+}
+
+// WriteSize returns code to caculate the size of an instance of the type when serialized
+func (ct *ConfigType) WriteSize(_ TypeInstance) string {
+	panic("not implemented")
+}
+
+// Write returns code to serialise an instance of the
+func (ct *ConfigType) Write(_ TypeInstance) string {
+	panic("not implemented")
+}

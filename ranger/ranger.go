@@ -21,7 +21,8 @@ type ConfigFormat struct {
 	Package string `yaml:"package"`
 	// Types is the listing of types. Each definition consists of a Type name as
 	// map key and properties as values.
-	Types map[string]*ConfigType `yaml:"types"`
+	Types       map[string]*ConfigType `yaml:"types"`
+	nativeTypes map[string]Type
 
 	// MaxByteRange defines how large our byte arrays can be.. if they are larger
 	// an error is returned.
@@ -127,6 +128,8 @@ func Parse(content []byte) (*ConfigFormat, error) {
 	if err := yaml.UnmarshalStrict(content, &cf); err != nil {
 		return nil, err
 	}
+
+	cf.populateNativeTypes()
 
 	return cf.editParams(), cf.validate()
 }
@@ -260,4 +263,17 @@ func (cf *ConfigFormat) GenerateTest() ([]byte, error) {
 // GenerateFuzz generates the fuzzer code.
 func (cf *ConfigFormat) GenerateFuzz() ([]byte, error) {
 	return cf.generate("fuzz.gotmpl")
+}
+
+// GetType looks up a specific type in both the user defined types and the built in native type definitions
+func (cf *ConfigFormat) GetType(name string) Type {
+	result, ok := cf.Types[name]
+	if ok {
+		return result
+	}
+	result2, ok := cf.nativeTypes[name]
+	if ok {
+		return result2
+	}
+	panic(fmt.Sprintf("Unknown type %s", name))
 }
