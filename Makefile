@@ -14,7 +14,7 @@ GIT_VERSION:=$(or \
 
 BASE_IMAGE=cachecash/go-cachecash-build:latest
 
-GEN_DIRS=./ccmsg/... ./ledger/... ./log/... ./metrics/... ./blockexplorer/... ./bootstrap/... ./ranger/templates/...
+GEN_DIRS=./ccmsg/... ./ledger/... ./log/... ./metrics/... ./blockexplorer/... ./bootstrap/... ./ranger/...
 GEN_CONTAINER_DIR=/go/src/github.com/cachecashproject/go-cachecash
 GEN_DOCS_FLAGS=-Iccmsg -Ilog -Imetrics
 GEN_PROTO_FILES={ccmsg,log,metrics}/*.proto

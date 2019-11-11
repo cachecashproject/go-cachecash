@@ -2,13 +2,16 @@ package ranger
 
 import (
 	"bytes"
+	"fmt"
 	"go/format"
 	"io/ioutil"
+	"strings"
 	"text/template"
 
-	"github.com/cachecashproject/go-cachecash/ranger/templates"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+
+	"github.com/gobuffalo/packr"
 )
 
 // ConfigFormat defines the format of the configuration file used to generate
@@ -27,7 +30,8 @@ type ConfigFormat struct {
 	// Comment adds a comment to the package declaration.
 	Comment string `yaml:"comment"`
 
-	decls declarations
+	templates *template.Template
+	decls     declarations
 }
 
 // ConfigType is the type definition wrapper; used for specifying member fields
@@ -174,25 +178,63 @@ func ParseFile(filename string) (*ConfigFormat, error) {
 	return Parse(content)
 }
 
-func (cf *ConfigFormat) generate(name string) ([]byte, error) {
-	thisTemplate, err := templates.Get(name)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not retrieve template")
+// loadTemplates loads a family of templates which can mutually refer to each other for reuse
+func (cf *ConfigFormat) loadTemplates() error {
+	if cf.templates != nil {
+		return nil
 	}
-
-	tpl := template.New("template").Funcs(cf.funcMap())
-	tpl, err = tpl.Parse(thisTemplate)
+	t := template.New("")
+	t.Funcs(cf.funcMap())
+	box := packr.NewBox("./templates")
+	err := box.Walk(func(name string, f packr.File) error {
+		if !strings.HasSuffix(name, ".gotmpl") {
+			return nil
+		}
+		s := f.String()
+		if len(s) == 0 {
+			return errors.Errorf("zero length template %s", name)
+		}
+		_, err := t.New(name).Parse(s)
+		return err
+	})
 	if err != nil {
-		return nil, err
+		return err
 	}
+	cf.templates = t
+	return nil
+}
 
+func (cf *ConfigFormat) ExecuteString(name string, data interface{}) string {
+	byt, err := cf.Execute(name, data)
+	if err != nil {
+		panic(fmt.Sprintf("failed to render in %s %s", name, err))
+	}
+	return string(byt)
+}
+
+// Execute a named template with some data and return the string it renders.
+func (cf *ConfigFormat) Execute(name string, data interface{}) ([]byte, error) {
 	byt := bytes.NewBuffer(nil)
-
-	if err := tpl.Execute(byt, cf); err != nil {
+	tpl := cf.templates.Lookup(name)
+	if tpl == nil {
+		return nil, errors.Errorf("No template %s", name)
+	}
+	if err := tpl.Execute(byt, data); err != nil {
 		return nil, err
 	}
+	return byt.Bytes(), nil
+}
 
-	return format.Source(byt.Bytes())
+func (cf *ConfigFormat) generate(name string) ([]byte, error) {
+	err := cf.loadTemplates()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load templates")
+	}
+	byt, err := cf.Execute(name, cf)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to render template")
+	}
+	return format.Source(byt)
 }
 
 // GenerateCode generates the source code.
