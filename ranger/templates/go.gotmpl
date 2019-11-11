@@ -5,34 +5,34 @@
 	{{ declare .Item .TypeName "unmarshal" "ni" "int" }}
 	iL, ni = binary.Uvarint(data[n:])
 	if ni <= 0 {
-		return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ .QualName }}")
 	}
 	n += ni
 	{{ declare .Item .TypeName "unmarshal" "byt" "[]byte"	}}
 	{{- if (and .Require.Length .IsNativeType) }}
 	if iL != {{ .Require.Length }} {
-		return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ .QualName }}")
 	}
 	{{- else if (and .Require.MaxLength .IsNativeType) }}
 	if iL > {{ .Require.MaxLength }} {
 		{{ if .Item }}
-		return 0, errors.Wrapf(ranger.ErrTooMany, "{{ .TypeName }}.{{ .FieldName }} index %d", i)
+		return 0, errors.Wrapf(ranger.ErrTooMany, "{{ .QualName }} index %d", i)
 		{{ else }}
-		return 0, errors.Wrap(ranger.ErrTooMany, "{{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrTooMany, "{{ .QualName }}")
 		{{ end }}
 	}
 	{{ end }}
 
 	if iL > uint64(len(data[n:])) {
 		{{ if .Item }}
-		return 0, errors.Wrapf(ranger.ErrShortRead, "{{ .TypeName }}.{{ .FieldName }} index %d", i)
+		return 0, errors.Wrapf(ranger.ErrShortRead, "{{ .QualName }} index %d", i)
 		{{ else }}
-		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }}")
 		{{ end }}
 	}
 
 	if iL > {{ .MaxByteRange }} {
-		return 0, errors.Wrap(ranger.ErrTooMany, "Out of range in {{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrTooMany, "Out of range in {{ .QualName }}")
 	}
 
 	byt = make([]byte, iL)
@@ -46,14 +46,14 @@
 
 	{{- if .Require.Static }}
 	if len(data[n:]) < {{ typeLength .ValueType .FieldName .Require.Static }} {
-		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }}")
 	}
 	{{- end }}
 	{{ unmarshaler .ValueType (printf "obj.%s" .FieldName) .Item .Require.Static }}
 
 	{{- if (and (not .Require.Static) (not (eq .StructureType "array"))) }}
 	if iL & {{ truncated .ValueType }} != iL {
-		return 0, errors.Wrap(ranger.ErrTooLarge, "{{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrTooLarge, "{{ .QualName }}")
 	}
 	{{- end }}
 	{{- if (not .Require.Static) }}
@@ -63,7 +63,7 @@
 {{- else -}}
 {{- if .Interface }}
 	if len(data[n:]) < {{ typeLength .Interface.Input .FieldName true }} {
-		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .TypeName }}.{{ .FieldName }} ({{ .ValueType }})")
+		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }} ({{ .ValueType }})")
 	}
 	var intf {{ .Interface.Input }}
 	{{ unmarshaler .Interface.Input "intf" .Item true }}
@@ -78,7 +78,7 @@
 	{{ end -}}
 	{{ end -}}
 	default:
-		return 0, errors.Wrap(ranger.ErrBadInterface, "{{ .TypeName }}.{{ .FieldName }} ({{ .ValueType }})")
+		return 0, errors.Wrap(ranger.ErrBadInterface, "{{ .QualName }} ({{ .ValueType }})")
 	}
 
 	obj.{{ .FieldName }} = v
@@ -87,18 +87,18 @@
 	{{ declare .Item .TypeName "unmarshal" "err" "error" }}
 	iL, ni = binary.Uvarint(data[n:])
 	if ni <= 0 {
-		return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ .QualName }}")
 	}
 	n += ni
 	if iL > uint64(len(data[n:])) {
-		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }}")
 	}
 	if iL > {{ .MaxByteRange }} {
-		return 0, errors.Wrap(ranger.ErrTooMany, "Out of range in {{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrTooMany, "Out of range in {{ .QualName }}")
 	}
 	ni, err = obj.{{ .FieldName }}.UnmarshalFrom(data[n:uint64(n)+iL])
 	if err != nil {
-		return 0, errors.Wrap(err, "{{ .TypeName }}.{{ .FieldName }} ({{ .ValueType }})")
+		return 0, errors.Wrap(err, "{{ .QualName }} ({{ .ValueType }})")
 	}
 
 	n += ni
@@ -109,24 +109,24 @@
 		iL, ni = binary.Uvarint(data[n:])
 		{{- if (and .Require.Length .IsNativeType)}}
 		if iL != {{ .Require.Length }} {
-			return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ .QualName }}")
 		}
 		{{- else if (and .Require.MaxLength .IsNativeType) }}
 		if iL > {{ .Require.MaxLength }} {
-			return 0, errors.Wrap(ranger.ErrTooMany, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrTooMany, "{{ .QualName }}")
 		}
 		{{ end }}
 		n += ni
 		if iL > uint64(len(data[n:])) {
-			return 0, errors.Wrap(ranger.ErrShortRead, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }}")
 		}
 		if iL > {{ .MaxByteRange }} {
-			return 0, errors.Wrap(ranger.ErrTooMany, "Out of range in {{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrTooMany, "Out of range in {{ .QualName }}")
 		}
 
 		ni, err = obj.{{ .FieldName }}.UnmarshalFrom(data[n:uint64(n)+iL])
 		if err != nil {
-			return 0, errors.Wrap(err, "Unmarshaling into {{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(err, "Unmarshaling into {{ .QualName }}")
 		}
 
 		n += ni
@@ -137,46 +137,46 @@
 		iL, ni = binary.Uvarint(data[n:])
 		if ni <= 0 {
 			{{ if .Item }}
-			return 0, errors.Wrapf(ranger.ErrShortRead, "Obtaining length of {{ .TypeName }}.{{ .FieldName }} index %d", i)
+			return 0, errors.Wrapf(ranger.ErrShortRead, "Obtaining length of {{ .QualName }} index %d", i)
 			{{ else }}
-			return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ .QualName }}")
 			{{ end }}
 		}
 		{{- if (and .Require.Length .IsNativeType) }}
 		if iL != {{ .Require.Length }} {
 			{{ if .Item }}
-			return 0, errors.Wrapf(ranger.ErrLengthMismatch, "{{ .TypeName }}.{{ .FieldName }} index %d", i)
+			return 0, errors.Wrapf(ranger.ErrLengthMismatch, "{{ .QualName }} index %d", i)
 			{{ else }}
-			return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ .QualName }}")
 			{{ end }}
 		}
 		{{- else if (and .Require.MaxLength .IsNativeType) }}
 		if iL > {{ .Require.MaxLength }} {
 			{{ if .Item }}
-			return 0, errors.Wrapf(ranger.ErrTooMany, "{{ .TypeName }}.{{ .FieldName }} index %d", i)
+			return 0, errors.Wrapf(ranger.ErrTooMany, "{{ .QualName }} index %d", i)
 			{{ else }}
-			return 0, errors.Wrap(ranger.ErrTooMany, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrTooMany, "{{ .QualName }}")
 			{{ end }}
 		}
 		{{ end }}
 		n += ni
 		if iL > uint64(len(data[n:])) {
 			{{ if .Item }}
-			return 0, errors.Wrapf(ranger.ErrShortRead, "{{ .TypeName }}.{{ .FieldName }} index %d", i)
+			return 0, errors.Wrapf(ranger.ErrShortRead, "{{ .QualName }} index %d", i)
 			{{ else }}
-			return 0, errors.Wrap(ranger.ErrShortRead, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }}")
 			{{ end }}
 		}
 		if iL > {{ .MaxByteRange }} {
-			return 0, errors.Wrap(ranger.ErrTooMany, "Out of range in {{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrTooMany, "Out of range in {{ .QualName }}")
 		}
 
 		ni, err = obj.{{ .FieldName }}{{ if .Item }}[i]{{ end }}.UnmarshalFrom(data[n:uint64(n)+iL])
 		if err != nil {
 			{{ if .Item }}
-			return 0, errors.Wrapf(ranger.ErrShortRead, "Unmarshaling into {{ .TypeName }}.{{ .FieldName }} index %d", i)
+			return 0, errors.Wrapf(ranger.ErrShortRead, "Unmarshaling into {{ .QualName }} index %d", i)
 			{{ else }}
-			return 0, errors.Wrap(ranger.ErrShortRead, "Unmarshaling into {{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrShortRead, "Unmarshaling into {{ .QualName }}")
 			{{ end }}
 		}
 		n += ni
@@ -188,13 +188,13 @@
 {{- if .Require.Static }}
 	{{- if .Item }}
 	if len(data[n:]) < {{ typeLength .ValueType "item" .Require.Static }} {
-		return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
 	}
 	{{ marshaler .ValueType "item" .Require.Static }}
 	n += {{ typeLength .ValueType "item" .Require.Static }}
 	{{- else }}
 	if len(data[n:]) < {{ typeLength .ValueType (printf "obj.%s" .FieldName) .Require.Static }} {
-		return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
 	}
 	{{ marshaler .ValueType (printf "obj.%s" .FieldName) .Require.Static }}
 	n += {{ typeLength .ValueType (printf "obj.%s" .FieldName) .Require.Static }}
@@ -202,7 +202,7 @@
 {{- else }}
 {{- if .IsBytesType -}}
 	if len(data[n:]) < ranger.UvarintSize(uint64(len({{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}))) + len({{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}) {
-		return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .TypeName }}.{{ .FieldName }}")
+		return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
 	}
 	n += binary.PutUvarint(data[n:], uint64(len({{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }})))
 {{- end }}
@@ -219,12 +219,12 @@ n += {{ marshaler .ValueType (printf "obj.%s" .FieldName) .Require.Static }}
 	{{- if .Item }}
 		{{ marshaler .Interface.Input "item" true }}
 		if len(data[n:]) < {{ typeLength .ValueType "item" .Require.Static }} {
-			return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
 		}
 		n += {{ typeLength .Interface.Input "item" true }}
 		ni, err = {{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.MarshalTo(data[n:n+{{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.Size()])
 		if err != nil {
-			return 0, errors.Wrap(err, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(err, "{{ .QualName }}")
 		}
 		n += ni
 	{{- else }}
@@ -232,16 +232,16 @@ n += {{ marshaler .ValueType (printf "obj.%s" .FieldName) .Require.Static }}
 		{{ marshaler .Interface.Input (printf "obj.%s.%s()" .FieldName .Interface.Output) true }}
 		n += {{ typeLength .Interface.Input (printf "obj.%s.%s()" .FieldName .Interface.Output) true }}
 		if len(data[n:]) < obj.{{ .FieldName }}.Size() {
-			return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
 		}
 		n += binary.PutUvarint(data[n:], uint64(obj.{{ .FieldName }}.Size()))
 		ni, err = {{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.MarshalTo(data[n:n+{{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.Size()])
 		if err != nil {
-			return 0, errors.Wrap(err, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(err, "{{ .QualName }}")
 		}
 		n += ni
 	} else {
-		return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .TypeName }}.{{ .FieldName }} interface is nil, cannot continue")
+		return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }} interface is nil, cannot continue")
 	}
 	{{- end }}
 {{- else }}
@@ -249,12 +249,12 @@ n += {{ marshaler .ValueType (printf "obj.%s" .FieldName) .Require.Static }}
 	{{ declare .Item .TypeName "marshal" "err" "error" }}
 	if {{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }} != nil {
 		if len(data[n:]) < ranger.UvarintSize(uint64({{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.Size()))+{{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.Size() {
-			return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
 		}
 		n += binary.PutUvarint(data[n:], uint64({{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.Size()))
 		ni, err = {{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.MarshalTo(data[n:n+{{ if .Item }}item{{ else }}obj.{{ .FieldName }}{{ end }}.Size()])
 		if err != nil {
-			return 0, errors.Wrap(err, "{{ .TypeName }}.{{ .FieldName }}")
+			return 0, errors.Wrap(err, "{{ .QualName }}")
 		}
 		n += ni
 	} else {
@@ -424,7 +424,7 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 	{{ declare false $value.TypeName "unmarshal" "err" "error" }}
 	iL, ni = binary.Uvarint(data[n:])
 	if ni <= 0 {
-		return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ $value.TypeName }}.{{ $value.FieldName }}")
+		return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ $value.QualName }}")
 	}
 	n += ni
 
