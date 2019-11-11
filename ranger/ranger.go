@@ -154,6 +154,9 @@ func (cf *ConfigFormat) validate() error {
 			} else if field.Require.MaxLength == 0 && field.Require.Length == 0 {
 				return errors.Errorf("%s.%s is missing a required length parameter: either specify `length` or `max_length`", typName, field.FieldName)
 			}
+			if field.Require.Static && (!field.IsNativeType() || field.IsBytesType()) {
+				return errors.Errorf("%s.%s cannot be static: only applicable to integral types", typName, field.FieldName)
+			}
 		}
 	}
 
