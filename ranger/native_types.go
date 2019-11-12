@@ -79,7 +79,11 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 		return s
 	}
 
-	s := fmt.Sprintf("&%s{", value.ValueType)
+	var reference string
+	if !value.Embedded {
+		reference = "&"
+	}
+	s := fmt.Sprintf("%s%s{", reference, value.ValueType)
 	if _, ok := cf.Types[value.ValueType]; ok {
 		for _, field := range cf.Types[value.ValueType].Fields {
 			s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.randomField(field))
@@ -166,7 +170,11 @@ func (cf *ConfigFormat) DefaultValueFor(value *ConfigTypeDefinition) string {
 	case valueTypeBytes:
 		return fmt.Sprintf("make([]byte, %d)", value.Require.Length)
 	default:
-		s := fmt.Sprintf("&%s{", value.ValueType)
+		var reference string
+		if !value.Embedded {
+			reference = "&"
+		}
+		s := fmt.Sprintf("%s%s{", reference, value.ValueType)
 		if _, ok := cf.Types[value.ValueType]; ok {
 			for _, field := range cf.Types[value.ValueType].Fields {
 				s += fmt.Sprintf("\n%s: %s,", field.FieldName, cf.DefaultValueFor(field))

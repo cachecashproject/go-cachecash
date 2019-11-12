@@ -129,10 +129,9 @@ types:
       - name: Outpoint
         value_type: Outpoint
         ##
-        # embedded intends to allow for value structs like
+        # embedded embedds a struct into another as
         # Outpoint is in TransactionInput in
-        # ledger/transaction.go. Outpoint must still be specified, but must
-        # be marshaled independently -- which is not how it's done now.
+        # ledger/transaction.go.
         ##
         embedded: true
       - name: ScriptSig

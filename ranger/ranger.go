@@ -71,10 +71,9 @@ type ConfigTypeDefinition struct {
 	Match ConfigMatch `yaml:"match,omitempty"`
 	// Require is a list of requirements for validations.
 	Require ConfigRequire `yaml:"require,omitempty"`
-	// Marshal if false, will not marshal to the byte array.
+	// Marshal if false, will not marshal in or out.
 	Marshal *bool `yaml:"marshal,omitempty"`
-	// Embedded defines this type as inline in the struct. It must still
-	// marshal independently.
+	// Embedded defines this field as embedded in the struct.
 	Embedded bool `yaml:"embedded"`
 
 	// Comment is a field to add a comment to the field's declaration.
@@ -156,6 +155,9 @@ func (cf *ConfigFormat) validate() error {
 			}
 			if field.Require.Static && (!field.IsNativeType() || field.IsBytesType()) {
 				return errors.Errorf("%s.%s cannot be static: only applicable to integral types", typName, field.FieldName)
+			}
+			if field.Embedded && field.StructureType == "array" {
+				return errors.Errorf("%s.%s cannot both be embedded and an array", typName, field.FieldName)
 			}
 		}
 	}

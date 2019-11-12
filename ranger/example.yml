@@ -109,18 +109,15 @@ types:
     fields:
       - Outpoint:
           value_type: Outpoint
-          ##
-          # embedded intends to allow for inline declarations like
-          # Outpoint is relationship to TransactionInput in
-          # ledger/transaction.go. Outpoint must still be specified, but must
-          # be marshaled independently -- which is not how it's done now.
-          #
-          # This is called a "promoted field" in golang traditionally:
-          #
-          # https://medium.com/golangspec/promoted-fields-and-methods-in-go-4e8d7aefb3e3
-          #
-          ##
-          embedded: true
+        ##
+        # embedded embedds a struct into another as
+        # Outpoint is in TransactionInput in
+        # ledger/transaction.go.
+        # This is also called a "promoted field" in golang:
+        #
+        # https://medium.com/golangspec/promoted-fields-and-methods-in-go-4e8d7aefb3e3
+        ##
+        embedded: true
       - ScriptSig:
           value_type: "[]byte"
           require:

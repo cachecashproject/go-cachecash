@@ -173,12 +173,9 @@ types:
         require:
           max_length: 20
         ##
-        # embedded intends to allow for inline declarations like
-        # Outpoint is relationship to TransactionInput in
-        # ledger/transaction.go. Outpoint must still be specified, but must
-        # be marshaled independently -- which is not how it's done now.
-        #
-        # not really sure what to do here.
+        # embedded embedds a struct into another as
+        # Outpoint is in TransactionInput in
+        # ledger/transaction.go.
         ##
         embedded: true
       - name: ScriptSig
