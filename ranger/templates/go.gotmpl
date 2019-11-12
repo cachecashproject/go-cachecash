@@ -326,8 +326,7 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
 {{- end }}
 {{ if (eq $value.StructureType "scalar") }}
 {{ template "marshalType" $value }}
-{{ end }}
-{{- if (eq $value.StructureType "array") }}
+{{ else }}
 	{{- if $value.Match.LengthOfField }}
 	if len(obj.{{ $key }}) != len(obj.{{ $value.Match.LengthOfField }}) {
 		return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ $typekey }}: {{ $key }} and {{ $value.Match.LengthOfField }}")

@@ -147,9 +147,9 @@ func (cf *ConfigFormat) validate() error {
 			if field.Marshal != nil && !*field.Marshal {
 				continue
 			}
-			if field.IsNativeType() && !field.IsBytesType() && field.StructureType != "array" {
+			if !field.GetType().HasLen(field.FieldInstance()) {
 				if field.Require.MaxLength != 0 || field.Require.Length != 0 {
-					return errors.Errorf("%s.%s is invalid; contains a length but is a fixed integer type", typName, field.FieldName)
+					return errors.Errorf("%s.%s is invalid; contains a length but is not a container type", typName, field.FieldName)
 				}
 			} else if field.Require.MaxLength == 0 && field.Require.Length == 0 {
 				return errors.Errorf("%s.%s is missing a required length parameter: either specify `length` or `max_length`", typName, field.FieldName)

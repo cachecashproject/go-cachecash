@@ -61,8 +61,6 @@ types:
           static: true
       - name: Body
         value_type: TransactionBody
-        require:
-          max_length: 20
       - name: Flags
         value_type: uint16
         require:
@@ -130,15 +128,11 @@ types:
     fields:
       - name: Outpoint
         value_type: Outpoint
-        require:
-          max_length: 20
         ##
-        # embedded intends to allow for inline declarations like
-        # Outpoint is relationship to TransactionInput in
+        # embedded intends to allow for value structs like
+        # Outpoint is in TransactionInput in
         # ledger/transaction.go. Outpoint must still be specified, but must
         # be marshaled independently -- which is not how it's done now.
-        #
-        # not really sure what to do here.
         ##
         embedded: true
       - name: ScriptSig
