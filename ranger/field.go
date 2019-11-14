@@ -36,6 +36,12 @@ func (field *ConfigTypeDefinition) FieldInstance() TypeInstance {
 	return &FieldInstance{field: field}
 }
 
+// ItemInstance returns a TypeInstance implementation adapted to the field in
+// array item form.
+func (field *ConfigTypeDefinition) ItemInstance() TypeInstance {
+	return &ItemInstance{field: field}
+}
+
 type FieldInstance struct {
 	field *ConfigTypeDefinition
 }
@@ -76,5 +82,51 @@ func (instance *FieldInstance) WriteSymbolName() string {
 }
 
 func (instance *FieldInstance) Static() bool {
+	return instance.field.Require.Static
+}
+
+// ItemInstance adapts a field for use in arrays
+type ItemInstance struct {
+	field *ConfigTypeDefinition
+}
+
+func (instance *ItemInstance) ConfigFormat() *ConfigFormat {
+	return instance.field.ConfigFormat()
+}
+
+// The schema cannot specify the length of an item within an array.
+func (instance *ItemInstance) GetLength() uint64 {
+	return 0
+}
+
+// The schema cannot specify the maximum length of an item within an array,
+// use the global maximum
+func (instance *ItemInstance) GetMaxLength() uint64 {
+	return instance.field.MaxByteRange
+}
+
+// The schema cannot specify arrays of arrays, so this is always false
+func (instance *ItemInstance) HasLen() bool {
+	return false
+}
+
+// We only support pointers to structs in arrays
+func (instance *ItemInstance) IsPointer() bool {
+	return true
+}
+
+func (instance *ItemInstance) QualName() string {
+	return instance.field.QualName()
+}
+
+func (instance *ItemInstance) ReadSymbolName() string {
+	return fmt.Sprintf("obj.%s[i]", instance.field.FieldName)
+}
+
+func (instance *ItemInstance) WriteSymbolName() string {
+	return "item"
+}
+
+func (instance *ItemInstance) Static() bool {
 	return instance.field.Require.Static
 }
