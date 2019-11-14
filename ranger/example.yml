@@ -110,7 +110,7 @@ types:
       - Outpoint:
           value_type: Outpoint
           ##
-          # inline_struct intends to allow for inline declarations like
+          # embedded intends to allow for inline declarations like
           # Outpoint is relationship to TransactionInput in
           # ledger/transaction.go. Outpoint must still be specified, but must
           # be marshaled independently -- which is not how it's done now.
@@ -120,7 +120,7 @@ types:
           # https://medium.com/golangspec/promoted-fields-and-methods-in-go-4e8d7aefb3e3
           #
           ##
-          inline_struct: true
+          embedded: true
       - ScriptSig:
           value_type: "[]byte"
           require:

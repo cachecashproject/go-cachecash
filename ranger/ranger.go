@@ -62,9 +62,9 @@ type ConfigTypeDefinition struct {
 	Require ConfigRequire `yaml:"require,omitempty"`
 	// Marshal if false, will not marshal to the byte array.
 	Marshal *bool `yaml:"marshal,omitempty"`
-	// InlineStruct defines this type as inline in the struct. It must still
+	// Embedded defines this type as inline in the struct. It must still
 	// marshal independently.
-	InlineStruct bool `yaml:"inline_struct"`
+	Embedded bool `yaml:"embedded"`
 
 	// Comment is a field to add a comment to the field's declaration.
 	Comment string `yaml:"comment"`

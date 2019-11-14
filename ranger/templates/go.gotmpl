@@ -102,7 +102,7 @@
 	}
 
 	n += ni
-{{- else if (or .InlineStruct (eq .StructureType "scalar")) }}
+{{- else if (or .Embedded (eq .StructureType "scalar")) }}
 		{{ declare .Item .TypeName "unmarshal" "iL" "uint64" }}
 		{{ declare .Item .TypeName "unmarshal" "ni" "int" }}
 		{{ declare .Item .TypeName "unmarshal" "err" "error" }}
@@ -287,7 +287,7 @@ type {{ $typekey }} struct {
 	{{- if $value.Comment }}
 	// {{ $key }} {{ $value.Comment }}
 	{{- end }}
-	{{ if $value.InlineStruct }}*{{ end }}{{ $key }} {{ if (not $value.InlineStruct) }}{{ if (eq $value.StructureType "array") }}[]{{ end }}{{ end }}{{ if (and (and (not $value.InlineStruct) (not $value.Interface)) (not (native $value.ValueType))) }}*{{ end }}{{ if (not $value.InlineStruct) }}{{ $value.ValueType }}{{ end }}
+	{{ if $value.Embedded }}*{{ end }}{{ $key }} {{ if (not $value.Embedded) }}{{ if (eq $value.StructureType "array") }}[]{{ end }}{{ end }}{{ if (and (and (not $value.Embedded) (not $value.Interface)) (not (native $value.ValueType))) }}*{{ end }}{{ if (not $value.Embedded) }}{{ $value.ValueType }}{{ end }}
 {{- end }}
 {{- end }}
 }
@@ -315,12 +315,12 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
 {{ range $foo, $map := $type.Fields -}}
 {{- range $key, $value := $map }}
 {{- if (isMarshalable $value) }}
-{{- if (and $value.Require.Length (not (or .InlineStruct (or (native $value.ValueType) $value.Interface)))) }}
+{{- if (and $value.Require.Length (not (or .Embedded (or (native $value.ValueType) $value.Interface)))) }}
 	if len(obj.{{ $key }}) != {{ $value.Require.Length }} {
 		return 0, errors.Wrapf(ranger.ErrLengthValidation, "{{ $typekey }}.{{ $key }} - %d/{{ $value.Require.Length }}", len(obj.{{ $key }}))
 	}
 {{- end }}
-{{- if (and $value.Require.MaxLength (not (or .InlineStruct (or (native $value.ValueType) $value.Interface)))) }}
+{{- if (and $value.Require.MaxLength (not (or .Embedded (or (native $value.ValueType) $value.Interface)))) }}
 	if len(obj.{{ $key }}) > {{ $value.Require.MaxLength }} {
 		return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
 	}
@@ -422,7 +422,7 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 {{- range $key, $value := $map }}
 {{- if (isMarshalable $value) }}
 {{ if (eq $value.StructureType "scalar") }}
-{{ if $value.InlineStruct -}}
+{{ if $value.Embedded -}}
 	{{ declare false .TypeName "unmarshal" "iL" "uint64" }}
 	{{ declare false .TypeName "unmarshal" "ni" "int" }}
 	{{ declare false .TypeName "unmarshal" "err" "error" }}
@@ -447,7 +447,7 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 		return 0, errors.Wrap(ranger.ErrUnmarshalLength, "{{ $typekey }}.{{ $key }}")
 	}
 {{- else -}}
-	{{- if (and $value.Require.MaxLength (or (and (not .InlineStruct) (and (not .Interface) (not (native $value.ValueType)))) (isBytes $value.ValueType)))}}
+	{{- if (and $value.Require.MaxLength (or (and (not .Embedded) (and (not .Interface) (not (native $value.ValueType)))) (isBytes $value.ValueType)))}}
 	if len(obj.{{ $key }}) > {{ $value.Require.MaxLength }} {
 		return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
 	}
@@ -484,7 +484,7 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 		{{ template "unmarshalType" (itemValue $value) -}}
 	}
 {{- end }}
-{{- if (and $value.Require.Length (or (and (not .InlineStruct) (and (not .Interface) (not (native $value.ValueType)))) (isBytes $value.ValueType)))}}
+{{- if (and $value.Require.Length (or (and (not .Embedded) (and (not .Interface) (not (native $value.ValueType)))) (isBytes $value.ValueType)))}}
 	if len(obj.{{ $key }}) != {{ $value.Require.Length }} {
 		return 0, errors.Wrapf(ranger.ErrLengthValidation, "{{ $typekey }}.{{ $key }} - %d/{{ $value.Require.Length }}", len(obj.{{ $key }}))
 	}

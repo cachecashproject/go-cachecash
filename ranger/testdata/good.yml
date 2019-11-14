@@ -132,14 +132,14 @@ types:
           require:
             max_length: 20
           ##
-          # inline_struct intends to allow for inline declarations like
+          # embedded intends to allow for inline declarations like
           # Outpoint is relationship to TransactionInput in
           # ledger/transaction.go. Outpoint must still be specified, but must
           # be marshaled independently -- which is not how it's done now.
           #
           # not really sure what to do here.
           ##
-          inline_struct: true
+          embedded: true
       - ScriptSig:
           value_type: "[]byte"
           require:
