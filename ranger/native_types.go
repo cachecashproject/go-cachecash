@@ -344,6 +344,8 @@ func (cf *ConfigFormat) populateNativeTypes() {
 	// For 64 bit types the mask could be omitted and no bit masking operations
 	// done, as a future enhancement.
 	cf.nativeTypes["uint64"] = &Integral{8, "uint64", "Uint64", "math.MaxUint64"}
+	cf.nativeTypes["[]byte"] = &Strings{"[]byte", ""}
+	cf.nativeTypes["string"] = &Strings{"string", "string"}
 }
 
 // A static sized UInt8
@@ -430,4 +432,43 @@ func (typ *Integral) Write(instance TypeInstance) string {
 			typ.staticName, instance.WriteSymbolName(), typ.staticLen)
 	}
 	return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(%s))", instance.WriteSymbolName())
+}
+
+type Strings struct {
+	name string
+	cast string
+}
+
+func (typ *Strings) HasLen(instance TypeInstance) bool {
+	return true
+}
+
+func (typ *Strings) MinimumSize(instance TypeInstance) uint64 {
+	return 1 // the varchar header
+}
+
+func (typ *Strings) Name() string {
+	return typ.name
+}
+
+func (typ *Strings) PointerType(instance TypeInstance) bool {
+	return false
+}
+
+func (typ *Strings) Read(instance TypeInstance) string {
+	return instance.ConfigFormat().ExecuteString("readstring.gotmpl", struct {
+		TI   TypeInstance
+		Cast string
+	}{instance, typ.cast})
+}
+
+func (typ *Strings) WriteSize(instance TypeInstance) string {
+	symbolName := instance.WriteSymbolName()
+	return fmt.Sprintf("ranger.UvarintSize(uint64(len(%s))) + len(%s)", symbolName, symbolName)
+}
+
+func (typ *Strings) Write(instance TypeInstance) string {
+	symbolName := instance.WriteSymbolName()
+	return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(len(%s)))\n    copy(data[n:n+len(%s)], %s)\n    n += len(%s)",
+		symbolName, symbolName, symbolName, symbolName)
 }
