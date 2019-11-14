@@ -46,6 +46,8 @@ type ConfigType struct {
 	Comment string `yaml:"comment"`
 
 	TypeName string `yaml:"-"` // populated by parse
+
+	cf *ConfigFormat // populated by editParams
 }
 
 // ConfigTypeDefinition is the definition of an individual type member.
@@ -154,6 +156,7 @@ func (cf *ConfigFormat) validate() error {
 func (cf *ConfigFormat) editParams() *ConfigFormat {
 	for typName, typ := range cf.Types {
 		typ.TypeName = typName
+		typ.SetConfigFormat(cf)
 		for _, field := range typ.Fields {
 			if field.StructureType == "" {
 				field.StructureType = "scalar"
