@@ -1,0 +1,11 @@
+{
+    iL, ni := binary.Uvarint(data[n:])
+    if ni <= 0 {
+        return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }}")
+    }
+    if iL & {{ .Mask }} != iL {
+		return 0, errors.Wrap(ranger.ErrTooLarge, "{{ .QualName }}")
+	}
+    {{ .SymbolName }} = {{ .Cast }}(iL)
+    n += ni
+}

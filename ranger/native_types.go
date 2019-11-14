@@ -339,6 +339,11 @@ func (cf *ConfigFormat) getLength(typ, v string, static bool) string {
 func (cf *ConfigFormat) populateNativeTypes() {
 	cf.nativeTypes = make(map[string]Type)
 	cf.nativeTypes["uint8"] = &UInt8{}
+	cf.nativeTypes["uint16"] = &Integral{2, "uint16", "Uint16", "math.MaxUint16"}
+	cf.nativeTypes["uint32"] = &Integral{4, "uint32", "Uint32", "math.MaxUint32"}
+	// For 64 bit types the mask could be omitted and no bit masking operations
+	// done, as a future enhancement.
+	cf.nativeTypes["uint64"] = &Integral{8, "uint64", "Uint64", "math.MaxUint64"}
 }
 
 // A static sized UInt8
@@ -370,4 +375,59 @@ func (typ *UInt8) WriteSize(instance TypeInstance) string {
 
 func (typ *UInt8) Write(instance TypeInstance) string {
 	return fmt.Sprintf("data[n] = %s\n    n += 1", instance.WriteSymbolName())
+}
+
+// Integral represents integers that can be static or variable length.
+type Integral struct {
+	staticLen  uint64
+	name       string
+	staticName string
+	mask       string
+}
+
+func (typ *Integral) HasLen(instance TypeInstance) bool {
+	return instance.HasLen()
+}
+
+func (typ *Integral) MinimumSize(instance TypeInstance) uint64 {
+	if instance.Static() {
+		return typ.staticLen
+	}
+	return 1
+}
+
+func (typ *Integral) Name() string {
+	return typ.name
+}
+
+func (typ *Integral) PointerType(instance TypeInstance) bool {
+	return false
+}
+
+func (typ *Integral) Read(instance TypeInstance) string {
+	if instance.Static() {
+		return fmt.Sprintf("%s = binary.LittleEndian.%s(data[n:])\nn += %d\n",
+			instance.ReadSymbolName(), typ.staticName, typ.staticLen)
+	}
+	return instance.ConfigFormat().ExecuteString("readuvarint.gotmpl", struct {
+		SymbolName string
+		Cast       string
+		QualName   string
+		Mask       string
+	}{instance.ReadSymbolName(), typ.name, instance.QualName(), typ.mask})
+}
+
+func (typ *Integral) WriteSize(instance TypeInstance) string {
+	if instance.Static() {
+		return fmt.Sprint(typ.staticLen)
+	}
+	return fmt.Sprintf("ranger.UvarintSize(uint64(%s))", instance.WriteSymbolName())
+}
+
+func (typ *Integral) Write(instance TypeInstance) string {
+	if instance.Static() {
+		return fmt.Sprintf("binary.LittleEndian.Put%s(data[n:], %s)\n    n += %d",
+			typ.staticName, instance.WriteSymbolName(), typ.staticLen)
+	}
+	return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(%s))", instance.WriteSymbolName())
 }
