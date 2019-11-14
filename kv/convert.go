@@ -13,34 +13,21 @@ var (
 	ErrMarshal = errors.New("marshaling failed")
 )
 
-func marshalBytesInt64(out int64) ([]byte, error) {
+func marshalBytesInt64(out int64) []byte {
 	byt := make([]byte, binary.MaxVarintLen64)
-
-	if binary.PutVarint(byt, out) == 0 {
-		return nil, ErrMarshal
-	}
-
-	return byt, nil
+	binary.PutVarint(byt, out)
+	return byt
 }
 
-func marshalBytesUint64(out uint64) ([]byte, error) {
+func marshalBytesUint64(out uint64) []byte {
 	byt := make([]byte, binary.MaxVarintLen64)
-
-	if binary.PutUvarint(byt, out) == 0 {
-		return nil, ErrMarshal
-	}
-
-	return byt, nil
+	binary.PutUvarint(byt, out)
+	return byt
 }
 
 // CreateUint64 creates a new key as uint64.
 func (c *Client) CreateUint64(key string, out uint64) ([]byte, error) {
-	byt, err := marshalBytesUint64(out)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.driver.Create(c.member, key, byt)
+	return c.driver.Create(c.member, key, marshalBytesUint64(out))
 }
 
 // GetUint64 retrieves the marshaled data for key and then converts it to uint64.
@@ -60,37 +47,17 @@ func (c *Client) GetUint64(key string) (uint64, []byte, error) {
 
 // SetUint64 sets a uint64 to key.
 func (c *Client) SetUint64(key string, out uint64) ([]byte, error) {
-	byt, err := marshalBytesUint64(out)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.driver.Set(c.member, key, byt)
+	return c.driver.Set(c.member, key, marshalBytesUint64(out))
 }
 
 // CASUint64 compares and swaps uint64 values.
 func (c *Client) CASUint64(key string, nonce []byte, origValue, value uint64) ([]byte, error) {
-	valByt, err := marshalBytesUint64(value)
-	if err != nil {
-		return nil, err
-	}
-
-	origByt, err := marshalBytesUint64(origValue)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.driver.CAS(c.member, key, nonce, origByt, valByt)
+	return c.driver.CAS(c.member, key, nonce, marshalBytesUint64(origValue), marshalBytesUint64(value))
 }
 
 // CreateInt64 creates a new key as int64.
 func (c *Client) CreateInt64(key string, out int64) ([]byte, error) {
-	byt, err := marshalBytesInt64(out)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.driver.Create(c.member, key, byt)
+	return c.driver.Create(c.member, key, marshalBytesInt64(out))
 }
 
 // GetInt64 retrieves the marshaled data for key and then converts it to int64.
@@ -110,26 +77,12 @@ func (c *Client) GetInt64(key string) (int64, []byte, error) {
 
 // SetInt64 sets a int64 to key.
 func (c *Client) SetInt64(key string, out int64) ([]byte, error) {
-	byt, err := marshalBytesInt64(out)
-	if err != nil {
-		return nil, err
-	}
-	return c.driver.Set(c.member, key, byt)
+	return c.driver.Set(c.member, key, marshalBytesInt64(out))
 }
 
 // CASInt64 compares and swaps uint64 values.
 func (c *Client) CASInt64(key string, nonce []byte, origValue, value int64) ([]byte, error) {
-	valByt, err := marshalBytesInt64(value)
-	if err != nil {
-		return nil, err
-	}
-
-	origByt, err := marshalBytesInt64(origValue)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.driver.CAS(c.member, key, nonce, origByt, valByt)
+	return c.driver.CAS(c.member, key, nonce, marshalBytesInt64(origValue), marshalBytesInt64(value))
 }
 
 // CreateString creates a string where there wasn't one before.
