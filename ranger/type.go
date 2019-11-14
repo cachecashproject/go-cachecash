@@ -1,5 +1,7 @@
 package ranger
 
+import "fmt"
+
 // TypeInstance is an instance of a type
 // e.g. Type == struct definition.
 //      TypeInstance == usage - plain, in an array, or as a pointer.
@@ -63,6 +65,14 @@ func (ct *ConfigType) IsInterface() bool {
 	return ct.Interface != nil
 }
 
+// InterfaceAdapter creates an interface adapter for TypeInstance
+func (typ *ConfigType) InterfaceAdapter(instance TypeInstance) TypeInstance {
+	return &InputInstanceAdapter{
+		wrapped: instance,
+		typ:     typ,
+	}
+}
+
 // Does the type support len()
 func (ct *ConfigType) HasLen(_ TypeInstance) bool {
 	panic("not implemented")
@@ -97,4 +107,49 @@ func (ct *ConfigType) WriteSize(_ TypeInstance) string {
 // Write returns code to serialise an instance of the
 func (ct *ConfigType) Write(_ TypeInstance) string {
 	panic("not implemented")
+}
+
+type InputInstanceAdapter struct {
+	wrapped TypeInstance
+	typ     *ConfigType
+}
+
+func (instance *InputInstanceAdapter) ConfigFormat() *ConfigFormat {
+	return instance.typ.ConfigFormat()
+}
+
+func (instance *InputInstanceAdapter) GetLength() uint64 {
+	return instance.wrapped.GetLength()
+}
+
+func (instance *InputInstanceAdapter) HasLen() bool {
+	// Schema provides no way to declare that the input type for an interface is
+	// an array
+	return false
+}
+
+func (instance *InputInstanceAdapter) IsPointer() bool {
+	// XX: Is delegating appropriate?
+	return instance.wrapped.IsPointer()
+}
+
+func (instance *InputInstanceAdapter) GetMaxLength() uint64 {
+	return instance.wrapped.GetMaxLength()
+}
+
+func (instance *InputInstanceAdapter) QualName() string {
+	return instance.wrapped.QualName()
+}
+
+func (instance *InputInstanceAdapter) ReadSymbolName() string {
+	return "intf"
+}
+
+func (instance *InputInstanceAdapter) WriteSymbolName() string {
+	return fmt.Sprintf("%s.%s()", instance.wrapped.WriteSymbolName(), instance.typ.Interface.Output)
+}
+
+func (instance *InputInstanceAdapter) Static() bool {
+	// No provision in the schema for choosing this
+	return true
 }
