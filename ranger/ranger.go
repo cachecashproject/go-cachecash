@@ -21,7 +21,7 @@ type ConfigFormat struct {
 	Package string `yaml:"package"`
 	// Types is the listing of types. Each definition consists of a Type name as
 	// map key and properties as values.
-	Types map[string]ConfigType `yaml:"types"`
+	Types map[string]*ConfigType `yaml:"types"`
 
 	// MaxByteRange defines how large our byte arrays can be.. if they are larger
 	// an error is returned.
