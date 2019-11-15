@@ -14,14 +14,14 @@ var (
 )
 
 func marshalBytesInt64(out int64) []byte {
-	byt := make([]byte, binary.MaxVarintLen64)
-	binary.PutVarint(byt, out)
+	byt := make([]byte, 8)
+	binary.LittleEndian.PutUint64(byt, uint64(out))
 	return byt
 }
 
 func marshalBytesUint64(out uint64) []byte {
 	byt := make([]byte, binary.MaxVarintLen64)
-	binary.PutUvarint(byt, out)
+	binary.LittleEndian.PutUint64(byt, out)
 	return byt
 }
 
@@ -37,11 +37,7 @@ func (c *Client) GetUint64(key string) (uint64, []byte, error) {
 		return 0, nonce, err
 	}
 
-	u, left := binary.Uvarint(out)
-	if left <= 0 {
-		return 0, nonce, ErrUnmarshal
-	}
-
+	u := binary.LittleEndian.Uint64(out)
 	return u, nonce, nil
 }
 
@@ -67,12 +63,8 @@ func (c *Client) GetInt64(key string) (int64, []byte, error) {
 		return 0, nonce, err
 	}
 
-	v, left := binary.Varint(out)
-	if left <= 0 {
-		return 0, nonce, ErrUnmarshal
-	}
-
-	return v, nonce, nil
+	v := binary.LittleEndian.Uint64(out)
+	return int64(v), nonce, nil
 }
 
 // SetInt64 sets a int64 to key.
