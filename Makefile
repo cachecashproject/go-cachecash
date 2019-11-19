@@ -112,7 +112,6 @@ fuzz-ledger: FUZZ=ledger
 fuzz-ledger: ledger.fuzzed
 
 fuzz-ranger : FUZZ=ranger/testdata/pkg
-fuzz-ranger : FUZZTAGS=rangertest
 fuzz-ranger : ranger.fuzzed
 ranger.fuzzed +: ranger-sample
 
