@@ -9,9 +9,9 @@ import (
 // otherwise certain fuzz tests may not function the same.
 const (
 	TxTypeTransfer     uint8 = 0
-	TxTypeGenesis            = 1
-	TxTypeGlobalConfig       = 2
-	TxTypeEscrowOpen         = 3
+	TxTypeGenesis      uint8 = 1
+	TxTypeGlobalConfig uint8 = 2
+	TxTypeEscrowOpen   uint8 = 3
 )
 
 type TransactionBody interface {
