@@ -66,10 +66,6 @@ func TestFuzzInputsBasic(t *testing.T) {
 			&TransactionOutput{},
 			ranger.ErrTooLarge,
 		},
-		"<\b\x05\x00\x10{H00\x000": {
-			&TransactionInput{},
-			ranger.ErrLengthMismatch,
-		},
 		"\xbd0\x03\x00": {
 			&Transaction{},
 			ranger.ErrShortRead,

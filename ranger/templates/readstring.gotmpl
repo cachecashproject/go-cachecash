@@ -1,15 +1,14 @@
 {
+	{{- if .TI.GetLength }}
+	iL := uint64({{ .TI.GetLength }})
+	{{- else }}
 	iL, ni := binary.Uvarint(data[n:])
 	if ni <= 0 {
 		return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ .TI.QualName }}")
 	}
 	n += ni
-    {{ if .TI.GetLength }}
-    if iL != {{ .TI.GetLength }} {
-		return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ .TI.QualName }}")
-	}
-    {{end}}
-	{{ if .TI.GetMaxLength }}
+	{{- end -}}
+	{{- if .TI.GetMaxLength }}
 	if iL > {{ .TI.GetMaxLength }} {
 		return 0, errors.Wrap(ranger.ErrTooMany, "{{ .TI.QualName }}")
 	}

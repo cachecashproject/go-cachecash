@@ -127,13 +127,13 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
         return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ $typekey }}: {{ $key }} and {{ $value.Match.LengthOfField }}")
     }
     {{- end }}
-
     {{- if (and $value.Require.Length (not (or $value.IsNativeType $value.IsInterface))) }}
     if len({{ $value.SymbolName }}) != {{ $value.Require.Length }} {
         return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ $typekey }}.{{ $key }}")
-    }
-    {{ end }}
+    }{{ end }}
+	{{ if not $value.Require.Length -}}
     n += binary.PutUvarint(data[n:], uint64(len({{ $value.SymbolName }})))
+	{{- end }}
     for _, item := range {{ $value.SymbolName }} {
     {{- template "marshalTypeItem" $value}}
     }
@@ -201,21 +201,20 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
 {{ end }}
 {{- if (eq $value.StructureType "array") }}
     {
+		{{- if not $value.Require.Length -}}
         iLen, ni := binary.Uvarint(data[n:])
         if ni <= 0 {
                 return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ $typekey }}.{{ $key }}")
-            }
-            n += ni
-
-        {{- if $value.Require.Length }}
-            if iLen != {{ $value.Require.Length }} {
-            return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ $typekey }}.{{ $key }}")
-            }
-        {{- else if $value.Require.MaxLength }}
+        }
+        n += ni
+		{{- else -}}
+		iLen := int({{ $value.Require.Length }})
+		{{- end -}}
+        {{- if $value.Require.MaxLength }}
             if iLen > {{ $value.Require.MaxLength }} {
             return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
         }
-            {{ end }}
+        {{ end }}
 
         {{ $value.SymbolName }} = make([]{{ if (not $value.IsNativeType) }}*{{ end }}{{ $value.ValueType }}, iLen)
             for i := uint64(0); i < iLen; i++ {

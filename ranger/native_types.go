@@ -313,11 +313,19 @@ func (typ *Strings) Read(instance TypeInstance) string {
 
 func (typ *Strings) WriteSize(instance TypeInstance) string {
 	symbolName := instance.WriteSymbolName()
-	return fmt.Sprintf("ranger.UvarintSize(uint64(len(%s))) + len(%s)", symbolName, symbolName)
+	if instance.GetLength() != 0 {
+		return fmt.Sprintf("int(%d)", instance.GetLength())
+	} else {
+		return fmt.Sprintf("ranger.UvarintSize(uint64(len(%s))) + len(%s)", symbolName, symbolName)
+	}
 }
 
 func (typ *Strings) Write(instance TypeInstance) string {
 	symbolName := instance.WriteSymbolName()
-	return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(len(%s)))\n    copy(data[n:n+len(%s)], %s)\n    n += len(%s)",
-		symbolName, symbolName, symbolName, symbolName)
+	if instance.GetLength() != 0 {
+		return fmt.Sprintf("n += copy(data[n:], %s)", symbolName)
+	} else {
+		return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(len(%s)))\n    n += copy(data[n:n+len(%s)], %s)",
+			symbolName, symbolName, symbolName)
+	}
 }
