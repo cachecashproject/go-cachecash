@@ -6,8 +6,9 @@ import (
 )
 
 func Fuzz(data []byte) int {
-	if len(data) < 2 {
-		return 0
+	if len(data) == 0 {
+		/* need a type signature byte */
+		return -1
 	}
 
 	switch int(data[0])%{{ size }}{
