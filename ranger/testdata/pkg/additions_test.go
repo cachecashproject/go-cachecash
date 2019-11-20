@@ -46,7 +46,7 @@ func TestFuzzInputsGreen(t *testing.T) {
 // test. this is why you see [1:] everywhere the inputs are used.
 func TestFuzzInputsBasic(t *testing.T) {
 	ios := map[string]typeWithError{
-		"0�\x01\x00": {
+		"0\xef\xef\xef\xbf\xbd\x01\x00": {
 			&TransactionOutput{},
 			ranger.ErrTooLarge,
 		},

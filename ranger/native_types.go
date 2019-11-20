@@ -97,17 +97,18 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 func (cf *ConfigFormat) truncated(typ string) string {
 	switch typ {
 	case valueTypeUint8:
-		return "0xF"
+		return "math.MaxUint8"
 	case valueTypeUint16:
-		return "0xFF"
+		return "math.MaxUint16"
 	case valueTypeUint32:
-		return "0xFFFF"
+		return "math.MaxUint32"
 	case valueTypeUint64:
-		return "0xFFFFFFFF"
+		return "math.MaxUint64"
 	default:
 		return "<HERE> // truncation is for uint types only. generator error"
 	}
 }
+
 
 func (cf *ConfigFormat) size() string {
 	return fmt.Sprintf("%d", len(cf.Types))
