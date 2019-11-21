@@ -25,6 +25,7 @@ type Application interface {
 // ConfigFile is the file the publisher is configured from.
 type ConfigFile struct {
 	Origin               string
+	PublisherAddr        string
 	GrpcAddr             string
 	StatusAddr           string
 	BootstrapAddr        string
