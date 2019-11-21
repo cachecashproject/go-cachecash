@@ -37,6 +37,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*publisher.ConfigFile, error
 	}
 
 	conf.Origin = p.GetString("origin", "localhost")
+	conf.PublisherAddr = p.GetString("publisher_addr", "")
 	conf.GrpcAddr = p.GetString("grpc_addr", ":7070")
 	conf.StatusAddr = p.GetString("status_addr", ":8100")
 	conf.BootstrapAddr = p.GetString("bootstrap_addr", "bootstrapd:7777")
@@ -114,7 +115,13 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	p, err := publisher.NewContentPublisher(&l.Logger, db, cf.GrpcAddr, cat, kp.PrivateKey)
+	var publisherAddr string
+	if len(cf.PublisherAddr) == 0 {
+		publisherAddr = cf.GrpcAddr
+	} else {
+		publisherAddr = cf.PublisherAddr
+	}
+	p, err := publisher.NewContentPublisher(&l.Logger, db, publisherAddr, cat, kp.PrivateKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher")
 	}
