@@ -44,11 +44,11 @@ type Type interface {
 	// value
 	PointerType(TypeInstance) bool
 	// Read returns code to deserialise an instance of the type
-	Read(TypeInstance) string
+	Read(TypeInstance) (string, error)
 	// WriteSize returns code to caculate the size of an instance of the type when serialized
-	WriteSize(TypeInstance) string
+	WriteSize(TypeInstance) (string, error)
 	// Write returns code to serialise an instance of the
-	Write(TypeInstance) string
+	Write(TypeInstance) (string, error)
 }
 
 // SetConfigFormat provides the type with a reference to the root of the
@@ -117,13 +117,19 @@ func (ct *ConfigType) PointerType(instance TypeInstance) bool {
 }
 
 // Read returns code to deserialise an instance of the type
-func (ct *ConfigType) Read(instance TypeInstance) string {
+func (ct *ConfigType) Read(instance TypeInstance) (string, error) {
 	if !ct.IsInterface() {
 		return ct.cf.ExecuteString("readstruct.gotmpl", instance)
 	}
 
-	readInput := ct.cf.GetType(ct.Interface.Input).Read(ct.InterfaceAdapter(instance))
-	readStruct := ct.cf.ExecuteString("readstruct.gotmpl", instance)
+	readInput, err := ct.cf.GetType(ct.Interface.Input).Read(ct.InterfaceAdapter(instance))
+	if err != nil {
+		return "", err
+	}
+	readStruct, err := ct.cf.ExecuteString("readstruct.gotmpl", instance)
+	if err != nil {
+		return "", err
+	}
 
 	return ct.cf.ExecuteString("readinterface.gotmpl", struct {
 		Type       Type
@@ -131,39 +137,42 @@ func (ct *ConfigType) Read(instance TypeInstance) string {
 		ReadInput  string
 		ReadStruct string
 	}{ct, instance, readInput, readStruct})
-
 }
 
 // WriteSize returns code to caculate the size of an instance of the type when serialized
-func (ct *ConfigType) WriteSize(instance TypeInstance) string {
+func (ct *ConfigType) WriteSize(instance TypeInstance) (string, error) {
 	if ct.IsInterface() {
-		/* Interface serialialisation:
-		   - the 'input' type, then the delegated case - currently only works with
-			 Minimum / constant size types.
-		*/
+		/* Interface serialialisation */
 		// instance describes e.g. TransactionBody
 		// interface.input tells us we want TransactionBody.TxType
-		return fmt.Sprintf("%s + %s",
-			ct.cf.GetType(ct.Interface.Input).WriteSize(ct.InterfaceAdapter(instance)),
-			ct.cf.ExecuteString("interfacesize.gotmpl", instance))
+		sizeCode, err := ct.cf.ExecuteString("interfacesize.gotmpl", instance)
+		if err != nil {
+			return "", err
+		}
+		interfaceSize, err := ct.cf.GetType(ct.Interface.Input).WriteSize(ct.InterfaceAdapter(instance))
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s + %s", interfaceSize, sizeCode), nil
 	}
-	return fmt.Sprintf("%s.Size()", instance.WriteSymbolName())
+	return fmt.Sprintf("%s.Size()", instance.WriteSymbolName()), nil
 }
 
 // Write returns code to serialise an instance of the
-func (ct *ConfigType) Write(instance TypeInstance) string {
+func (ct *ConfigType) Write(instance TypeInstance) (string, error) {
+	marshalToStruct, err := ct.cf.ExecuteString("marshaltostruct.gotmpl", instance)
+	if err != nil {
+		return "", err
+	}
 	if !ct.IsInterface() {
-		/* XXX: Serialising a reference to a user defined type. These are expected
-		   to self-deliimit
-		   - this is one of the points to fix once things are neated up
-		*/
-		return ct.cf.ExecuteString("marshaltostruct.gotmpl", instance)
+		return marshalToStruct, nil
 	}
 
-	return fmt.Sprintf("%s\n%s",
-		ct.cf.GetType(ct.Interface.Input).Write(ct.InterfaceAdapter(instance)),
-		ct.cf.ExecuteString("marshaltostruct.gotmpl", instance))
-
+	marshalInterfaceKey, err := ct.cf.GetType(ct.Interface.Input).Write(ct.InterfaceAdapter(instance))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s\n%s", marshalInterfaceKey, marshalToStruct), nil
 }
 
 type InputInstanceAdapter struct {

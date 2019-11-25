@@ -109,7 +109,6 @@ func (cf *ConfigFormat) truncated(typ string) string {
 	}
 }
 
-
 func (cf *ConfigFormat) size() string {
 	return fmt.Sprintf("%d", len(cf.Types))
 }
@@ -216,16 +215,16 @@ func (typ *UInt8) PointerType(instance TypeInstance) bool {
 	return false
 }
 
-func (typ *UInt8) Read(instance TypeInstance) string {
-	return fmt.Sprintf("%s = data[n]\nn += 1\n", instance.ReadSymbolName())
+func (typ *UInt8) Read(instance TypeInstance) (string, error) {
+	return fmt.Sprintf("%s = data[n]\nn += 1\n", instance.ReadSymbolName()), nil
 }
 
-func (typ *UInt8) WriteSize(instance TypeInstance) string {
-	return "1"
+func (typ *UInt8) WriteSize(instance TypeInstance) (string, error) {
+	return "1", nil
 }
 
-func (typ *UInt8) Write(instance TypeInstance) string {
-	return fmt.Sprintf("data[n] = %s\n    n += 1", instance.WriteSymbolName())
+func (typ *UInt8) Write(instance TypeInstance) (string, error) {
+	return fmt.Sprintf("data[n] = %s\n    n += 1", instance.WriteSymbolName()), nil
 }
 
 // Integral represents integers that can be static or variable length.
@@ -255,10 +254,10 @@ func (typ *Integral) PointerType(instance TypeInstance) bool {
 	return false
 }
 
-func (typ *Integral) Read(instance TypeInstance) string {
+func (typ *Integral) Read(instance TypeInstance) (string, error) {
 	if instance.Static() {
 		return fmt.Sprintf("%s = binary.LittleEndian.%s(data[n:])\nn += %d\n",
-			instance.ReadSymbolName(), typ.staticName, typ.staticLen)
+			instance.ReadSymbolName(), typ.staticName, typ.staticLen), nil
 	}
 	return instance.ConfigFormat().ExecuteString("readuvarint.gotmpl", struct {
 		SymbolName string
@@ -268,19 +267,19 @@ func (typ *Integral) Read(instance TypeInstance) string {
 	}{instance.ReadSymbolName(), typ.name, instance.QualName(), typ.mask})
 }
 
-func (typ *Integral) WriteSize(instance TypeInstance) string {
+func (typ *Integral) WriteSize(instance TypeInstance) (string, error) {
 	if instance.Static() {
-		return fmt.Sprint(typ.staticLen)
+		return fmt.Sprint(typ.staticLen), nil
 	}
-	return fmt.Sprintf("ranger.UvarintSize(uint64(%s))", instance.WriteSymbolName())
+	return fmt.Sprintf("ranger.UvarintSize(uint64(%s))", instance.WriteSymbolName()), nil
 }
 
-func (typ *Integral) Write(instance TypeInstance) string {
+func (typ *Integral) Write(instance TypeInstance) (string, error) {
 	if instance.Static() {
 		return fmt.Sprintf("binary.LittleEndian.Put%s(data[n:], %s)\n    n += %d",
-			typ.staticName, instance.WriteSymbolName(), typ.staticLen)
+			typ.staticName, instance.WriteSymbolName(), typ.staticLen), nil
 	}
-	return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(%s))", instance.WriteSymbolName())
+	return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(%s))", instance.WriteSymbolName()), nil
 }
 
 type Strings struct {
@@ -304,28 +303,28 @@ func (typ *Strings) PointerType(instance TypeInstance) bool {
 	return false
 }
 
-func (typ *Strings) Read(instance TypeInstance) string {
+func (typ *Strings) Read(instance TypeInstance) (string, error) {
 	return instance.ConfigFormat().ExecuteString("readstring.gotmpl", struct {
 		TI   TypeInstance
 		Cast string
 	}{instance, typ.cast})
 }
 
-func (typ *Strings) WriteSize(instance TypeInstance) string {
+func (typ *Strings) WriteSize(instance TypeInstance) (string, error) {
 	symbolName := instance.WriteSymbolName()
 	if instance.GetLength() != 0 {
-		return fmt.Sprintf("int(%d)", instance.GetLength())
+		return fmt.Sprintf("int(%d)", instance.GetLength()), nil
 	} else {
-		return fmt.Sprintf("ranger.UvarintSize(uint64(len(%s))) + len(%s)", symbolName, symbolName)
+		return fmt.Sprintf("ranger.UvarintSize(uint64(len(%s))) + len(%s)", symbolName, symbolName), nil
 	}
 }
 
-func (typ *Strings) Write(instance TypeInstance) string {
+func (typ *Strings) Write(instance TypeInstance) (string, error) {
 	symbolName := instance.WriteSymbolName()
 	if instance.GetLength() != 0 {
-		return fmt.Sprintf("n += copy(data[n:], %s)", symbolName)
+		return fmt.Sprintf("n += copy(data[n:], %s)", symbolName), nil
 	} else {
 		return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(len(%s)))\n    n += copy(data[n:n+len(%s)], %s)",
-			symbolName, symbolName, symbolName)
+			symbolName, symbolName, symbolName), nil
 	}
 }

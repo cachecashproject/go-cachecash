@@ -218,12 +218,12 @@ func (cf *ConfigFormat) loadTemplates() error {
 	return nil
 }
 
-func (cf *ConfigFormat) ExecuteString(name string, data interface{}) string {
+func (cf *ConfigFormat) ExecuteString(name string, data interface{}) (string, error) {
 	byt, err := cf.Execute(name, data)
 	if err != nil {
-		panic(fmt.Sprintf("failed to render in %s %s", name, err))
+		return "", errors.Wrapf(err, "failed to render in %s", name)
 	}
-	return string(byt)
+	return string(byt), nil
 }
 
 // Execute a named template with some data and return the string it renders.
