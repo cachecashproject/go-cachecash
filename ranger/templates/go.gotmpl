@@ -104,8 +104,8 @@ func (obj *{{ $typekey }}) Marshal() ([]byte, error) {
 // MarshalTo accepts a byte array with pre-allocated space (see Size()) for {{ $typekey }}.
 // It returns how many bytes it wrote to the array, or 0 and an error.
 func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
+{{/* For efficiency we don't check size here- Marshal() calculates the size to allocate data */}}
     var n int
-{{/* Can't check the types overall size until the schema can represent that */}}
 {{ range $value := $type.Fields }}{{ with $key := $value.FieldName }}
 {{- if (isMarshalable $value) }}
 {{/* Length applies to byte strings and arrays only */}}
