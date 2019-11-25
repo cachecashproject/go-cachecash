@@ -68,6 +68,7 @@ func testBuildPackage() error {
 	defer fmt.Println("----> END COMPILE")
 
 	cmd := exec.Command("go", "build", "-mod=vendor", "./testdata/pkg")
+	cmd.Env = append(os.Environ(), "GO111MODULE=on")
 	if err := wrapIO(cmd); err != nil {
 		return err
 	}
@@ -82,6 +83,7 @@ func runTestPackage() error {
 	fmt.Println("----> BEGIN TEST")
 	defer fmt.Println("----> END TEST")
 	cmd := exec.Command("go", "test", "-tags", "rangertest", "-coverprofile", "ranger.out", "-mod=vendor", "-race", "-v", "./testdata/pkg", "-count", "1")
+	cmd.Env = append(os.Environ(), "GO111MODULE=on")
 	if err := wrapIO(cmd); err != nil {
 		return err
 	}
