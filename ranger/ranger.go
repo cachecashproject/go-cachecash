@@ -2,7 +2,6 @@ package ranger
 
 import (
 	"bytes"
-	"fmt"
 	"go/format"
 	"io/ioutil"
 	"strings"
@@ -144,7 +143,11 @@ func (cf *ConfigFormat) validate() error {
 			if field.Marshal != nil && !*field.Marshal {
 				continue
 			}
-			if !field.GetType().HasLen(field.FieldInstance()) {
+			field_type, err := field.GetType()
+			if err != nil {
+				return err
+			}
+			if !field_type.HasLen(field.FieldInstance()) {
 				if field.Require.MaxLength != 0 || field.Require.Length != 0 {
 					return errors.Errorf("%s.%s is invalid; contains a length but is not a container type", typName, field.FieldName)
 				}
@@ -267,14 +270,14 @@ func (cf *ConfigFormat) GenerateFuzz() ([]byte, error) {
 }
 
 // GetType looks up a specific type in both the user defined types and the built in native type definitions
-func (cf *ConfigFormat) GetType(name string) Type {
+func (cf *ConfigFormat) GetType(name string) (Type, error) {
 	result, ok := cf.Types[name]
 	if ok {
-		return result
+		return result, nil
 	}
 	result2, ok := cf.nativeTypes[name]
 	if ok {
-		return result2
+		return result2, nil
 	}
-	panic(fmt.Sprintf("Unknown type %s", name))
+	return nil, errors.Errorf("Unknown type %s", name)
 }

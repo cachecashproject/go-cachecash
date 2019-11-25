@@ -203,8 +203,8 @@ func (typ *UInt8) HasLen(instance TypeInstance) bool {
 	return instance.HasLen()
 }
 
-func (typ *UInt8) MinimumSize(instance TypeInstance) uint64 {
-	return 1
+func (typ *UInt8) MinimumSize(instance TypeInstance) (uint64, error) {
+	return 1, nil
 }
 
 func (typ *UInt8) Name() string {
@@ -239,11 +239,11 @@ func (typ *Integral) HasLen(instance TypeInstance) bool {
 	return instance.HasLen()
 }
 
-func (typ *Integral) MinimumSize(instance TypeInstance) uint64 {
+func (typ *Integral) MinimumSize(instance TypeInstance) (uint64, error) {
 	if instance.Static() {
-		return typ.staticLen
+		return typ.staticLen, nil
 	}
-	return 1
+	return 1, nil
 }
 
 func (typ *Integral) Name() string {
@@ -291,8 +291,8 @@ func (typ *Strings) HasLen(instance TypeInstance) bool {
 	return true
 }
 
-func (typ *Strings) MinimumSize(instance TypeInstance) uint64 {
-	return 1 // the varchar header
+func (typ *Strings) MinimumSize(instance TypeInstance) (uint64, error) {
+	return 1, nil // the varchar header
 }
 
 func (typ *Strings) Name() string {

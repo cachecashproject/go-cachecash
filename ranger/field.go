@@ -32,7 +32,7 @@ func (field *ConfigTypeDefinition) IsInterface() bool {
 
 // GetType returns the type of this field. For array fields this is the type of
 // the items of the array.
-func (field *ConfigTypeDefinition) GetType() Type {
+func (field *ConfigTypeDefinition) GetType() (Type, error) {
 	return field.cf.GetType(field.ValueType)
 }
 

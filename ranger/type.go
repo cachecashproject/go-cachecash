@@ -37,7 +37,7 @@ type Type interface {
 	// Does the type support len()
 	HasLen(TypeInstance) bool
 	// MinimumSize returns the minimum serialized size of the type.
-	MinimumSize(TypeInstance) uint64
+	MinimumSize(TypeInstance) (uint64, error)
 	// The name of the type
 	Name() string
 	// PointerType returns whether the type instance is a value or a pointer to
@@ -80,12 +80,15 @@ func (ct *ConfigType) HasLen(instance TypeInstance) bool {
 
 // MinimumSize returns the minimum serialized size of the type.
 // This is the sum of the minimum size of the serialized fields of the type.
-func (typ *ConfigType) MinimumSize(instance TypeInstance) uint64 {
+func (typ *ConfigType) MinimumSize(instance TypeInstance) (uint64, error) {
 	if typ.IsInterface() {
 		// The switch marker
 		// TODO: switch to the marker + the minimum of the defined cases.
-		return typ.cf.GetType(typ.Interface.Input).MinimumSize(
-			typ.InterfaceAdapter(instance))
+		int_type, err := typ.cf.GetType(typ.Interface.Input)
+		if err != nil {
+			return 0, err
+		}
+		return int_type.MinimumSize(typ.InterfaceAdapter(instance))
 	}
 	var minimum uint64
 	for _, field := range typ.Fields {
@@ -94,15 +97,22 @@ func (typ *ConfigType) MinimumSize(instance TypeInstance) uint64 {
 		// if variable, a varint
 		// fixed length is a todo - today its still a varint otherwise
 		instance := field.FieldInstance()
-		field_type := field.GetType()
+		field_type, err := field.GetType()
+		if err != nil {
+			return 0, err
+		}
 		if field_type.HasLen(instance) {
 			// uvarint minimum size, to record a 0 length string/array
 			minimum += 1
 		} else {
-			minimum += field_type.MinimumSize(instance)
+			field_size, err := field_type.MinimumSize(instance)
+			if err != nil {
+				return 0, err
+			}
+			minimum += field_size
 		}
 	}
-	return minimum
+	return minimum, nil
 }
 
 // The name of the type
@@ -122,7 +132,11 @@ func (ct *ConfigType) Read(instance TypeInstance) (string, error) {
 		return ct.cf.ExecuteString("readstruct.gotmpl", instance)
 	}
 
-	readInput, err := ct.cf.GetType(ct.Interface.Input).Read(ct.InterfaceAdapter(instance))
+	int_type, err := ct.cf.GetType(ct.Interface.Input)
+	if err != nil {
+		return "", err
+	}
+	readInput, err := int_type.Read(ct.InterfaceAdapter(instance))
 	if err != nil {
 		return "", err
 	}
@@ -149,7 +163,11 @@ func (ct *ConfigType) WriteSize(instance TypeInstance) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		interfaceSize, err := ct.cf.GetType(ct.Interface.Input).WriteSize(ct.InterfaceAdapter(instance))
+		int_type, err := ct.cf.GetType(ct.Interface.Input)
+		if err != nil {
+			return "", err
+		}
+		interfaceSize, err := int_type.WriteSize(ct.InterfaceAdapter(instance))
 		if err != nil {
 			return "", err
 		}
@@ -167,8 +185,11 @@ func (ct *ConfigType) Write(instance TypeInstance) (string, error) {
 	if !ct.IsInterface() {
 		return marshalToStruct, nil
 	}
-
-	marshalInterfaceKey, err := ct.cf.GetType(ct.Interface.Input).Write(ct.InterfaceAdapter(instance))
+	int_type, err := ct.cf.GetType(ct.Interface.Input)
+	if err != nil {
+		return "", err
+	}
+	marshalInterfaceKey, err := int_type.Write(ct.InterfaceAdapter(instance))
 	if err != nil {
 		return "", err
 	}
