@@ -57,14 +57,12 @@ types:
     fields:
       - name: Version
         value_type: uint8
-        require:
-          static: true
+        static: true
       - name: Body
         value_type: TransactionBody
       - name: Flags
         value_type: uint16
-        require:
-          static: true
+        static: true
   TransactionBody:
     #
     # interface means "this conforms to an interface which could be N types"...

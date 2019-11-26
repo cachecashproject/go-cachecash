@@ -65,6 +65,8 @@ type ConfigTypeDefinition struct {
 	// ValueType must conform to ranger.Marshaler or be a built in type (uint,
 	// string, etc) that we support marshaling to/from natively.
 	ValueType string `yaml:"value_type"`
+	// Static ensures that the value is of a fixed size for integer types.
+	Static bool `yaml:"static"`
 	// Match is a list of matching rules for validations.
 	Match ConfigMatch `yaml:"match,omitempty"`
 	// Require is a list of requirements for validations.
@@ -112,8 +114,6 @@ type ConfigRequire struct {
 	MaxLength uint64 `yaml:"max_length"`
 	// Length means the field must be exactly this length.
 	Length uint64 `yaml:"length"`
-	// Static ensures that the value is of a fixed size for integer types.
-	Static bool `yaml:"static"`
 }
 
 // Parse parses the content and returns a ConfigFormat; if an error is returned
@@ -159,7 +159,7 @@ func (cf *ConfigFormat) validate() error {
 			} else if field.Require.MaxLength == 0 && field.Require.Length == 0 {
 				return errors.Errorf("%s.%s is missing a required length parameter: either specify `length` or `max_length`", typName, field.FieldName)
 			}
-			if field.Require.Static && (!field.IsNativeType() || field.IsBytesType()) {
+			if field.Static && (!field.IsNativeType() || field.IsBytesType()) {
 				return errors.Errorf("%s.%s cannot be static: only applicable to integral types", typName, field.FieldName)
 			}
 			if field.Embedded && field.StructureType == "array" {

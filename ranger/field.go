@@ -94,7 +94,7 @@ func (instance *FieldInstance) WriteSymbolName() string {
 }
 
 func (instance *FieldInstance) Static() bool {
-	return instance.field.Require.Static
+	return instance.field.Static
 }
 
 // ItemInstance adapts a field for use in arrays
@@ -144,5 +144,5 @@ func (instance *ItemInstance) WriteSymbolName() string {
 }
 
 func (instance *ItemInstance) Static() bool {
-	return instance.field.Require.Static
+	return instance.field.Static
 }
