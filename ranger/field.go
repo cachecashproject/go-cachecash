@@ -73,8 +73,8 @@ func (instance *FieldInstance) GetMaxLength() uint64 {
 	return instance.field.MaxByteRange
 }
 
-func (instance *FieldInstance) HasLen() bool {
-	return instance.field.StructureType == "array"
+func (instance *FieldInstance) HasLen() (bool, error) {
+	return instance.field.StructureType == "array", nil
 }
 
 func (instance *FieldInstance) IsPointer() bool {
@@ -118,8 +118,12 @@ func (instance *ItemInstance) GetMaxLength() uint64 {
 }
 
 // The schema cannot specify arrays of arrays, so this is always false
-func (instance *ItemInstance) HasLen() bool {
-	return false
+func (instance *ItemInstance) HasLen() (bool, error) {
+	typ, err := instance.field.GetType()
+	if err != nil {
+		return false, err
+	}
+	return typ.HasLen(instance.field.FieldInstance())
 }
 
 // We only support pointers to structs in arrays

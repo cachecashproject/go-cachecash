@@ -148,7 +148,11 @@ func (cf *ConfigFormat) validate() error {
 			if err != nil {
 				return err
 			}
-			if !field_type.HasLen(field.FieldInstance()) {
+			has_len, err := field_type.HasLen(field.FieldInstance())
+			if err != nil {
+				return err
+			}
+			if !has_len {
 				if field.Require.MaxLength != 0 || field.Require.Length != 0 {
 					return errors.Errorf("%s.%s is invalid; contains a length but is not a container type", typName, field.FieldName)
 				}

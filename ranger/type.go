@@ -19,7 +19,7 @@ type TypeInstance interface {
 	// removed)
 	GetMaxLength() uint64
 	// Does the type support len()
-	HasLen() bool
+	HasLen() (bool, error)
 	// Is this a Reference
 	IsPointer() bool
 	// Whats the fully qualified name (for human errors)
@@ -38,7 +38,7 @@ type TypeInstance interface {
 // custom types.
 type Type interface {
 	// Does the type support len()
-	HasLen(TypeInstance) bool
+	HasLen(TypeInstance) (bool, error)
 	// MinimumSize returns the minimum serialized size of the type.
 	MinimumSize(TypeInstance) (uint64, error)
 	// The name of the type
@@ -79,7 +79,7 @@ func (typ *ConfigType) InterfaceAdapter(instance TypeInstance) TypeInstance {
 }
 
 // Does the type support len()
-func (ct *ConfigType) HasLen(instance TypeInstance) bool {
+func (ct *ConfigType) HasLen(instance TypeInstance) (bool, error) {
 	return instance.HasLen()
 }
 
@@ -106,7 +106,11 @@ func (typ *ConfigType) MinimumSize(instance TypeInstance) (uint64, error) {
 		if err != nil {
 			return 0, err
 		}
-		if field_type.HasLen(instance) {
+		has_len, err := field_type.HasLen(instance)
+		if err != nil {
+			return 0, err
+		}
+		if has_len {
 			// uvarint minimum size, to record a 0 length string/array
 			minimum += 1
 		} else {
@@ -226,10 +230,10 @@ func (instance *InputInstanceAdapter) GetLength() uint64 {
 	return instance.wrapped.GetLength()
 }
 
-func (instance *InputInstanceAdapter) HasLen() bool {
+func (instance *InputInstanceAdapter) HasLen() (bool, error) {
 	// Schema provides no way to declare that the input type for an interface is
 	// an array
-	return false
+	return false, nil
 }
 
 func (instance *InputInstanceAdapter) IsPointer() bool {

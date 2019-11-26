@@ -205,7 +205,7 @@ func (cf *ConfigFormat) populateNativeTypes() {
 // A static sized UInt8
 type UInt8 struct{}
 
-func (typ *UInt8) HasLen(instance TypeInstance) bool {
+func (typ *UInt8) HasLen(instance TypeInstance) (bool, error) {
 	return instance.HasLen()
 }
 
@@ -245,7 +245,7 @@ type Integral struct {
 	mask       string
 }
 
-func (typ *Integral) HasLen(instance TypeInstance) bool {
+func (typ *Integral) HasLen(instance TypeInstance) (bool, error) {
 	return instance.HasLen()
 }
 
@@ -301,8 +301,8 @@ type Strings struct {
 	cast string
 }
 
-func (typ *Strings) HasLen(instance TypeInstance) bool {
-	return true
+func (typ *Strings) HasLen(instance TypeInstance) (bool, error) {
+	return true, nil
 }
 
 func (typ *Strings) MinimumSize(instance TypeInstance) (uint64, error) {
