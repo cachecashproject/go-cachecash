@@ -131,6 +131,7 @@ func Parse(content []byte) (*ConfigFormat, error) {
 }
 
 func (cf *ConfigFormat) validate() error {
+	// TODO: some of these could become type calls (ask the type/field to validate itself)
 	if cf.MaxByteRange == 0 {
 		return errors.New("max_byte_range cannot be 0")
 	}
@@ -159,6 +160,9 @@ func (cf *ConfigFormat) validate() error {
 			}
 			if field.Embedded && field.StructureType == "array" {
 				return errors.Errorf("%s.%s cannot both be embedded and an array", typName, field.FieldName)
+			}
+			if field.ValueType == "string" && field.Require.Length != 0 {
+				return errors.Errorf("%s.%s strings cannot have fixed widths", typName, field.FieldName)
 			}
 		}
 	}

@@ -1,6 +1,8 @@
 package ranger
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // QualName returns the qualified name of the field. For instance Transaction.Version
 func (field *ConfigTypeDefinition) QualName() string {

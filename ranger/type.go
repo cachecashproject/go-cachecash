@@ -1,6 +1,9 @@
 package ranger
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 // TypeInstance is an instance of a type
 // e.g. Type == struct definition.
@@ -45,6 +48,8 @@ type Type interface {
 	PointerType(TypeInstance) bool
 	// Read returns code to deserialise an instance of the type
 	Read(TypeInstance) (string, error)
+	// Type returns the go code to describe the type - e.g. [32]byte.
+	Type(TypeInstance) (string, error)
 	// WriteSize returns code to caculate the size of an instance of the type when serialized
 	WriteSize(TypeInstance) (string, error)
 	// Write returns code to serialise an instance of the
@@ -151,6 +156,18 @@ func (ct *ConfigType) Read(instance TypeInstance) (string, error) {
 		ReadInput  string
 		ReadStruct string
 	}{ct, instance, readInput, readStruct})
+}
+
+func (ct *ConfigType) Type(instance TypeInstance) (string, error) {
+	var result bytes.Buffer
+	write := func(s string) {
+		result.Write([]byte(s))
+	}
+	if ct.PointerType(instance) && !ct.IsInterface() {
+		write("*")
+	}
+	write(ct.TypeName)
+	return result.String(), nil
 }
 
 // WriteSize returns code to caculate the size of an instance of the type when serialized

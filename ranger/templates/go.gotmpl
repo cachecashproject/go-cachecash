@@ -80,8 +80,8 @@ type {{ $typekey }} struct {
 {{- range $value := $type.Fields -}}{{- with $key := $value.FieldName -}}
     {{- if $value.Comment }}
     // {{ $key }} {{ $value.Comment }}
-    {{- end }}
-    {{ $key }} {{ if (eq $value.StructureType "array") }}[]{{ end }}{{ if not $value.Embedded }}{{ if (and (and (not $value.IsInterface)) (not $value.IsNativeType)) }}*{{ end }}{{ $value.ValueType }}{{ end }}
+    {{- end }} {{/* XXX FieldInstance is used here to fix []byte lengths, fix with #260 */}}
+    {{ $key }} {{ if not $value.Embedded }}{{ if (eq $value.StructureType "array") }}[{{if $value.Require.Length}}{{$value.Require.Length}}{{end}}]{{ end }}{{ $value.GetType.Type $value.FieldInstance }}{{ end }}
 {{- end }}
 {{- end }}
 }
@@ -108,12 +108,6 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
     var n int
 {{ range $value := $type.Fields }}{{ with $key := $value.FieldName }}
 {{- if (isMarshalable $value) }}
-{{/* Length applies to byte strings and arrays only */}}
-{{- if and $value.Require.Length ($value.GetType.HasLen $value.FieldInstance) }}
-    if len({{ $value.SymbolName }}) != {{ $value.Require.Length }} {
-        return 0, errors.Wrapf(ranger.ErrLengthValidation, "{{ $typekey }}.{{ $key }} - %d/{{ $value.Require.Length }}", len({{ $value.SymbolName }}))
-    }
-{{- end }}
 {{- if and $value.Require.MaxLength ($value.GetType.HasLen $value.FieldInstance) }}
     if len({{ $value.SymbolName }}) > {{ $value.Require.MaxLength }} {
         return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
@@ -216,22 +210,21 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
         }
         {{ end }}
 
-        {{ $value.SymbolName }} = make([]{{ if (not $value.IsNativeType) }}*{{ end }}{{ $value.ValueType }}, iLen)
+        {{- if $value.Require.Length}}
+        {{ $value.SymbolName }} = [{{$value.Require.Length}}]{{ $value.GetType.Type $value.ItemInstance }}
+        {{- else -}}
+        {{ $value.SymbolName }} = make([]{{ $value.GetType.Type $value.ItemInstance }}, iLen)
+        {{end -}}
             for i := uint64(0); i < iLen; i++ {
-                {{- if (not $value.IsNativeType) }}
-            {{ $value.SymbolName }}[i] = &{{ $value.ValueType }}{}
-                {{- else if (eq $value.ValueType "[]byte") }}
-            {{ $value.SymbolName }}[i] = []byte{}
-                {{- end }}
-            {{ template "unmarshalTypeItem" $value -}}
+            {{- if (not $value.IsNativeType) }}
+                {{ $value.SymbolName }}[i] = &{{ $value.ValueType }}{}
+            {{- else if and (not $value.Require.Length) (eq $value.ValueType "[]byte") }}
+                {{ $value.SymbolName }}[i] = []byte{}
+            {{- end }}
+                {{ template "unmarshalTypeItem" $value -}}
         }
         }
 {{- end }}
-{{- if and $value.Require.Length ($value.GetType.HasLen $value.FieldInstance) }}
-    if len({{ $value.SymbolName }}) != {{ $value.Require.Length }} {
-        return 0, errors.Wrapf(ranger.ErrLengthValidation, "{{ $value.QualName }} - %d/{{ $value.Require.Length }}", len({{ $value.SymbolName }}))
-    }
-{{- end -}}
 {{- end }}
 {{- end }}
 {{- end }}

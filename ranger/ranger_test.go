@@ -92,7 +92,7 @@ func runTestPackage() error {
 }
 
 func TestBuild(t *testing.T) {
-	assert.Nil(t, testBuildPackage())
+	assert.NoError(t, testBuildPackage())
 }
 
 func TestPackage(t *testing.T) {

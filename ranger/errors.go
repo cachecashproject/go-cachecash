@@ -25,6 +25,3 @@ var ErrTooLarge = errors.New("value is too large for type")
 
 // ErrLengthMismatch is when two lengths should match but do not.
 var ErrLengthMismatch = errors.New("lengths do not match")
-
-// ErrLengthValidation is for when lengths are precise and do not match.
-var ErrLengthValidation = errors.New("length did not validate")

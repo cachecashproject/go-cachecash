@@ -52,7 +52,7 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 
 	if value.IsBytesType() {
 		if value.Require.Length != 0 {
-			return fmt.Sprintf("%s(genRandom(%d))", value.ValueType, value.Require.Length)
+			return fmt.Sprintf("[%d]byte{}", value.Require.Length)
 		} else if value.Require.MaxLength != 0 {
 			return fmt.Sprintf("%s(genRandom(rand.Int()%%%d))", value.ValueType, value.Require.MaxLength)
 		} else {
@@ -139,7 +139,10 @@ func (cf *ConfigFormat) DefaultValueFor(value *ConfigTypeDefinition) string {
 		if !value.IsNativeType() {
 			ptr = "*"
 		}
-		return fmt.Sprintf("make([]%s%s, %d)", ptr, value.ValueType, value.Require.Length)
+		if value.Require.Length != 0 {
+			return fmt.Sprintf("[%d]%s%s", value.Require.Length, ptr, value.ValueType)
+		}
+		return fmt.Sprintf("make([]%s%s, 0)", ptr, value.ValueType)
 	}
 
 	switch value.ValueType {
@@ -148,7 +151,10 @@ func (cf *ConfigFormat) DefaultValueFor(value *ConfigTypeDefinition) string {
 	case valueTypeString:
 		return `""`
 	case valueTypeBytes:
-		return fmt.Sprintf("make([]byte, %d)", value.Require.Length)
+		if value.Require.Length != 0 {
+			return fmt.Sprintf("[%d]byte{}", value.Require.Length)
+		}
+		return "make([]byte, 0)"
 	default:
 		var reference string
 		if !value.Embedded {
@@ -219,6 +225,10 @@ func (typ *UInt8) Read(instance TypeInstance) (string, error) {
 	return fmt.Sprintf("%s = data[n]\nn += 1\n", instance.ReadSymbolName()), nil
 }
 
+func (typ *UInt8) Type(instance TypeInstance) (string, error) {
+	return "uint8", nil
+}
+
 func (typ *UInt8) WriteSize(instance TypeInstance) (string, error) {
 	return "1", nil
 }
@@ -267,6 +277,10 @@ func (typ *Integral) Read(instance TypeInstance) (string, error) {
 	}{instance.ReadSymbolName(), typ.name, instance.QualName(), typ.mask})
 }
 
+func (typ *Integral) Type(instance TypeInstance) (string, error) {
+	return typ.name, nil
+}
+
 func (typ *Integral) WriteSize(instance TypeInstance) (string, error) {
 	if instance.Static() {
 		return fmt.Sprint(typ.staticLen), nil
@@ -310,6 +324,15 @@ func (typ *Strings) Read(instance TypeInstance) (string, error) {
 	}{instance, typ.cast})
 }
 
+func (typ *Strings) Type(instance TypeInstance) (string, error) {
+	// This is where the single class for both string and []byte breaks down a little
+	length := instance.GetLength()
+	if typ.name == "string" || length == 0 {
+		return typ.name, nil
+	}
+	return fmt.Sprintf("[%d]byte", length), nil
+}
+
 func (typ *Strings) WriteSize(instance TypeInstance) (string, error) {
 	symbolName := instance.WriteSymbolName()
 	if instance.GetLength() != 0 {
@@ -322,7 +345,7 @@ func (typ *Strings) WriteSize(instance TypeInstance) (string, error) {
 func (typ *Strings) Write(instance TypeInstance) (string, error) {
 	symbolName := instance.WriteSymbolName()
 	if instance.GetLength() != 0 {
-		return fmt.Sprintf("n += copy(data[n:], %s)", symbolName), nil
+		return fmt.Sprintf("n += copy(data[n:], %s[:])", symbolName), nil
 	} else {
 		return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(len(%s)))\n    n += copy(data[n:n+len(%s)], %s)",
 			symbolName, symbolName, symbolName), nil
