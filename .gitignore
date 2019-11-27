@@ -2,5 +2,5 @@
 /data/
 /unittestdata/
 /docs-gen/
-/fuzz-workdir/
 /*.zip
+/fuzz

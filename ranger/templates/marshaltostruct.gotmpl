@@ -1,0 +1,7 @@
+{
+	ni, err := {{.WriteSymbolName}}.MarshalTo(data[n:n+{{.WriteSymbolName}}.Size()])
+	if err != nil {
+		return 0, errors.Wrap(err, "{{ .QualName }}")
+	}
+	n += ni
+}

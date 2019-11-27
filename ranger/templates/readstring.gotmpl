@@ -1,0 +1,27 @@
+{
+	{{- if .TI.GetLength }}
+	iL := uint64({{ .TI.GetLength }})
+	{{- else }}
+	iL, ni := binary.Uvarint(data[n:])
+	if ni <= 0 {
+		return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ .TI.QualName }}")
+	}
+	n += ni
+	{{- end -}}
+	{{- if .TI.GetMaxLength }}
+	if iL > {{ .TI.GetMaxLength }} {
+		return 0, errors.Wrap(ranger.ErrTooMany, "{{ .TI.QualName }}")
+	}
+	{{ end }}
+
+	if iL > uint64(len(data[n:])) {
+		return 0, errors.Wrap(ranger.ErrShortRead, "{{ .TI.QualName }}")
+	}
+    {{- if .TI.GetLength}}
+	n += copy({{ .TI.ReadSymbolName }}[:], data[n:uint64(n)+iL])
+	{{- else}}
+	byt := make([]byte, iL)
+	n += copy(byt, data[n:uint64(n)+iL])
+    {{ .TI.ReadSymbolName }} = {{.Cast}}(byt)
+	{{- end -}}
+}

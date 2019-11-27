@@ -26,6 +26,7 @@ fi
 
 make dockerfiles modules gen
 if ! git diff --quiet; then
+  git diff --stat
   echo 'ERROR: Generated files need to be regenerated'
   exit 1
 fi

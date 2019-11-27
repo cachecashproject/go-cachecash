@@ -1,0 +1,216 @@
+{{ define "unmarshalType" }}
+{{/* unmarshall one scalar in the context of MarshalFrom
+    - data is the data being read from
+    - n is the position in the data of the next byte to read
+    - the struct (if its a struct pointer) is valid already
+    */}}
+    if len(data[n:]) < {{ .GetType.MinimumSize .MaybeItemInstance }} {
+        return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }}")
+    }
+    {{ .GetType.Read .MaybeItemInstance }}
+{{- end }}
+
+{{- define "marshalType" }}
+{{/* marshall one item in the context of MarshalTo 
+    - data is the data being written to
+    - n is the position in the data of the next byte to write
+    */}}
+    {{/* guard for bad references */}}
+    {{if .GetType.PointerType .MaybeItemInstance}}
+    if {{ .MaybeItemInstance.WriteSymbolName }} == nil {
+        return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }} is nil, cannot serialise")
+    }
+    {{end}}
+    {{/* check for short writes*/}}
+    if len(data[n:]) < {{ .GetType.WriteSize .MaybeItemInstance }} {
+        return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
+    }
+    {{/* write the data */}}
+    {{/* increment n */}}
+    {{ .GetType.Write .MaybeItemInstance }}
+{{- end -}}
+
+{{- $outer := . }}
+{{- if .Comment }}
+// Package {{ .Package }} {{ .Comment }}
+{{- end }}
+package {{ .Package }}
+
+import (
+    "encoding/binary"
+    "math"
+
+    "github.com/pkg/errors"
+    "github.com/cachecashproject/go-cachecash/ranger"
+)
+
+{{ range $typekey, $type := .Types -}}
+{{- if $type.Comment }}
+// {{ $typekey }} {{ $type.Comment }}
+{{- end }}
+{{ if not $type.IsInterface }}
+type {{ $typekey }} struct {
+{{- range $value := $type.Fields -}}{{- with $key := $value.FieldName -}}
+    {{- if $value.Comment }}
+    // {{ $key }} {{ $value.Comment }}
+    {{- end }}
+    {{ $key }} {{ if not $value.Embedded }}{{ if (eq $value.StructureType "array") }}[{{if $value.Require.Length}}{{$value.Require.Length}}{{end}}]{{ end }}{{ $value.GetType.Type $value.MaybeItemInstance }}{{ end }}
+{{- end }}
+{{- end }}
+}
+
+// Marshal returns a byte array containing the marshaled representation of {{ $typekey }}, or nil and an error.
+func (obj *{{ $typekey }}) Marshal() ([]byte, error) {
+    data := make([]byte, obj.Size())
+    n, err := obj.MarshalTo(data)
+    if err != nil {
+        return nil, errors.Wrap(err, {{ printf "%q" $typekey }})
+    }
+
+    if n != len(data) {
+        return nil, errors.Wrapf(ranger.ErrMarshalLength, "%s %d %d", {{ printf "%q" $typekey }}, n, len(data) )
+    }
+
+    return data, nil
+}
+
+// MarshalTo accepts a byte array with pre-allocated space (see Size()) for {{ $typekey }}.
+// It returns how many bytes it wrote to the array, or 0 and an error.
+func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
+{{/* For efficiency we don't check size here- Marshal() calculates the size to allocate data */}}
+    var n int
+{{ range $value := $type.Fields }}{{ with $key := $value.FieldName }}
+{{- if (isMarshalable $value) }}
+{{- if and $value.Require.MaxLength ($value.GetType.HasLen $value.FieldInstance) }}
+    if len({{ $value.SymbolName }}) > {{ $value.Require.MaxLength }} {
+        return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
+    }
+{{- end }}
+{{ if (eq $value.StructureType "scalar") }}
+{{ template "marshalType" $value }}
+{{ else }}
+    {{- if $value.Match.LengthOfField }}
+    if len({{ $value.SymbolName }}) != len(obj.{{ $value.Match.LengthOfField }}) {
+        return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ $typekey }}: {{ $key }} and {{ $value.Match.LengthOfField }}")
+    }
+    {{- end }}
+    {{- if (and $value.Require.Length (not (or $value.IsNativeType $value.IsInterface))) }}
+    if len({{ $value.SymbolName }}) != {{ $value.Require.Length }} {
+        return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ $typekey }}.{{ $key }}")
+    }{{ end }}
+	{{ if not $value.Require.Length -}}
+    n += binary.PutUvarint(data[n:], uint64(len({{ $value.SymbolName }})))
+	{{- end }}
+    for _, item := range {{ $value.SymbolName }} {
+    {{- template "marshalType" $value}}
+    }
+{{- end }}
+{{- end }}
+{{- end -}}
+{{- end }}
+    return n, nil
+}
+
+// Size returns the computed size of {{ $typekey }} as would-be marshaled
+// without actually marshaling it.
+func (obj *{{ $typekey }}) Size() int {
+    var n int
+{{- range $value := $type.Fields }}{{ with $key := $value.FieldName }}
+{{- if isMarshalable $value }}
+{{- if (eq $value.StructureType "scalar") }}
+    n += {{ $value.GetType.WriteSize $value.FieldInstance }}
+{{- else }}
+    if {{ $value.SymbolName }} == nil {
+        // Cannot calculate the value for missing fields
+        return 0
+    } else {
+        {{ if not $value.FieldInstance.GetLength -}}
+        n += ranger.UvarintSize(uint64(len({{ $value.SymbolName }})))
+        {{- end }}
+        {{ if $value.GetType.ConstantSize $value.ItemInstance }}
+            n += len({{ $value.SymbolName }}) * {{ $value.GetType.WriteSize $value.ItemInstance }}
+        {{- else -}}
+        for _, item := range {{ $value.SymbolName }} {
+            n += {{ $value.GetType.WriteSize $value.ItemInstance }}
+        }{{end}}
+    }
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+    return n
+}
+
+// Unmarshal accepts {{ $typekey }}'s binary representation and transforms the
+// {{ $typekey }} used as the object. It returns any error.
+func (obj *{{ $typekey }}) Unmarshal(data []byte) error {
+    _, err := obj.UnmarshalFrom(data)
+    return err
+}
+
+// UnmarshalFrom is very similar to Unmarshal, but also returns the count of data it read.
+func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
+    var n int
+{{ range $value := $type.Fields }}{{ with $key := $value.FieldName }}
+{{- if (isMarshalable $value) }}
+{{ if (eq $value.StructureType "scalar") }}
+{{ if $value.Embedded -}}
+        {
+            ni, err := {{ $value.SymbolName }}.UnmarshalFrom(data[n:])
+        if err != nil {
+                return 0, errors.Wrap(err, "{{ $value.QualName }}")
+            }
+        n += ni
+        }
+{{- else -}}
+    {{- if (and $value.Require.MaxLength (or (and (not $value.Embedded) (and (not $value.IsInterface) (not $value.IsNativeType))) $value.IsBytesType))}}
+    if len({{ $value.SymbolName }}) > {{ $value.Require.MaxLength }} {
+        return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
+    }
+    {{- end }}
+    {{ template "unmarshalType" $value }}
+{{ end }}
+{{ end }}
+{{- if (eq $value.StructureType "array") }}
+    {
+		{{- if not $value.Require.Length -}}
+        iLen, ni := binary.Uvarint(data[n:])
+        if ni <= 0 {
+                return 0, errors.Wrap(ranger.ErrShortRead, "Obtaining length of {{ $typekey }}.{{ $key }}")
+        }
+        n += ni
+		{{- else -}}
+		iLen := int({{ $value.Require.Length }})
+		{{- end -}}
+        {{- if $value.Require.MaxLength }}
+            if iLen > {{ $value.Require.MaxLength }} {
+            return 0, errors.Wrap(ranger.ErrTooMany, "{{ $typekey }}.{{ $key }}")
+        }
+        {{ end }}
+
+        {{- if $value.Require.Length}}
+        {{ $value.SymbolName }} = [{{$value.Require.Length}}]{{ $value.GetType.Type $value.ItemInstance }}
+        {{- else -}}
+        {{ $value.SymbolName }} = make([]{{ $value.GetType.Type $value.ItemInstance }}, iLen)
+        {{end -}}
+            for i := uint64(0); i < iLen; i++ {
+            {{ if $value.NeedsInitializer }}{{ $value.SymbolName }}[i] = {{ $value.Initializer }}{{end}}
+            {{ template "unmarshalType" $value -}}
+        }
+    }
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{ range $value := $type.Fields }}{{ with $key := $value.FieldName }}
+{{ if (and (eq $value.StructureType "array") $value.Match.LengthOfField) }}
+    if len({{ $value.SymbolName }}) != len(obj.{{ $value.Match.LengthOfField }}) {
+        return 0, errors.Wrap(ranger.ErrLengthMismatch, "{{ $typekey }}: {{ $key }} and {{ $value.Match.LengthOfField }}")
+    }
+{{- end }}
+{{- end -}}
+{{- end -}}
+    return n, nil
+}
+
+{{ end }}{{end}}

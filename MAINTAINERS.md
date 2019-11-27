@@ -51,4 +51,8 @@ this file is modified in master, this should be run:
 
 Only supported for code which supports the go-fuzz toolkit.
 
-- `make fuzz`
+- `make fuzz -j`
+- `make fuzz-ledger`
+- `make fuzz-ranger`
+
+See the Makefile for the plumbing.
