@@ -46,11 +46,7 @@ Fields are specified in a YAML format that you can see here:
 ```yaml
 # package name
 package: ledger
-##
-# max_byte_range is the final length check for all byte array operations. If it
-# will be larger than this, it will abort. The value here is 20 megabytes.
-##
-max_byte_range: 20971520
+#
 # definition of types. each definition consists of a Type name as map key and
 # properties as values. Some properties, like `fields`, are required but others
 # can be specified as well. I had a host of validations here that I thought
@@ -212,11 +208,10 @@ types:
     fields:
       - name: Data
         structure_type: array
-        ##
-        # not sure what the best thing to do to resolve nested arrays is yet.
-        ##
         value_type: "[]byte"
         require:
+          max_length: 20
+        item_require:
           max_length: 20
   GenesisTransaction:
     fields:

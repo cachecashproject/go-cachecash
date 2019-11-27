@@ -2,6 +2,7 @@ package ranger
 
 import (
 	"bytes"
+	"fmt"
 	"go/format"
 	"io/ioutil"
 	"strings"
@@ -22,10 +23,6 @@ type ConfigFormat struct {
 	// map key and properties as values.
 	Types       map[string]*ConfigType `yaml:"types"`
 	nativeTypes map[string]Type
-
-	// MaxByteRange defines how large our byte arrays can be.. if they are larger
-	// an error is returned.
-	MaxByteRange uint64 `yaml:"max_byte_range"`
 
 	// Comment adds a comment to the package declaration.
 	Comment string `yaml:"comment"`
@@ -71,6 +68,10 @@ type ConfigTypeDefinition struct {
 	Match ConfigMatch `yaml:"match,omitempty"`
 	// Require is a list of requirements for validations.
 	Require ConfigRequire `yaml:"require,omitempty"`
+	// ItemRequire defines length/maxlength etc for the elements of an array.
+	// This is a compromise vs a full type system overhaul that will probably be
+	// Ranger v2.
+	ItemRequire *ConfigRequire `yaml:"item_require,omitempty"`
 	// Marshal if false, will not marshal in or out.
 	Marshal *bool `yaml:"marshal,omitempty"`
 	// Embedded defines this field as embedded in the struct.
@@ -79,7 +80,6 @@ type ConfigTypeDefinition struct {
 	// Comment is a field to add a comment to the field's declaration.
 	Comment string `yaml:"comment"`
 
-	MaxByteRange uint64 `yaml:"-"` // populated by parse
 	TypeName     string `yaml:"-"` // populated by parse
 
 	cf *ConfigFormat // populated by editParams
@@ -132,15 +132,12 @@ func Parse(content []byte) (*ConfigFormat, error) {
 
 func (cf *ConfigFormat) validate() error {
 	// TODO: some of these could become type calls (ask the type/field to validate itself)
-	if cf.MaxByteRange == 0 {
-		return errors.New("max_byte_range cannot be 0")
-	}
-
 	for typName, typ := range cf.Types {
 		if len(typ.Fields) > 0 && typ.Interface != nil {
 			return errors.Errorf("%s is invalid: both fields and an interface defined", typName)
 		}
 		for _, field := range typ.Fields {
+			qualName := fmt.Sprintf("%s.%s", typName, field.FieldName)
 			if field.Marshal != nil && !*field.Marshal {
 				continue
 			}
@@ -154,19 +151,22 @@ func (cf *ConfigFormat) validate() error {
 			}
 			if !has_len {
 				if field.Require.MaxLength != 0 || field.Require.Length != 0 {
-					return errors.Errorf("%s.%s is invalid; contains a length but is not a container type", typName, field.FieldName)
+					return errors.Errorf("%s is invalid; contains a length but is not a container type", qualName)
 				}
 			} else if field.Require.MaxLength == 0 && field.Require.Length == 0 {
-				return errors.Errorf("%s.%s is missing a required length parameter: either specify `length` or `max_length`", typName, field.FieldName)
+				return errors.Errorf("%s is missing a required length parameter: either specify `length` or `max_length`", qualName)
 			}
 			if field.Static && (!field.IsNativeType() || field.IsBytesType()) {
-				return errors.Errorf("%s.%s cannot be static: only applicable to integral types", typName, field.FieldName)
+				return errors.Errorf("%s cannot be static: only applicable to integral types", qualName)
 			}
 			if field.Embedded && field.StructureType == "array" {
-				return errors.Errorf("%s.%s cannot both be embedded and an array", typName, field.FieldName)
+				return errors.Errorf("%s cannot both be embedded and an array", qualName)
 			}
 			if field.ValueType == "string" && field.Require.Length != 0 {
-				return errors.Errorf("%s.%s strings cannot have fixed widths", typName, field.FieldName)
+				return errors.Errorf("%s strings cannot have fixed widths", qualName)
+			}
+			if field.StructureType != "array" && field.ItemRequire != nil {
+				return errors.Errorf("%s Array requirements supplied for non-array field", qualName)
 			}
 		}
 	}
@@ -184,7 +184,6 @@ func (cf *ConfigFormat) editParams() *ConfigFormat {
 			}
 
 			field.TypeName = typName
-			field.MaxByteRange = cf.MaxByteRange
 			field.SetConfigFormat(cf)
 		}
 	}

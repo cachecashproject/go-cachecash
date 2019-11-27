@@ -1,11 +1,6 @@
 # package name
 package: pkg
 ##
-# max_byte_range is the final length check for all byte array operations. If it
-# will be larger than this, it will abort. The value here is 20 megabytes.
-##
-max_byte_range: 20971520
-##
 # a comment that goes with the package's godoc. Formed in golint-compatible
 # format.
 comment: "is for testing ranger"
@@ -166,12 +161,11 @@ types:
     fields:
       - name: Data
         structure_type: array
-        ##
-        # not sure what the best thing to do to resolve nested arrays is yet.
-        ##
         value_type: "[]byte"
         require:
           max_length: 20
+        item_require:
+          length: 32
   GenesisTransaction:
     fields:
       - name: Outputs

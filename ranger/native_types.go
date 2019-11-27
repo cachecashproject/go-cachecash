@@ -25,11 +25,15 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 	}
 
 	if value.StructureType == "array" {
-		typ := value.ValueType
-		if !value.IsNativeType() {
-			typ = "*" + typ
+		type_var, err := value.GetType()
+		if err != nil {
+			panic(err) // codegen, not runtime
 		}
-		s := fmt.Sprintf("[]%s{", typ)
+		type_str, err := type_var.Type(value.ItemInstance())
+		if err != nil {
+			panic(err) // codegen, not runtime
+		}
+		s := fmt.Sprintf("[]%s{", type_str)
 		l := value.Require.Length
 		if l == 0 {
 			if value.Require.MaxLength != 0 && value.Require.MaxLength < 10 {
@@ -42,6 +46,10 @@ func (cf *ConfigFormat) randomField(value *ConfigTypeDefinition) string {
 		for i := 0; i < int(l); i++ {
 			v := *value
 			v.StructureType = "scalar"
+			if value.ItemRequire != nil {
+				v.Require.Length = value.ItemRequire.Length
+				v.Require.MaxLength = value.ItemRequire.MaxLength
+			}
 
 			s += cf.randomField(&v) + ","
 		}
@@ -135,14 +143,18 @@ func (cf *ConfigFormat) DefaultValueFor(value *ConfigTypeDefinition) string {
 	}
 
 	if value.StructureType == "array" {
-		ptr := ""
-		if !value.IsNativeType() {
-			ptr = "*"
+		type_var, err := value.GetType()
+		if err != nil {
+			panic(err) // codegen, not runtime
+		}
+		type_str, err := type_var.Type(value.ItemInstance())
+		if err != nil {
+			panic(err) // codegen, not runtime
 		}
 		if value.Require.Length != 0 {
-			return fmt.Sprintf("[%d]%s%s", value.Require.Length, ptr, value.ValueType)
+			return fmt.Sprintf("[%d]%s", value.Require.Length, type_str)
 		}
-		return fmt.Sprintf("make([]%s%s, 0)", ptr, value.ValueType)
+		return fmt.Sprintf("make([]%s, 0)", type_str)
 	}
 
 	switch value.ValueType {
@@ -205,6 +217,10 @@ func (cf *ConfigFormat) populateNativeTypes() {
 // A static sized UInt8
 type UInt8 struct{}
 
+func (typ *UInt8) ConstantSize(instance TypeInstance) (bool, error) {
+	return true, nil
+}
+
 func (typ *UInt8) HasLen(instance TypeInstance) (bool, error) {
 	return instance.HasLen()
 }
@@ -243,6 +259,10 @@ type Integral struct {
 	name       string
 	staticName string
 	mask       string
+}
+
+func (typ *Integral) ConstantSize(instance TypeInstance) (bool, error) {
+	return false, nil
 }
 
 func (typ *Integral) HasLen(instance TypeInstance) (bool, error) {
@@ -301,6 +321,17 @@ type Strings struct {
 	cast string
 }
 
+func (typ *Strings) ConstantSize(instance TypeInstance) (bool, error) {
+	length, err := instance.GetLength()
+	if err != nil {
+		return false, err
+	}
+	if length != 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (typ *Strings) HasLen(instance TypeInstance) (bool, error) {
 	return true, nil
 }
@@ -326,7 +357,10 @@ func (typ *Strings) Read(instance TypeInstance) (string, error) {
 
 func (typ *Strings) Type(instance TypeInstance) (string, error) {
 	// This is where the single class for both string and []byte breaks down a little
-	length := instance.GetLength()
+	length, err := instance.GetLength()
+	if err != nil {
+		return "", err
+	}
 	if typ.name == "string" || length == 0 {
 		return typ.name, nil
 	}
@@ -335,8 +369,12 @@ func (typ *Strings) Type(instance TypeInstance) (string, error) {
 
 func (typ *Strings) WriteSize(instance TypeInstance) (string, error) {
 	symbolName := instance.WriteSymbolName()
-	if instance.GetLength() != 0 {
-		return fmt.Sprintf("int(%d)", instance.GetLength()), nil
+	length, err := instance.GetLength()
+	if err != nil {
+		return "", err
+	}
+	if length != 0 {
+		return fmt.Sprintf("int(%d)", length), nil
 	} else {
 		return fmt.Sprintf("ranger.UvarintSize(uint64(len(%s))) + len(%s)", symbolName, symbolName), nil
 	}
@@ -344,7 +382,11 @@ func (typ *Strings) WriteSize(instance TypeInstance) (string, error) {
 
 func (typ *Strings) Write(instance TypeInstance) (string, error) {
 	symbolName := instance.WriteSymbolName()
-	if instance.GetLength() != 0 {
+	length, err := instance.GetLength()
+	if err != nil {
+		return "", err
+	}
+	if length != 0 {
 		return fmt.Sprintf("n += copy(data[n:], %s[:])", symbolName), nil
 	} else {
 		return fmt.Sprintf("n += binary.PutUvarint(data[n:], uint64(len(%s)))\n    n += copy(data[n:n+len(%s)], %s)",

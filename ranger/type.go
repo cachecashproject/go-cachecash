@@ -13,11 +13,9 @@ type TypeInstance interface {
 	ConfigFormat() *ConfigFormat
 	// What if any Length is configured for 'instance'.
 	// NB: this should move to being part of the type.
-	GetLength() uint64
+	GetLength() (uint64, error)
 	// What max length is configured for 'instance'.
-	// Should fall back to MaxByteRange (though Kevin has asked that that be
-	// removed)
-	GetMaxLength() uint64
+	GetMaxLength() (uint64, error)
 	// Does the type support len()
 	HasLen() (bool, error)
 	// Is this a Reference
@@ -37,6 +35,8 @@ type TypeInstance interface {
 // Built in types cover the basic native types. Users can compose these into
 // custom types.
 type Type interface {
+	// ConstantSize returns true if the type is always the same size
+	ConstantSize(TypeInstance) (bool, error)
 	// Does the type support len()
 	HasLen(TypeInstance) (bool, error)
 	// MinimumSize returns the minimum serialized size of the type.
@@ -76,6 +76,15 @@ func (typ *ConfigType) InterfaceAdapter(instance TypeInstance) TypeInstance {
 		wrapped: instance,
 		typ:     typ,
 	}
+}
+
+func (typ *ConfigType) ConstantSize(instance TypeInstance) (bool, error) {
+	// Strictly speaking we could inspect all fields to see if a deterministic
+	// size can be determined, but since what this actually does is decide
+	// whether to short-circuit emitting the item variable in the loop, and the
+	// generated struct code still uses the variable, that will be a viable
+	// future enhancement rather than a necessary task to do now.
+	return false, nil
 }
 
 // Does the type support len()
@@ -226,7 +235,7 @@ func (instance *InputInstanceAdapter) ConfigFormat() *ConfigFormat {
 	return instance.typ.ConfigFormat()
 }
 
-func (instance *InputInstanceAdapter) GetLength() uint64 {
+func (instance *InputInstanceAdapter) GetLength() (uint64, error) {
 	return instance.wrapped.GetLength()
 }
 
@@ -241,7 +250,7 @@ func (instance *InputInstanceAdapter) IsPointer() bool {
 	return instance.wrapped.IsPointer()
 }
 
-func (instance *InputInstanceAdapter) GetMaxLength() uint64 {
+func (instance *InputInstanceAdapter) GetMaxLength() (uint64, error) {
 	return instance.wrapped.GetMaxLength()
 }
 

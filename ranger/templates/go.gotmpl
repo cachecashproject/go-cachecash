@@ -4,17 +4,10 @@
     - n is the position in the data of the next byte to read
     - the struct (if its a struct pointer) is valid already
     */}}
-    if len(data[n:]) < {{ .GetType.MinimumSize .FieldInstance }} {
+    if len(data[n:]) < {{ .GetType.MinimumSize .MaybeItemInstance }} {
         return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }}")
     }
-    {{ .GetType.Read .FieldInstance }}
-{{- end }}
-
-{{ define "unmarshalTypeItem" }}
-    if len(data[n:]) < {{ .GetType.MinimumSize .ItemInstance }} {
-        return 0, errors.Wrap(ranger.ErrShortRead, "{{ .QualName }}")
-    }
-    {{ .GetType.Read .ItemInstance }}
+    {{ .GetType.Read .MaybeItemInstance }}
 {{- end }}
 
 {{- define "marshalType" }}
@@ -23,39 +16,19 @@
     - n is the position in the data of the next byte to write
     */}}
     {{/* guard for bad references */}}
-    {{if .GetType.PointerType .FieldInstance}}
-    if {{ .FieldInstance.WriteSymbolName }} == nil {
+    {{if .GetType.PointerType .MaybeItemInstance}}
+    if {{ .MaybeItemInstance.WriteSymbolName }} == nil {
         return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }} is nil, cannot serialise")
     }
     {{end}}
     {{/* check for short writes*/}}
-    if len(data[n:]) < {{ .GetType.WriteSize .FieldInstance }} {
+    if len(data[n:]) < {{ .GetType.WriteSize .MaybeItemInstance }} {
         return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
     }
     {{/* write the data */}}
     {{/* increment n */}}
-    {{ .GetType.Write .FieldInstance }}
+    {{ .GetType.Write .MaybeItemInstance }}
 {{- end -}}
-
-{{- define "marshalTypeItem" }}
-{{/* marshall one item in the context of MarshalTo 
-    - data is the data being written to
-    - n is the position in the data of the next byte to write
-    */}}
-    {{/* guard for bad references */}}
-    {{if .GetType.PointerType .ItemInstance}}
-    if {{ .ItemInstance.WriteSymbolName }} == nil {
-        return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }} is nil, cannot serialise")
-    }
-    {{end}}
-    {{/* check for short writes*/}}
-    if len(data[n:]) < {{ .GetType.WriteSize .ItemInstance }} {
-        return 0, errors.Wrap(ranger.ErrShortWrite, "{{ .QualName }}")
-    }
-    {{/* write the data */}}
-    {{/* increment n */}}
-    {{ .GetType.Write .ItemInstance }}
-{{end}}
 
 {{- $outer := . }}
 {{- if .Comment }}
@@ -80,8 +53,8 @@ type {{ $typekey }} struct {
 {{- range $value := $type.Fields -}}{{- with $key := $value.FieldName -}}
     {{- if $value.Comment }}
     // {{ $key }} {{ $value.Comment }}
-    {{- end }} {{/* XXX FieldInstance is used here to fix []byte lengths, fix with #260 */}}
-    {{ $key }} {{ if not $value.Embedded }}{{ if (eq $value.StructureType "array") }}[{{if $value.Require.Length}}{{$value.Require.Length}}{{end}}]{{ end }}{{ $value.GetType.Type $value.FieldInstance }}{{ end }}
+    {{- end }}
+    {{ $key }} {{ if not $value.Embedded }}{{ if (eq $value.StructureType "array") }}[{{if $value.Require.Length}}{{$value.Require.Length}}{{end}}]{{ end }}{{ $value.GetType.Type $value.MaybeItemInstance }}{{ end }}
 {{- end }}
 {{- end }}
 }
@@ -129,7 +102,7 @@ func (obj *{{ $typekey }}) MarshalTo(data []byte) (int, error) {
     n += binary.PutUvarint(data[n:], uint64(len({{ $value.SymbolName }})))
 	{{- end }}
     for _, item := range {{ $value.SymbolName }} {
-    {{- template "marshalTypeItem" $value}}
+    {{- template "marshalType" $value}}
     }
 {{- end }}
 {{- end }}
@@ -151,10 +124,15 @@ func (obj *{{ $typekey }}) Size() int {
         // Cannot calculate the value for missing fields
         return 0
     } else {
+        {{ if not $value.FieldInstance.GetLength -}}
         n += ranger.UvarintSize(uint64(len({{ $value.SymbolName }})))
+        {{- end }}
+        {{ if $value.GetType.ConstantSize $value.ItemInstance }}
+            n += len({{ $value.SymbolName }}) * {{ $value.GetType.WriteSize $value.ItemInstance }}
+        {{- else -}}
         for _, item := range {{ $value.SymbolName }} {
             n += {{ $value.GetType.WriteSize $value.ItemInstance }}
-        }
+        }{{end}}
     }
 {{- end -}}
 {{- end -}}
@@ -216,14 +194,10 @@ func (obj *{{ $typekey }}) UnmarshalFrom(data []byte) (int, error) {
         {{ $value.SymbolName }} = make([]{{ $value.GetType.Type $value.ItemInstance }}, iLen)
         {{end -}}
             for i := uint64(0); i < iLen; i++ {
-            {{- if (not $value.IsNativeType) }}
-                {{ $value.SymbolName }}[i] = &{{ $value.ValueType }}{}
-            {{- else if and (not $value.Require.Length) (eq $value.ValueType "[]byte") }}
-                {{ $value.SymbolName }}[i] = []byte{}
-            {{- end }}
-                {{ template "unmarshalTypeItem" $value -}}
+            {{ if $value.NeedsInitializer }}{{ $value.SymbolName }}[i] = {{ $value.Initializer }}{{end}}
+            {{ template "unmarshalType" $value -}}
         }
-        }
+    }
 {{- end }}
 {{- end }}
 {{- end }}
