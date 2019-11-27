@@ -80,7 +80,7 @@ type ConfigTypeDefinition struct {
 	// Comment is a field to add a comment to the field's declaration.
 	Comment string `yaml:"comment"`
 
-	TypeName     string `yaml:"-"` // populated by parse
+	TypeName string `yaml:"-"` // populated by parse
 
 	cf *ConfigFormat // populated by editParams
 }
