@@ -10,6 +10,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/cache"
 	"github.com/cachecashproject/go-cachecash/cache/migrations"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/log"
 	_ "github.com/mattn/go-sqlite3"
@@ -90,13 +91,14 @@ func mainC() error {
 	}
 	l.Infof("applied %d migrations", n)
 
-	c, err := cache.NewCache(&l.Logger, db, cf, kp)
+	c, err := cache.NewCache(&l.Logger, cf, kp)
 	if err != nil {
 		return err
 	}
 	defer c.Close()
 
-	num, err := c.LoadFromDatabase(context.Background())
+	ctx := dbtx.ContextWithExecutor(context.Background(), db)
+	num, err := c.LoadFromDatabase(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to load state from database")
 	}
@@ -104,7 +106,7 @@ func mainC() error {
 		"len(escrows)": num,
 	}).Info("loaded escrows from database")
 
-	app, err := cache.NewApplication(&l.Logger, c, cf, kp)
+	app, err := cache.NewApplication(&l.Logger, c, db, cf, kp)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}

@@ -221,7 +221,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		}
 		ts.CacheConfigs = append(ts.CacheConfigs, cacheConfig)
 
-		c, err := cache.NewCache(ts.L, nil, cacheConfig, keypair)
+		c, err := cache.NewCache(ts.L, cacheConfig, keypair)
 		if err != nil {
 			return nil, err
 		}
