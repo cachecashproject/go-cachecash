@@ -9,6 +9,7 @@ import (
 
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledgerservice"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/migrations"
@@ -103,7 +104,9 @@ func mainC() error {
 
 	var newTxChan *(chan struct{})
 	if *mineBlocks {
-		storage := ledgerservice.NewLedgerDatabase(db)
+		ctx := dbtx.ContextWithExecutor(context.Background(), db)
+
+		storage := ledgerservice.NewLedgerDatabase()
 		lm, err := ledgerservice.NewLedgerMiner(&l.Logger, storage, kp)
 		if err != nil {
 			return errors.Wrap(err, "failed to create ledger miner")
@@ -111,19 +114,19 @@ func mainC() error {
 		lm.Interval = time.Duration(*mineInterval)
 		newTxChan = &lm.NewTxChan
 
-		err = lm.SetupCurrentBlock(context.Background(), 420000000)
+		err = lm.SetupCurrentBlock(ctx, 420000000)
 		if err != nil {
 			return errors.Wrap(err, "failed to setup current block for mining")
 		}
-		go lm.Run(context.Background())
+		go lm.Run(ctx)
 	}
 
-	ls, err := ledgerservice.NewLedgerService(&l.Logger, db, kp, newTxChan)
+	ls, err := ledgerservice.NewLedgerService(&l.Logger, kp, newTxChan)
 	if err != nil {
 		return errors.Wrap(err, "failed to create ledger service")
 	}
 
-	app, err := ledgerservice.NewApplication(&l.Logger, ls, cf)
+	app, err := ledgerservice.NewApplication(&l.Logger, ls, db, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}

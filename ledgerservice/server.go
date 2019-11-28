@@ -2,6 +2,7 @@ package ledgerservice
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"net/http"
 
@@ -46,10 +47,10 @@ type application struct {
 var _ Application = (*application)(nil)
 
 // XXX: Should this take p as an argument, or be responsible for setting it up?
-func NewApplication(l *logrus.Logger, p *LedgerService, conf *ConfigFile) (Application, error) {
+func NewApplication(l *logrus.Logger, p *LedgerService, db *sql.DB, conf *ConfigFile) (Application, error) {
 	conf.FillDefaults()
 
-	ledgerProtocolServer, err := newLedgerProtocolServer(l, p, conf)
+	ledgerProtocolServer, err := newLedgerProtocolServer(l, p, db, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client protocol server")
 	}
@@ -96,8 +97,8 @@ type ledgerProtocolServer struct {
 
 var _ common.StarterShutdowner = (*ledgerProtocolServer)(nil)
 
-func newLedgerProtocolServer(l *logrus.Logger, s *LedgerService, conf *ConfigFile) (*ledgerProtocolServer, error) {
-	grpcServer := common.NewGRPCServer()
+func newLedgerProtocolServer(l *logrus.Logger, s *LedgerService, db *sql.DB, conf *ConfigFile) (*ledgerProtocolServer, error) {
+	grpcServer := common.NewDBGRPCServer(db)
 	ccmsg.RegisterLedgerServer(grpcServer, &grpcLedgerServer{ledgerService: s})
 
 	httpServer := wrapGrpc(grpcServer)
