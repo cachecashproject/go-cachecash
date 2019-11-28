@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"database/sql"
 	"net"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
@@ -34,8 +35,8 @@ type application struct {
 
 var _ Application = (*application)(nil)
 
-func NewApplication(l *logrus.Logger, b *Bootstrapd, conf *ConfigFile) (Application, error) {
-	bootstrapServer, err := newBootstrapServer(l, b, conf)
+func NewApplication(l *logrus.Logger, b *Bootstrapd, db *sql.DB, conf *ConfigFile) (Application, error) {
+	bootstrapServer, err := newBootstrapServer(l, b, db, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create bootstrap server")
 	}
@@ -81,8 +82,8 @@ type bootstrapServer struct {
 
 var _ common.StarterShutdowner = (*bootstrapServer)(nil)
 
-func newBootstrapServer(l *logrus.Logger, b *Bootstrapd, conf *ConfigFile) (*bootstrapServer, error) {
-	grpcServer := common.NewGRPCServer()
+func newBootstrapServer(l *logrus.Logger, b *Bootstrapd, db *sql.DB, conf *ConfigFile) (*bootstrapServer, error) {
+	grpcServer := common.NewDBGRPCServer(db)
 	ccmsg.RegisterNodeBootstrapdServer(grpcServer, &grpcBootstrapServer{bootstrap: b})
 	grpc_prometheus.Register(grpcServer)
 

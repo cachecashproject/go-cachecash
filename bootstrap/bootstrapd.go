@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/bootstrap/models"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/boil"
@@ -19,14 +19,12 @@ import (
 )
 
 type Bootstrapd struct {
-	l  *logrus.Logger
-	db *sql.DB
+	l *logrus.Logger
 }
 
-func NewBootstrapd(l *logrus.Logger, db *sql.DB) *Bootstrapd {
+func NewBootstrapd(l *logrus.Logger) *Bootstrapd {
 	return &Bootstrapd{
-		l:  l,
-		db: db,
+		l: l,
 	}
 }
 
@@ -103,10 +101,10 @@ func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.
 	*/
 
 	// XXX: ignore duplicate key errors
-	_ = cache.Insert(ctx, b.db, boil.Infer())
+	_ = cache.Insert(ctx, dbtx.ExecutorFromContext(ctx), boil.Infer())
 
 	// force an update in case the insert failed due to a conflict
-	_, err = cache.Update(ctx, b.db, boil.Infer())
+	_, err = cache.Update(ctx, dbtx.ExecutorFromContext(ctx), boil.Infer())
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +119,7 @@ func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.
 
 func (b *Bootstrapd) reapStaleAnnouncements(ctx context.Context) error {
 	deadline := time.Now().Add(-5 * time.Minute)
-	rows, err := models.Caches(qm.Where("last_ping<?", deadline)).DeleteAll(ctx, b.db)
+	rows, err := models.Caches(qm.Where("last_ping<?", deadline)).DeleteAll(ctx, dbtx.ExecutorFromContext(ctx))
 	if err != nil {
 		return err
 	}
@@ -135,7 +133,7 @@ func (b *Bootstrapd) HandleCacheFetchRequest(ctx context.Context, req *ccmsg.Cac
 		return nil, errors.Wrap(err, "failed to reap stale announcement")
 	}
 
-	caches, err := models.Caches().All(ctx, b.db)
+	caches, err := models.Caches().All(ctx, dbtx.ExecutorFromContext(ctx))
 	if err != nil {
 		return nil, err
 	}
