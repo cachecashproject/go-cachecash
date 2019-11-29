@@ -93,7 +93,6 @@ retry:
 	}
 
 	config := server.Config{
-		KVStoreDB:     db,
 		Logger:        &cl.Logger,
 		KVMember:      hostname,
 		IndexName:     flag.Args()[0],
@@ -120,5 +119,5 @@ retry:
 		os.Exit(0)
 	}()
 
-	return ps.Boot(make(chan struct{}))
+	return ps.Boot(make(chan struct{}), db)
 }

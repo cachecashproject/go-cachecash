@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/kv"
 	"github.com/cachecashproject/go-cachecash/kv/migrations"
 	_ "github.com/lib/pq"
@@ -52,23 +53,23 @@ func createDBConn() (*sql.DB, error) {
 }
 
 func doAssert(ctx context.Context, t *testing.T, rl *RateLimiter) {
-	assert.Nil(t, rl.RateLimit("my-key", 1337))
-	assert.Nil(t, rl.RateLimit("my-key", 1337))
-	assert.Equal(t, rl.RateLimit("my-key", 1337), ErrTooMuchData)
+	assert.Nil(t, rl.RateLimit(ctx, "my-key", 1337))
+	assert.Nil(t, rl.RateLimit(ctx, "my-key", 1337))
+	assert.Equal(t, rl.RateLimit(ctx, "my-key", 1337), ErrTooMuchData)
 
 	time.Sleep(3 * time.Second)
 
-	assert.Nil(t, rl.RateLimit("my-key", 1337))
+	assert.Nil(t, rl.RateLimit(ctx, "my-key", 1337))
 }
 
 func TestRateLimitDB(t *testing.T) {
 	l := logrus.New()
 	l.SetLevel(logrus.DebugLevel)
-	ctx := context.Background()
 	db, err := createDBConn()
 	assert.Nil(t, err)
 	wipeTables(db)
-	kv := kv.NewClient("ratelimiter", kv.NewDBDriver(db, l))
+	kv := kv.NewClient("ratelimiter", kv.NewDBDriver(l))
+	ctx := dbtx.ContextWithExecutor(context.Background(), db)
 
 	rl := NewRateLimiter(Config{
 		Logger:          l,

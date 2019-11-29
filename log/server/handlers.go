@@ -85,7 +85,7 @@ func (lp *LogPipe) ReceiveLogs(lf log.LogPipe_ReceiveLogsServer) (retErr error) 
 		size += uint64(dataSize)
 
 		if lp.ratelimiter != nil {
-			if err := lp.ratelimiter.RateLimit(dataRateKey, dataSize); err != nil {
+			if err := lp.ratelimiter.RateLimit(lf.Context(), dataRateKey, dataSize); err != nil {
 				return status.Errorf(codes.Unavailable, err.Error())
 			}
 		}

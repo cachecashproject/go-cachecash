@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/kv/migrations"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -65,31 +66,41 @@ func TestDBCreateDelete(t *testing.T) {
 	wipeTables(db)
 	defer db.Close()
 
-	c := NewClient("basic", NewDBDriver(db, logrus.New()))
+	c := NewClient("basic", NewDBDriver(logrus.New()))
 
-	nonce, err := c.CreateUint64("uint", 0)
+	ctx := dbtx.ContextWithExecutor(context.Background(), db)
+
+	nonce, err := c.CreateUint64(ctx, "uint", 0)
 	assert.Nil(t, err)
 
-	_, err = c.CreateUint64("uint", 0)
+	_, err = c.CreateUint64(ctx, "uint", 0)
 	assert.Equal(t, errors.Cause(err), ErrAlreadySet)
 
-	assert.Nil(t, c.Delete("uint", nonce))
-	assert.Equal(t, c.Delete("uint", nonce), ErrNotEqual)
-	assert.Equal(t, c.Delete("uint", nil), ErrUnsetValue)
+	assert.Nil(t, c.Delete(ctx, "uint", nonce))
+	assert.Equal(t, c.Delete(ctx, "uint", nonce), ErrNotEqual)
+	assert.Equal(t, c.Delete(ctx, "uint", nil), ErrUnsetValue)
 
-	_, err = c.CreateUint64("uint", 0)
+	_, err = c.CreateUint64(ctx, "uint", 0)
 	assert.Nil(t, err)
-	assert.Nil(t, c.Delete("uint", nil))
+	assert.Nil(t, c.Delete(ctx, "uint", nil))
 }
 
 func TestDBBasic(t *testing.T) {
 	db, err := createDBConn()
-	assert.Nil(t, err)
-	wipeTables(db)
+	assert.NoError(t, err)
+	if err != nil {
+		return // no point doing anything without a data base
+	}
 	defer db.Close()
+	err = wipeTables(db)
+	assert.NoError(t, err)
+	if err != nil {
+		return // no point doing anything in a dirty db
+	}
+	ctx := dbtx.ContextWithExecutor(context.Background(), db)
 
-	c := NewClient("basic", NewDBDriver(db, logrus.New()))
-	basicTest(t, c)
+	c := NewClient("basic", NewDBDriver(logrus.New()))
+	basicTest(ctx, t, c)
 }
 
 type nonceTrack struct {
@@ -99,21 +110,29 @@ type nonceTrack struct {
 
 func TestDBCASConcurrentCounter(t *testing.T) {
 	db, err := createDBConn()
-	assert.Nil(t, err)
-	wipeTables(db)
+	assert.NoError(t, err)
+	if err != nil {
+		return // no point doing anything without a data base
+	}
 	defer db.Close()
-	c := NewClient("basic", NewDBDriver(db, logrus.New()))
+	err = wipeTables(db)
+	assert.NoError(t, err)
+	if err != nil {
+		return // no point doing anything in a dirty db
+	}
+	ctx := dbtx.ContextWithExecutor(context.Background(), db)
+	c := NewClient("basic", NewDBDriver(logrus.New()))
 
 	var routines uint64 = 100 // type matters here for the checks at the bottom
 	done := make(chan struct{}, routines)
 	timeout := time.Minute
 
-	nonce, err := c.CreateUint64("check", 0)
+	nonce, err := c.CreateUint64(ctx, "check", 0)
 	assert.Nil(t, err)
 
 	st := &nonceTrack{nonce: nonce}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 
 	go func() {
 		time.Sleep(timeout)
@@ -141,7 +160,7 @@ func TestDBCASConcurrentCounter(t *testing.T) {
 				s := st.nonce
 				st.nonceMutex.RUnlock()
 
-				s2, err := c.CASUint64("check", s, i, i+1)
+				s2, err := c.CASUint64(ctx, "check", s, i, i+1)
 				if err != nil {
 					continue
 				}
@@ -168,7 +187,7 @@ func TestDBCASConcurrentCounter(t *testing.T) {
 	}
 
 end:
-	out, _, err := c.GetUint64("check")
+	out, _, err := c.GetUint64(ctx, "check")
 	assert.Nil(t, err)
 	assert.Equal(t, out, routines)
 	assert.Equal(t, routines, i)
@@ -179,29 +198,30 @@ func TestDBMember(t *testing.T) {
 	assert.Nil(t, err)
 	wipeTables(db)
 	defer db.Close()
+	ctx := dbtx.ContextWithExecutor(context.Background(), db)
 
-	c := NewClient("member1", NewDBDriver(db, logrus.New()))
+	c := NewClient("member1", NewDBDriver(logrus.New()))
 
-	_, _, err = c.GetUint64("one")
+	_, _, err = c.GetUint64(ctx, "one")
 	assert.Equal(t, err, ErrUnsetValue)
-	_, err = c.SetUint64("one", 1)
+	_, err = c.SetUint64(ctx, "one", 1)
 	assert.Nil(t, err)
 
-	out, _, err := c.GetUint64("one")
+	out, _, err := c.GetUint64(ctx, "one")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), out)
 
-	c2 := NewClient("member2", NewDBDriver(db, logrus.New()))
-	_, _, err = c2.GetUint64("one")
+	c2 := NewClient("member2", NewDBDriver(logrus.New()))
+	_, _, err = c2.GetUint64(ctx, "one")
 	assert.Equal(t, err, ErrUnsetValue)
-	_, err = c2.SetUint64("one", 2)
+	_, err = c2.SetUint64(ctx, "one", 2)
 	assert.Nil(t, err)
 
-	out, _, err = c2.GetUint64("one")
+	out, _, err = c2.GetUint64(ctx, "one")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(2), out)
 
-	out, _, err = c.GetUint64("one")
+	out, _, err = c.GetUint64(ctx, "one")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), out)
 }

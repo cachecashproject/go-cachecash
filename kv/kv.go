@@ -3,13 +3,15 @@
 // for a variety of schemas to be represented.
 package kv
 
+import "context"
+
 // Driver describes the driver implementation of a k/v store's operations.
 type Driver interface {
-	Create(string, string, []byte) ([]byte, error)
-	Delete(string, string, []byte) error
-	Get(string, string) ([]byte, []byte, error)
-	Set(string, string, []byte) ([]byte, error)
-	CAS(string, string, []byte, []byte, []byte) ([]byte, error)
+	Create(context.Context, string, string, []byte) ([]byte, error)
+	Delete(context.Context, string, string, []byte) error
+	Get(context.Context, string, string) ([]byte, []byte, error)
+	Set(context.Context, string, string, []byte) ([]byte, error)
+	CAS(context.Context, string, string, []byte, []byte, []byte) ([]byte, error)
 }
 
 // Client is the typical end-user entry into the k/v system. This allows for
@@ -25,27 +27,27 @@ func NewClient(member string, driver Driver) *Client {
 }
 
 // Delete deletes any key, regardless of type; pass a nonce to delete conditionally.
-func (c *Client) Delete(key string, nonce []byte) error {
-	return c.driver.Delete(c.member, key, nonce)
+func (c *Client) Delete(ctx context.Context, key string, nonce []byte) error {
+	return c.driver.Delete(ctx, c.member, key, nonce)
 }
 
 // CreateBytes creates a key for the k/v store as raw bytes.
-func (c *Client) CreateBytes(key string, value []byte) ([]byte, error) {
-	return c.driver.Create(c.member, key, value)
+func (c *Client) CreateBytes(ctx context.Context, key string, value []byte) ([]byte, error) {
+	return c.driver.Create(ctx, c.member, key, value)
 }
 
 // GetBytes retrieves a key for the k/v store as marshaled data. The `out` argument
 // must be a non-nil byte array.
-func (c *Client) GetBytes(key string) ([]byte, []byte, error) {
-	return c.driver.Get(c.member, key)
+func (c *Client) GetBytes(ctx context.Context, key string) ([]byte, []byte, error) {
+	return c.driver.Get(ctx, c.member, key)
 }
 
 // SetBytes sets a value explicitly from marshaled data, with no checking.
-func (c *Client) SetBytes(key string, value []byte) ([]byte, error) {
-	return c.driver.Set(c.member, key, value)
+func (c *Client) SetBytes(ctx context.Context, key string, value []byte) ([]byte, error) {
+	return c.driver.Set(ctx, c.member, key, value)
 }
 
 // CASBytes implements compare-and-swap semantics with marshaled data.
-func (c *Client) CASBytes(key string, nonce, origValue, value []byte) ([]byte, error) {
-	return c.driver.CAS(c.member, key, nonce, origValue, value)
+func (c *Client) CASBytes(ctx context.Context, key string, nonce, origValue, value []byte) ([]byte, error) {
+	return c.driver.CAS(ctx, c.member, key, nonce, origValue, value)
 }

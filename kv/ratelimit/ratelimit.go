@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"context"
 	"encoding/binary"
 	"time"
 
@@ -68,13 +69,13 @@ func decodeCount(buf []byte) (time.Time, int64, error) {
 }
 
 // CreateInitialLimit creates an initial limit based off the Cap value.
-func (rl *RateLimiter) CreateInitialLimit(dataRateKey string) ([]byte, error) {
+func (rl *RateLimiter) CreateInitialLimit(ctx context.Context, dataRateKey string) ([]byte, error) {
 	countBuf, err := encodeCount(rl.Cap)
 	if err != nil {
 		return nil, err
 	}
 
-	nonce, err := rl.kvClient.CreateBytes(dataRateKey, countBuf)
+	nonce, err := rl.kvClient.CreateBytes(ctx, dataRateKey, countBuf)
 	if err != nil && errors.Cause(err) != kv.ErrAlreadySet {
 		return nil, err
 	}
@@ -85,10 +86,10 @@ func (rl *RateLimiter) CreateInitialLimit(dataRateKey string) ([]byte, error) {
 // CASUpdate is a safe method to slam in data. Will return kv.ErrNotEqual if
 // the values do not line up after a few attempts. If unset, it will set the
 // initial value instead of doing the update.
-func (rl *RateLimiter) CASUpdate(dataRateKey string, nonce, byt, newByt []byte) ([]byte, error) {
+func (rl *RateLimiter) CASUpdate(ctx context.Context, dataRateKey string, nonce, byt, newByt []byte) ([]byte, error) {
 	var retries uint
 retry:
-	nonce, err := rl.kvClient.CASBytes(dataRateKey, nonce, byt, newByt)
+	nonce, err := rl.kvClient.CASBytes(ctx, dataRateKey, nonce, byt, newByt)
 	if err == kv.ErrNotEqual {
 		if retries > maxCASRetries {
 			return nil, err
@@ -96,7 +97,7 @@ retry:
 		retries++
 		goto retry
 	} else if err == kv.ErrUnsetValue {
-		return rl.CreateInitialLimit(dataRateKey)
+		return rl.CreateInitialLimit(ctx, dataRateKey)
 	} else if err != nil {
 		return nil, err
 	}
@@ -106,13 +107,13 @@ retry:
 // RateLimit rate limits stuff, provided a dataRateKey and a value. Returns
 // ErrTooMuchData if too much data has tripped the limit. Returns other errors
 // on systemic issues.
-func (rl *RateLimiter) RateLimit(dataRateKey string, size int64) error {
-	_, err := rl.CreateInitialLimit(dataRateKey)
+func (rl *RateLimiter) RateLimit(ctx context.Context, dataRateKey string, size int64) error {
+	_, err := rl.CreateInitialLimit(ctx, dataRateKey)
 	if err != nil {
 		return err
 	}
 
-	byt, nonce, err := rl.kvClient.GetBytes(dataRateKey)
+	byt, nonce, err := rl.kvClient.GetBytes(ctx, dataRateKey)
 	if err != nil {
 		return err
 	}
@@ -137,7 +138,7 @@ func (rl *RateLimiter) RateLimit(dataRateKey string, size int64) error {
 			return err
 		}
 
-		nonce, err = rl.CASUpdate(dataRateKey, nonce, byt, newByt)
+		nonce, err = rl.CASUpdate(ctx, dataRateKey, nonce, byt, newByt)
 		if err != nil {
 			return err
 		}
@@ -157,6 +158,6 @@ func (rl *RateLimiter) RateLimit(dataRateKey string, size int64) error {
 		return err
 	}
 
-	_, err = rl.CASUpdate(dataRateKey, nonce, byt, newByt)
+	_, err = rl.CASUpdate(ctx, dataRateKey, nonce, byt, newByt)
 	return err
 }
