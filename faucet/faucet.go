@@ -42,8 +42,7 @@ func NewFaucet(l *logrus.Logger, wallet *wallet.Wallet) (*Faucet, error) {
 	}, nil
 }
 
-func (f *Faucet) SyncChain() {
-	ctx := context.Background()
+func (f *Faucet) SyncChain(ctx context.Context) {
 	for {
 		err := f.FetchBlocks(ctx)
 		if err != nil {

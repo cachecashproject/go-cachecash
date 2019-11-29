@@ -7,6 +7,7 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledger"
 	"github.com/cachecashproject/go-cachecash/ledger/txscript"
@@ -51,27 +52,26 @@ func (ac *Account) P2WPKHAddress(v ledger.AddressVersion) *ledger.P2WPKHAddress 
 type Wallet struct {
 	l    *logrus.Logger
 	kp   *keypair.KeyPair
-	db   *sql.DB
 	grpc ccmsg.LedgerClient
 }
 
-func NewWallet(l *logrus.Logger, kp *keypair.KeyPair, dbPath string, ledgerAddr string, insecure bool) (*Wallet, error) {
+func NewWallet(l *logrus.Logger, kp *keypair.KeyPair, dbPath string, ledgerAddr string, insecure bool) (*Wallet, *sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to connect to database")
+		return nil, nil, errors.Wrap(err, "failed to connect to database")
 	}
 	l.Info("opened database")
 
 	l.Info("applying migrations")
 	n, err := migrate.Exec(db, "sqlite3", migrations.Migrations, migrate.Up)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to apply migrations")
+		return nil, nil, errors.Wrap(err, "failed to apply migrations")
 	}
 	l.Infof("applied %d migrations", n)
 
 	conn, err := common.GRPCDial(ledgerAddr, insecure)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to dial ledger service")
+		return nil, nil, errors.Wrap(err, "failed to dial ledger service")
 	}
 
 	grpc := ccmsg.NewLedgerClient(conn)
@@ -79,9 +79,8 @@ func NewWallet(l *logrus.Logger, kp *keypair.KeyPair, dbPath string, ledgerAddr 
 	return &Wallet{
 		l:    l,
 		kp:   kp,
-		db:   db,
 		grpc: grpc,
-	}, nil
+	}, db, nil
 }
 
 func (w *Wallet) PublicKey() ed25519.PublicKey {
@@ -89,7 +88,7 @@ func (w *Wallet) PublicKey() ed25519.PublicKey {
 }
 
 func (w *Wallet) BlockHeight(ctx context.Context) (int64, error) {
-	count, err := models.Blocks().Count(ctx, w.db)
+	count, err := models.Blocks().Count(ctx, dbtx.ExecutorFromContext(ctx))
 	return int64(count), err
 }
 
@@ -129,7 +128,7 @@ func (w *Wallet) FetchBlocks(ctx context.Context) error {
 			Height: int64(height),
 			Bytes:  string(bytes),
 		}
-		err = blockModel.Insert(ctx, w.db, boil.Infer())
+		err = blockModel.Insert(ctx, dbtx.ExecutorFromContext(ctx), boil.Infer())
 		if err != nil {
 			return nil
 		}
@@ -188,15 +187,15 @@ func (w *Wallet) AddBlock(ctx context.Context, block ledger.Block) error {
 }
 
 func (w *Wallet) AddUTXO(ctx context.Context, utxo *models.Utxo) error {
-	return utxo.Insert(ctx, w.db, boil.Infer())
+	return utxo.Insert(ctx, dbtx.ExecutorFromContext(ctx), boil.Infer())
 }
 
 func (w *Wallet) GetUTXOs(ctx context.Context) ([]*models.Utxo, error) {
-	return models.Utxos().All(ctx, w.db)
+	return models.Utxos().All(ctx, dbtx.ExecutorFromContext(ctx))
 }
 
 func (w *Wallet) DeleteUTXO(ctx context.Context, utxo ledger.Outpoint) error {
-	_, err := models.Utxos(qm.Where("txid = ? and idx = ?", string(utxo.PreviousTx[:]), utxo.Index)).DeleteAll(ctx, w.db)
+	_, err := models.Utxos(qm.Where("txid = ? and idx = ?", string(utxo.PreviousTx[:]), utxo.Index)).DeleteAll(ctx, dbtx.ExecutorFromContext(ctx))
 	return err
 }
 
@@ -351,8 +350,4 @@ func (w *Wallet) SendCoins(ctx context.Context, target ledger.Address, amount ui
 	}
 
 	return nil
-}
-
-func (w *Wallet) Close() error {
-	return w.db.Close()
 }

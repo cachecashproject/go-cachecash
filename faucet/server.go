@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"context"
+	"database/sql"
 	"net"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
@@ -34,8 +35,8 @@ type application struct {
 var _ Application = (*application)(nil)
 
 // XXX: Should this take p as an argument, or be responsible for setting it up?
-func NewApplication(l *logrus.Logger, p *Faucet, conf *ConfigFile) (Application, error) {
-	faucetServer, err := newFaucetServer(l, p, conf)
+func NewApplication(l *logrus.Logger, p *Faucet, db *sql.DB, conf *ConfigFile) (Application, error) {
+	faucetServer, err := newFaucetServer(l, p, db, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client protocol server")
 	}
@@ -69,8 +70,8 @@ type faucetServer struct {
 
 var _ common.StarterShutdowner = (*faucetServer)(nil)
 
-func newFaucetServer(l *logrus.Logger, f *Faucet, conf *ConfigFile) (*faucetServer, error) {
-	grpcServer := common.NewGRPCServer()
+func newFaucetServer(l *logrus.Logger, f *Faucet, db *sql.DB, conf *ConfigFile) (*faucetServer, error) {
+	grpcServer := common.NewDBGRPCServer(db)
 	ccmsg.RegisterFaucetServer(grpcServer, &grpcFaucetServer{faucet: f})
 
 	return &faucetServer{
