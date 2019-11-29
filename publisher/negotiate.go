@@ -8,6 +8,7 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/pkg/errors"
@@ -159,7 +160,7 @@ func OfferEscrow(ctx context.Context, l *logrus.Logger, offerRequest *ccmsg.Escr
 
 func UpdateKnownCaches(ctx context.Context, s *publisherServer, caches []*ccmsg.CacheDescription) error {
 	for _, cache := range caches {
-		model, err := models.Caches(qm.Where("public_key = ?", cache.PublicKey)).One(ctx, s.publisher.db)
+		model, err := models.Caches(qm.Where("public_key = ?", cache.PublicKey)).One(ctx, dbtx.ExecutorFromContext(ctx))
 		if err != nil {
 			continue
 		}
@@ -180,7 +181,7 @@ func UpdateKnownCaches(ctx context.Context, s *publisherServer, caches []*ccmsg.
 				c.participation.Cache.Port = port
 			}
 
-			_, err = model.Update(ctx, s.publisher.db, boil.Infer())
+			_, err = model.Update(ctx, dbtx.ExecutorFromContext(ctx), boil.Infer())
 			if err != nil {
 				return errors.Wrap(err, "failed to update known cache")
 			}

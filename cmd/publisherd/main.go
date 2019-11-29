@@ -10,6 +10,7 @@ import (
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/log"
 	"github.com/cachecashproject/go-cachecash/publisher"
@@ -121,18 +122,19 @@ func mainC() error {
 	} else {
 		publisherAddr = cf.PublisherAddr
 	}
-	p, err := publisher.NewContentPublisher(&l.Logger, db, publisherAddr, cat, kp.PrivateKey)
+	p, err := publisher.NewContentPublisher(&l.Logger, publisherAddr, cat, kp.PrivateKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to create publisher")
 	}
 
-	num, err := p.LoadFromDatabase(context.Background())
+	ctx := dbtx.ContextWithExecutor(context.Background(), db)
+	num, err := p.LoadFromDatabase(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to load state from database")
 	}
 	l.Infof("loaded %d escrows from database", num)
 
-	app, err := publisher.NewApplication(&l.Logger, p, cf)
+	app, err := publisher.NewApplication(&l.Logger, p, db, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache application")
 	}

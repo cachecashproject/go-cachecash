@@ -8,6 +8,7 @@ import (
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/testutil"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -104,12 +105,12 @@ func (suite *PublisherTestSuite) SetupTest() {
 		WillReturnRows(rows)
 
 	// XXX: Once we start using the catalog, passing nil is going to cause runtime panics.
-	suite.publisher, err = NewContentPublisher(l, db, "", cat, priv)
+	suite.publisher, err = NewContentPublisher(l, "", cat, priv)
 	if err != nil {
 		t.Fatalf("failed to construct publisher: %v", err)
 	}
 
-	_, err = suite.publisher.LoadFromDatabase(context.TODO())
+	_, err = suite.publisher.LoadFromDatabase(dbtx.ContextWithExecutor(context.TODO(), db))
 	assert.Nil(t, err)
 	suite.cachePublicKeys = cachePublicKeys
 }

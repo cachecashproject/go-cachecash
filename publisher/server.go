@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"net/http"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/bootstrap"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
@@ -47,9 +49,9 @@ type application struct {
 var _ Application = (*application)(nil)
 
 // NewApplication constructs a new publisher application.
-func NewApplication(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (Application, error) {
+func NewApplication(l *logrus.Logger, p *ContentPublisher, db *sql.DB, conf *ConfigFile) (Application, error) {
 	// XXX: Should this take p as an argument, or be responsible for setting it up?
-	publisherServer, err := newPublisherServer(l, p, conf)
+	publisherServer, err := newPublisherServer(l, p, db, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create publisher server")
 	}
@@ -93,12 +95,13 @@ type publisherServer struct {
 	grpcServer     *grpc.Server
 	httpServer     *http.Server
 	cancelFunction context.CancelFunc
+	db             *sql.DB
 }
 
 var _ common.StarterShutdowner = (*publisherServer)(nil)
 
-func newPublisherServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile) (*publisherServer, error) {
-	grpcServer := common.NewGRPCServer()
+func newPublisherServer(l *logrus.Logger, p *ContentPublisher, db *sql.DB, conf *ConfigFile) (*publisherServer, error) {
+	grpcServer := common.NewDBGRPCServer(db)
 	ccmsg.RegisterCachePublisherServer(grpcServer, &grpcPublisherServer{publisher: p})
 	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcPublisherServer{publisher: p})
 	grpc_prometheus.Register(grpcServer)
@@ -111,6 +114,7 @@ func newPublisherServer(l *logrus.Logger, p *ContentPublisher, conf *ConfigFile)
 		publisher:  p,
 		grpcServer: grpcServer,
 		httpServer: httpServer,
+		db:         db,
 	}, nil
 }
 
@@ -173,7 +177,7 @@ func (s *publisherServer) Start() error {
 		}
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(dbtx.ContextWithExecutor(context.Background(), s.db))
 	go func() {
 		for {
 			caches, err := bootstrapClient.FetchCaches(ctx)
