@@ -27,13 +27,20 @@ func init() {
 			panic(fmt.Sprintf("please provide %q in the env to test this module", val))
 		}
 	}
+	port, found := os.LookupEnv("PSQL_PORT")
+	if !found {
+		port = "5432"
+	}
+	testDSN = fmt.Sprintf(
+		"host=%s port=%s user=postgres dbname=%s sslmode=disable",
+		os.Getenv("PSQL_HOST"),
+		port,
+		os.Getenv("PSQL_DBNAME"),
+	)
 }
 
-var testDSN = fmt.Sprintf(
-	"host=%s port=5432 user=postgres dbname=%s sslmode=disable",
-	os.Getenv("PSQL_HOST"),
-	os.Getenv("PSQL_DBNAME"),
-)
+var port string
+var testDSN string
 
 func wipeTables(db *sql.DB) error {
 	_, err := db.Exec("truncate table kvstore")
