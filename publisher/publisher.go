@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/sha512"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"math"
@@ -14,6 +13,7 @@ import (
 	"github.com/cachecashproject/go-cachecash/catalog"
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/publisher/models"
 	"github.com/dchest/siphash"
 	_ "github.com/lib/pq"
@@ -59,8 +59,7 @@ type ContentPublisher struct {
 	// The ContentPublisher knows each cache's "inner master key" (aka "master key")?  This is an AES key.
 	// For each cache, it also knows an IP address, a port number, and a public key.
 
-	l  *logrus.Logger
-	db *sql.DB
+	l *logrus.Logger
 
 	signer  ed25519.PrivateKey
 	catalog catalog.ContentCatalog
@@ -79,10 +78,9 @@ type reverseMappingEntry struct {
 	path string
 }
 
-func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherAddr string, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
+func NewContentPublisher(l *logrus.Logger, publisherAddr string, catalog catalog.ContentCatalog, signer ed25519.PrivateKey) (*ContentPublisher, error) {
 	p := &ContentPublisher{
 		l:              l,
-		db:             db,
 		signer:         signer,
 		catalog:        catalog,
 		caches:         make(map[string]*publisherCache),
@@ -94,7 +92,7 @@ func NewContentPublisher(l *logrus.Logger, db *sql.DB, publisherAddr string, cat
 }
 
 func (p *ContentPublisher) LoadFromDatabase(ctx context.Context) (int, error) {
-	escrows, err := models.Escrows().All(ctx, p.db)
+	escrows, err := models.Escrows().All(ctx, dbtx.ExecutorFromContext(ctx))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to query Escrows")
 	}
@@ -107,7 +105,7 @@ func (p *ContentPublisher) LoadFromDatabase(ctx context.Context) (int, error) {
 
 		// The default retrieval order would typically be the ID, but DB
 		// clustering can cause that to vary, so we specify
-		ecs, err := e.EscrowCaches(qm.Load("Cache"), qm.OrderBy(models.EscrowCacheColumns.CacheID)).All(ctx, p.db)
+		ecs, err := e.EscrowCaches(qm.Load("Cache"), qm.OrderBy(models.EscrowCacheColumns.CacheID)).All(ctx, dbtx.ExecutorFromContext(ctx))
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to query EscrowsCaches")
 		}
@@ -598,13 +596,13 @@ func (p *ContentPublisher) AddEscrowToDatabase(ctx context.Context, escrow *Escr
 	if err := p.AddEscrow(escrow); err != nil {
 		return errors.Wrap(err, "failed to add escrow to publisher")
 	}
-	if err := escrow.Inner.Insert(ctx, p.db, boil.Infer()); err != nil {
+	if err := escrow.Inner.Insert(ctx, dbtx.ExecutorFromContext(ctx), boil.Infer()); err != nil {
 		return errors.Wrap(err, "failed to add escrow to database")
 	}
 
 	for _, c := range escrow.Caches {
 		p.l.Info("Adding cache to database: ", c)
-		err := c.Cache.Upsert(ctx, p.db, true, []string{"public_key"}, boil.Whitelist("inetaddr", "port"), boil.Infer())
+		err := c.Cache.Upsert(ctx, dbtx.ExecutorFromContext(ctx), true, []string{"public_key"}, boil.Whitelist("inetaddr", "port"), boil.Infer())
 		if err != nil {
 			return errors.Wrap(err, "failed to add cache to database")
 		}
@@ -614,7 +612,7 @@ func (p *ContentPublisher) AddEscrowToDatabase(ctx context.Context, escrow *Escr
 			CacheID:        c.Cache.ID,
 			InnerMasterKey: c.InnerMasterKey,
 		}
-		err = ec.Upsert(ctx, p.db, false, []string{"escrow_id", "cache_id"}, boil.Whitelist("inner_master_key"), boil.Infer())
+		err = ec.Upsert(ctx, dbtx.ExecutorFromContext(ctx), false, []string{"escrow_id", "cache_id"}, boil.Whitelist("inner_master_key"), boil.Infer())
 		if err != nil {
 			return errors.Wrap(err, "failed to link cache to escrow")
 		}

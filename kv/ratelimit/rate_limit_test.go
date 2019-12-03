@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/kv"
 	"github.com/cachecashproject/go-cachecash/kv/migrations"
 	_ "github.com/lib/pq"
@@ -24,13 +25,20 @@ func init() {
 			panic(fmt.Sprintf("please provide %q in the env to test this module", val))
 		}
 	}
+	port, found := os.LookupEnv("PSQL_PORT")
+	if !found {
+		port = "5432"
+	}
+	testDSN = fmt.Sprintf(
+		"host=%s port=%s user=postgres dbname=%s sslmode=disable",
+		os.Getenv("PSQL_HOST"),
+		port,
+		os.Getenv("PSQL_DBNAME"),
+	)
 }
 
-var testDSN = fmt.Sprintf(
-	"host=%s port=5432 user=postgres dbname=%s sslmode=disable",
-	os.Getenv("PSQL_HOST"),
-	os.Getenv("PSQL_DBNAME"),
-)
+var port string
+var testDSN string
 
 func wipeTables(db *sql.DB) error {
 	_, err := db.Exec("truncate table kvstore")
@@ -52,23 +60,23 @@ func createDBConn() (*sql.DB, error) {
 }
 
 func doAssert(ctx context.Context, t *testing.T, rl *RateLimiter) {
-	assert.Nil(t, rl.RateLimit("my-key", 1337))
-	assert.Nil(t, rl.RateLimit("my-key", 1337))
-	assert.Equal(t, rl.RateLimit("my-key", 1337), ErrTooMuchData)
+	assert.Nil(t, rl.RateLimit(ctx, "my-key", 1337))
+	assert.Nil(t, rl.RateLimit(ctx, "my-key", 1337))
+	assert.Equal(t, rl.RateLimit(ctx, "my-key", 1337), ErrTooMuchData)
 
 	time.Sleep(3 * time.Second)
 
-	assert.Nil(t, rl.RateLimit("my-key", 1337))
+	assert.Nil(t, rl.RateLimit(ctx, "my-key", 1337))
 }
 
 func TestRateLimitDB(t *testing.T) {
 	l := logrus.New()
 	l.SetLevel(logrus.DebugLevel)
-	ctx := context.Background()
 	db, err := createDBConn()
 	assert.Nil(t, err)
 	wipeTables(db)
-	kv := kv.NewClient("ratelimiter", kv.NewDBDriver(db, l))
+	kv := kv.NewClient("ratelimiter", kv.NewDBDriver(l))
+	ctx := dbtx.ContextWithExecutor(context.Background(), db)
 
 	rl := NewRateLimiter(Config{
 		Logger:          l,

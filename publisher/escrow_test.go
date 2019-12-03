@@ -45,7 +45,7 @@ func (suite *EscrowTestSuite) SetupTest() {
 		t.Fatalf("failed to generate keypair: %v", err)
 	}
 	// XXX: Once we start using the catalog, passing nil is going to cause runtime panics.
-	suite.publisher, err = NewContentPublisher(l, nil, "", nil, priv)
+	suite.publisher, err = NewContentPublisher(l, "", nil, priv)
 	if err != nil {
 		t.Fatalf("failed to construct publisher: %v", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/kv"
 	"github.com/cachecashproject/go-cachecash/kv/ratelimit"
 	"github.com/cachecashproject/go-cachecash/log"
@@ -50,7 +51,6 @@ type Config struct {
 	RateLimiting    bool
 	RateLimitConfig ratelimit.Config
 
-	KVStoreDB *sql.DB
 	Processor func(file *FileMeta) error
 }
 
@@ -87,7 +87,7 @@ func NewLogPipe(config Config) (*LogPipe, error) {
 		return nil, err
 	}
 
-	kv := kv.NewClient(config.KVMember, kv.NewDBDriver(config.KVStoreDB, config.Logger))
+	kv := kv.NewClient(config.KVMember, kv.NewDBDriver(config.Logger))
 
 	var processList []*FileMeta
 
@@ -195,10 +195,10 @@ func (lp *LogPipe) Close(timeout time.Duration) error {
 // Boot boots the service. It returns error if it cannot, or if there was an
 // error that occurred while serving. This function will block until the server
 // is stopped. It will close the `ready` channel you pass when ready to serve.
-func (lp *LogPipe) Boot(ready chan struct{}) error {
+func (lp *LogPipe) Boot(ready chan struct{}, db *sql.DB) error {
 	lp.connMutex.Lock()
 
-	lp.server = grpc.NewServer()
+	lp.server = common.NewDBGRPCServer(db)
 	log.RegisterLogPipeServer(lp.server, lp)
 	lp.processContext, lp.processCancel = context.WithCancel(context.Background())
 

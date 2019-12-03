@@ -146,7 +146,10 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 	ts.PublisherPrivateKey = publisherPrivateKey
 
 	// Create the publisher.
-	db, mock, err := sqlmock.New()
+	// XXX: its not clear how, or even if, this is still working. Whats clear is
+	// that there are no database calls being made, as there are no
+	// context-taking functions being called from this script. ?!
+	_, mock, err := sqlmock.New()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create stub database connection")
 	}
@@ -181,7 +184,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		WithArgs(123, 124, 125, 126).
 		WillReturnRows(rows)
 
-	prov, err := publisher.NewContentPublisher(ts.L, db, "", cat, publisherPrivateKey)
+	prov, err := publisher.NewContentPublisher(ts.L, "", cat, publisherPrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +224,7 @@ func GenerateTestScenario(l *logrus.Logger, params *TestScenarioParams) (*TestSc
 		}
 		ts.CacheConfigs = append(ts.CacheConfigs, cacheConfig)
 
-		c, err := cache.NewCache(ts.L, nil, cacheConfig, keypair)
+		c, err := cache.NewCache(ts.L, cacheConfig, keypair)
 		if err != nil {
 			return nil, err
 		}

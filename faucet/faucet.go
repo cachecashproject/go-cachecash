@@ -42,8 +42,7 @@ func NewFaucet(l *logrus.Logger, wallet *wallet.Wallet) (*Faucet, error) {
 	}, nil
 }
 
-func (f *Faucet) SyncChain() {
-	ctx := context.Background()
+func (f *Faucet) SyncChain(ctx context.Context) {
 	for {
 		err := f.FetchBlocks(ctx)
 		if err != nil {
@@ -67,7 +66,7 @@ func (f *Faucet) rateLimit(ctx context.Context, target ed25519.PublicKey, amount
 	incomingIP := peer.Addr.String()[:strings.LastIndex(peer.Addr.String(), ":")]
 	dataRateKey := strings.Join([]string{"rate-limit", "ipaddr", incomingIP}, "/")
 
-	err := f.rateLimiter.RateLimit(dataRateKey, int64(amount))
+	err := f.rateLimiter.RateLimit(ctx, dataRateKey, int64(amount))
 	if err != nil {
 		return errors.Wrap(err, "ip ratelimit failed")
 	}
@@ -76,7 +75,7 @@ func (f *Faucet) rateLimit(ctx context.Context, target ed25519.PublicKey, amount
 	targetAddr := base64.StdEncoding.EncodeToString(target)
 	dataRateKey = strings.Join([]string{"rate-limit", "pubkey", targetAddr}, "/")
 
-	err = f.rateLimiter.RateLimit(dataRateKey, int64(amount))
+	err = f.rateLimiter.RateLimit(ctx, dataRateKey, int64(amount))
 	if err != nil {
 		return errors.Wrap(err, "pubkey ratelimit failed")
 	}

@@ -2,10 +2,10 @@ package ledgerservice
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledger"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
@@ -22,16 +22,14 @@ type LedgerService struct {
 	// For each cache, it also knows an IP address, a port number, and a public key.
 
 	l  *logrus.Logger
-	db *sql.DB
 	kp *keypair.KeyPair
 
 	newTxChan *chan struct{}
 }
 
-func NewLedgerService(l *logrus.Logger, db *sql.DB, kp *keypair.KeyPair, newTxChan *chan struct{}) (*LedgerService, error) {
+func NewLedgerService(l *logrus.Logger, kp *keypair.KeyPair, newTxChan *chan struct{}) (*LedgerService, error) {
 	s := &LedgerService{
 		l:  l,
-		db: db,
 		kp: kp,
 
 		newTxChan: newTxChan,
@@ -40,14 +38,18 @@ func NewLedgerService(l *logrus.Logger, db *sql.DB, kp *keypair.KeyPair, newTxCh
 	return s, nil
 }
 
-func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTransactionRequest) (*ccmsg.PostTransactionResponse, error) {
+func (s *LedgerService) PostTransaction(ctx context.Context, req *ccmsg.PostTransactionRequest) (ptr *ccmsg.PostTransactionResponse, finalErr error) {
 	s.l.WithFields(logrus.Fields{"tx": req.Tx}).Info("PostTransaction")
 
-	dbTx, err := s.db.Begin()
+	ctx, dbTx, err := dbtx.BeginTx(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to begin database transaction")
 	}
-	// defer dbTx.Close() ?
+	defer func() {
+		if finalErr != nil && dbTx != nil {
+			dbTx.Rollback()
+		}
+	}()
 
 	txBytes, err := req.Tx.Marshal()
 	if err != nil {
@@ -187,7 +189,7 @@ func (s *LedgerService) GetBlocks(ctx context.Context, req *ccmsg.GetBlocksReque
 		return nil, errors.Wrap(err, "invalid request")
 	}
 
-	dbBlocks, err := models.Blocks(query.qm...).All(ctx, s.db)
+	dbBlocks, err := models.Blocks(query.qm...).All(ctx, dbtx.ExecutorFromContext(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get blocks")
 	}

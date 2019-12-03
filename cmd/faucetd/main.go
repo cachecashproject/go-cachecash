@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/faucet"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/log"
@@ -64,7 +66,7 @@ func mainC() error {
 		return errors.Wrap(err, "failed to get keypair")
 	}
 
-	wallet, err := wallet.NewWallet(&l.Logger, kp, cf.Database, cf.LedgerAddr, cf.Insecure)
+	wallet, db, err := wallet.NewWallet(&l.Logger, kp, cf.Database, cf.LedgerAddr, cf.Insecure)
 	if err != nil {
 		return errors.Wrap(err, "failed to open wallet")
 	}
@@ -73,10 +75,10 @@ func mainC() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create faucet service")
 	}
+	ctx := dbtx.ContextWithExecutor(context.Background(), db)
+	go fs.SyncChain(ctx)
 
-	go fs.SyncChain()
-
-	app, err := faucet.NewApplication(&l.Logger, fs, cf)
+	app, err := faucet.NewApplication(&l.Logger, fs, db, cf)
 	if err != nil {
 		return errors.Wrap(err, "failed to create faucet application")
 	}

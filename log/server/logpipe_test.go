@@ -14,12 +14,12 @@ import (
 func Test01LogPipeBasic(t *testing.T) {
 	lr := &logRecorder{}
 
-	config, err := makeConfig(lr.recordLogs)
+	config, db, err := makeConfig(lr.recordLogs)
 	assert.Nil(t, err)
 	defer os.RemoveAll(config.SpoolDir)
-	wipeTables(config)
+	wipeTables(db)
 
-	lp, errChan := readyServer(t, config)
+	lp, errChan := readyServer(t, config, db)
 	defer func() {
 		lp.Close(time.Second)
 		assert.Nil(t, <-errChan)
@@ -41,12 +41,12 @@ func Test01LogPipeBasic(t *testing.T) {
 func TestLogPipeSizeLimit(t *testing.T) {
 	lr := &logRecorder{}
 
-	config, err := makeConfig(lr.recordLogs)
+	config, db, err := makeConfig(lr.recordLogs)
 	assert.Nil(t, err)
 	defer os.RemoveAll(config.SpoolDir)
-	wipeTables(config)
+	wipeTables(db)
 
-	lp, errChan := readyServer(t, config)
+	lp, errChan := readyServer(t, config, db)
 	defer func() {
 		lp.Close(time.Second)
 		assert.Nil(t, <-errChan)
@@ -72,7 +72,7 @@ func TestLogPipeSizeLimit(t *testing.T) {
 	lp.config.MaxLogSize = 1024 * 1024
 	ready := make(chan struct{})
 	go func() {
-		errChan <- lp.Boot(ready)
+		errChan <- lp.Boot(ready, db)
 	}()
 	defer lp.Close(time.Second)
 	<-ready
@@ -86,7 +86,7 @@ func TestLogPipeSizeLimit(t *testing.T) {
 func TestLogPipeDataRateLimit(t *testing.T) {
 	lr := &logRecorder{}
 
-	config, err := makeConfig(lr.recordLogs)
+	config, db, err := makeConfig(lr.recordLogs)
 	assert.Nil(t, err)
 
 	// these values make/break the test. tune carefully with DEBUG=1.
@@ -96,9 +96,9 @@ func TestLogPipeDataRateLimit(t *testing.T) {
 	config.RateLimitConfig.RefreshAmount = 32
 	config.RateLimitConfig.RefreshInterval = time.Second
 	defer os.RemoveAll(config.SpoolDir)
-	wipeTables(config)
+	wipeTables(db)
 
-	lp, errChan := readyServer(t, config)
+	lp, errChan := readyServer(t, config, db)
 	defer func() {
 		lp.Close(time.Second)
 		assert.Nil(t, <-errChan)

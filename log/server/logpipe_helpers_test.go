@@ -27,13 +27,20 @@ func init() {
 			panic(fmt.Sprintf("please provide %q in the env to test this module", val))
 		}
 	}
+	port, found := os.LookupEnv("PSQL_PORT")
+	if !found {
+		port = "5432"
+	}
+	testDSN = fmt.Sprintf(
+		"host=%s port=%s user=postgres dbname=%s sslmode=disable",
+		os.Getenv("PSQL_HOST"),
+		port,
+		os.Getenv("PSQL_DBNAME"),
+	)
 }
 
-var testDSN = fmt.Sprintf(
-	"host=%s port=5432 user=postgres dbname=%s sslmode=disable",
-	os.Getenv("PSQL_HOST"),
-	os.Getenv("PSQL_DBNAME"),
-)
+var port string
+var testDSN string
 
 type logRecorder struct {
 	entries []*log.Entry
@@ -134,20 +141,20 @@ func makeClient(lp *LogPipe, dir string) (*log.Client, *logrus.Logger, string, e
 	return c, l, dir, err
 }
 
-func makeConfig(processor func(fm *FileMeta) error) (Config, error) {
+func makeConfig(processor func(fm *FileMeta) error) (Config, *sql.DB, error) {
 	db, err := sql.Open("postgres", testDSN)
 	if err != nil {
-		return Config{}, err
+		return Config{}, nil, err
 	}
 
 	_, err = migrate.Exec(db, "postgres", migrations.Migrations, migrate.Up)
 	if err != nil {
-		return Config{}, err
+		return Config{}, nil, err
 	}
 
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
-		return Config{}, err
+		return Config{}, nil, err
 	}
 
 	logger := logrus.New()
@@ -159,7 +166,6 @@ func makeConfig(processor func(fm *FileMeta) error) (Config, error) {
 	}
 
 	return Config{
-		KVStoreDB:     db,
 		Logger:        logger,
 		KVMember:      "member",
 		IndexName:     "test",
@@ -173,22 +179,22 @@ func makeConfig(processor func(fm *FileMeta) error) (Config, error) {
 			RefreshInterval: time.Second,
 			RefreshAmount:   128,
 		},
-	}, nil
+	}, db, nil
 }
 
-func wipeTables(config Config) error {
-	_, err := config.KVStoreDB.Exec("truncate table kvstore")
+func wipeTables(db *sql.DB) error {
+	_, err := db.Exec("truncate table kvstore")
 	return err
 }
 
-func readyServer(t *testing.T, config Config) (*LogPipe, chan error) {
+func readyServer(t *testing.T, config Config, db *sql.DB) (*LogPipe, chan error) {
 	errChan := make(chan error, 1)
 	ready := make(chan struct{})
 	lp, err := NewLogPipe(config)
 	assert.Nil(t, err)
 
 	go func() {
-		errChan <- lp.Boot(ready)
+		errChan <- lp.Boot(ready, db)
 	}()
 
 	<-ready

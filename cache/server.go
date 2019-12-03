@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"net/http"
 	"strconv"
@@ -49,8 +50,8 @@ type application struct {
 
 var _ Application = (*application)(nil)
 
-func NewApplication(l *logrus.Logger, c *Cache, conf *ConfigFile, kp *keypair.KeyPair) (Application, error) {
-	clientProtocolServer, err := newClientProtocolServer(l, c, conf)
+func NewApplication(l *logrus.Logger, c *Cache, db *sql.DB, conf *ConfigFile, kp *keypair.KeyPair) (Application, error) {
+	clientProtocolServer, err := newClientProtocolServer(l, c, db, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client protocol server")
 	}
@@ -107,8 +108,8 @@ type clientProtocolServer struct {
 
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 
-func newClientProtocolServer(l *logrus.Logger, c *Cache, conf *ConfigFile) (*clientProtocolServer, error) {
-	grpcServer := common.NewGRPCServer()
+func newClientProtocolServer(l *logrus.Logger, c *Cache, db *sql.DB, conf *ConfigFile) (*clientProtocolServer, error) {
+	grpcServer := common.NewDBGRPCServer(db)
 	ccmsg.RegisterClientCacheServer(grpcServer, &grpcClientCacheServer{cache: c})
 	ccmsg.RegisterPublisherCacheServer(grpcServer, &grpcPublisherCacheServer{cache: c})
 	grpc_prometheus.Register(grpcServer)

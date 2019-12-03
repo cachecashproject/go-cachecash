@@ -7,6 +7,7 @@ import (
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/keypair"
 	"github.com/cachecashproject/go-cachecash/ledger"
 	"github.com/cachecashproject/go-cachecash/wallet"
@@ -24,7 +25,6 @@ func main() {
 func withWallet(f func(ctx context.Context, c *cli.Context, l *logrus.Logger, wallet *wallet.Wallet) error) func(c *cli.Context) error {
 	return func(c *cli.Context) error {
 		l := logrus.New()
-		ctx := context.Background()
 
 		keypairPath := c.GlobalString("keypair")
 		ledgerAddr := c.GlobalString("ledger-addr")
@@ -36,10 +36,11 @@ func withWallet(f func(ctx context.Context, c *cli.Context, l *logrus.Logger, wa
 		if err != nil {
 			return errors.Wrap(err, "failed to get keypair")
 		}
-		w, err := wallet.NewWallet(l, kp, dbPath, ledgerAddr, insecure)
+		w, db, err := wallet.NewWallet(l, kp, dbPath, ledgerAddr, insecure)
 		if err != nil {
 			return errors.Wrap(err, "failed to open wallet")
 		}
+		ctx := dbtx.ContextWithExecutor(context.Background(), db)
 
 		if sync {
 			err = w.FetchBlocks(ctx)
@@ -48,7 +49,7 @@ func withWallet(f func(ctx context.Context, c *cli.Context, l *logrus.Logger, wa
 			}
 		}
 
-		defer w.Close()
+		defer db.Close()
 
 		return f(ctx, c, l, w)
 	}

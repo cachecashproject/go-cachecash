@@ -2,6 +2,7 @@ package kv
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"sync"
 )
@@ -67,12 +68,12 @@ func (md *MemoryDriver) set(member, key string, onlyNotExists bool, value []byte
 }
 
 // Create creates a key
-func (md *MemoryDriver) Create(member, key string, value []byte) ([]byte, error) {
+func (md *MemoryDriver) Create(ctx context.Context, member, key string, value []byte) ([]byte, error) {
 	return md.set(member, key, true, value)
 }
 
 // Delete deletes a key with optional CAS nonce
-func (md *MemoryDriver) Delete(member, key string, nonce []byte) error {
+func (md *MemoryDriver) Delete(ctx context.Context, member, key string, nonce []byte) error {
 	md.mutex.Lock()
 	defer md.mutex.Unlock()
 
@@ -103,7 +104,7 @@ func (md *MemoryDriver) Delete(member, key string, nonce []byte) error {
 }
 
 // Get retrieves a value from the k/v store.
-func (md *MemoryDriver) Get(member, key string) ([]byte, []byte, error) {
+func (md *MemoryDriver) Get(ctx context.Context, member, key string) ([]byte, []byte, error) {
 	md.mutex.Lock()
 	defer md.mutex.Unlock()
 
@@ -111,7 +112,7 @@ func (md *MemoryDriver) Get(member, key string) ([]byte, []byte, error) {
 }
 
 // Set sets the value in the k/v store.
-func (md *MemoryDriver) Set(member, key string, value []byte) ([]byte, error) {
+func (md *MemoryDriver) Set(ctx context.Context, member, key string, value []byte) ([]byte, error) {
 	md.mutex.Lock()
 	defer md.mutex.Unlock()
 
@@ -119,7 +120,7 @@ func (md *MemoryDriver) Set(member, key string, value []byte) ([]byte, error) {
 }
 
 // CAS implements compare-and-swap for the k/v store.
-func (md *MemoryDriver) CAS(member, key string, origNonce, origValue, value []byte) ([]byte, error) {
+func (md *MemoryDriver) CAS(ctx context.Context, member, key string, origNonce, origValue, value []byte) ([]byte, error) {
 	md.mutex.Lock()
 	defer md.mutex.Unlock()
 
