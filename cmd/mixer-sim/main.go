@@ -6,15 +6,17 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/cachecashproject/go-cachecash/ccmsg"
-	"github.com/cachecashproject/go-cachecash/common"
-	"github.com/cachecashproject/go-cachecash/keypair"
-	"github.com/cachecashproject/go-cachecash/ledger"
-	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/cachecashproject/go-cachecash/ccmsg"
+	"github.com/cachecashproject/go-cachecash/common"
+	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledger"
+	"github.com/cachecashproject/go-cachecash/ledger/models"
+	"github.com/cachecashproject/go-cachecash/ledger/txscript"
 )
 
 var (
@@ -30,7 +32,7 @@ func main() {
 	common.Main(mainC)
 }
 
-func getFirstGenesisTransaction(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerClient) (*ledger.TXID, []ledger.TransactionOutput, error) {
+func getFirstGenesisTransaction(ctx context.Context, l *logrus.Logger, grpcClient ccmsg.LedgerClient) (*models.TXID, []ledger.TransactionOutput, error) {
 	resp, err := grpcClient.GetBlocks(ctx, &ccmsg.GetBlocksRequest{
 		StartDepth: 0,
 		Limit:      5,
@@ -103,7 +105,7 @@ func (w *wallet) addUTXO(utxo *utxo) {
 }
 
 type utxo struct {
-	txid ledger.TXID
+	txid models.TXID
 	idx  uint8
 
 	value uint32
@@ -116,7 +118,7 @@ type simulator struct {
 	wallets    map[string]*wallet
 }
 
-func (s *simulator) addGenesisWallet(kp *keypair.KeyPair, txid ledger.TXID, prevOutputs []ledger.TransactionOutput) {
+func (s *simulator) addGenesisWallet(kp *keypair.KeyPair, txid models.TXID, prevOutputs []ledger.TransactionOutput) {
 	s.wallets[string(kp.PublicKey)] = &wallet{
 		l:  s.l,
 		kp: kp,

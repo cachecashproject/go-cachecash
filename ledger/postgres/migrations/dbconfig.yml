@@ -1,0 +1,5 @@
+postgres:
+  dialect: postgres
+  datasource: "host=127.0.0.1 port=5434 user=postgres dbname=publisher sslmode=disable"
+  dir: "../migrations/"
+  table: chain-migrations

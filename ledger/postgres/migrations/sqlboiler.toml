@@ -1,0 +1,15 @@
+[psql]
+  host = "127.0.0.1"
+  port = 5434
+  user = "postgres"
+  dbname = "publisher"
+  sslmode = "disable"
+  blacklist = ["chain-migrations"]
+
+[[types]]
+  [types.match]
+    name = "txid"
+  [types.replace]
+    type = "models.TXID"
+  [types.imports]
+    third_party = ['"github.com/cachecashproject/go-cachecash/ledger/models"']

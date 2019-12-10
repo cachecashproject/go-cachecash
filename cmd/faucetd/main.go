@@ -4,16 +4,18 @@ import (
 	"context"
 	"flag"
 
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+
 	cachecash "github.com/cachecashproject/go-cachecash"
 	"github.com/cachecashproject/go-cachecash/common"
 	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/faucet"
 	"github.com/cachecashproject/go-cachecash/keypair"
+	"github.com/cachecashproject/go-cachecash/ledgerclient"
 	"github.com/cachecashproject/go-cachecash/log"
 	"github.com/cachecashproject/go-cachecash/wallet"
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -36,6 +38,7 @@ func loadConfigFile(l *logrus.Logger, path string) (*faucet.ConfigFile, error) {
 	conf.FaucetAddr = p.GetString("faucet_addr", ":7781")
 	conf.LedgerAddr = p.GetString("ledger_addr", ":7778")
 	conf.Database = p.GetString("database", "faucet-wallet.db")
+	conf.SyncInterval = p.GetSeconds("sync-interval", ledgerclient.DEFAULT_SYNC_INTERVAL)
 	conf.Insecure = p.GetInsecure()
 
 	return &conf, nil
@@ -76,7 +79,8 @@ func mainC() error {
 		return errors.Wrap(err, "failed to create faucet service")
 	}
 	ctx := dbtx.ContextWithExecutor(context.Background(), db)
-	go fs.SyncChain(ctx)
+
+	go fs.SyncChain(ctx, cf.SyncInterval)
 
 	app, err := faucet.NewApplication(&l.Logger, fs, db, cf)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net"
+	"time"
 
 	"github.com/cachecashproject/go-cachecash/ccmsg"
 	"github.com/cachecashproject/go-cachecash/common"
@@ -20,8 +21,9 @@ type ConfigFile struct {
 	FaucetAddr string
 	LedgerAddr string
 
-	Database string `json:"database"`
-	Insecure bool   `json:"insecure"`
+	Database     string        `json:"database"`
+	SyncInterval time.Duration `json:"sync_interval"`
+	Insecure     bool          `json:"insecure"`
 }
 
 type application struct {

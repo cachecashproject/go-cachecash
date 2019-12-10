@@ -5,11 +5,12 @@ import (
 	"errors"
 
 	"github.com/cachecashproject/go-cachecash/ledger"
+	ledger_models "github.com/cachecashproject/go-cachecash/ledger/models"
 	"github.com/cachecashproject/go-cachecash/ledgerservice/models"
 )
 
 type LedgerMemory struct {
-	mempool map[ledger.TXID]*models.MempoolTransaction
+	mempool map[ledger_models.TXID]*models.MempoolTransaction
 	utxos   map[ledger.OutpointKey]*models.Utxo
 }
 
@@ -17,7 +18,7 @@ var _ LedgerStorage = (*LedgerMemory)(nil)
 
 func NewLedgerMemory() *LedgerMemory {
 	return &LedgerMemory{
-		mempool: map[ledger.TXID]*models.MempoolTransaction{},
+		mempool: map[ledger_models.TXID]*models.MempoolTransaction{},
 		utxos:   map[ledger.OutpointKey]*models.Utxo{},
 	}
 }
@@ -49,12 +50,12 @@ func (m *LedgerMemory) InsertBlock(ctx context.Context, blockModel *models.Block
 	return nil
 }
 
-func (m *LedgerMemory) DeleteMempoolTX(ctx context.Context, txid ledger.TXID) error {
+func (m *LedgerMemory) DeleteMempoolTX(ctx context.Context, txid ledger_models.TXID) error {
 	delete(m.mempool, txid)
 	return nil
 }
 
-func (m *LedgerMemory) UpdateAuditLog(ctx context.Context, txid ledger.TXID, status string) error {
+func (m *LedgerMemory) UpdateAuditLog(ctx context.Context, txid ledger_models.TXID, status string) error {
 	return nil
 }
 
@@ -73,7 +74,7 @@ func (m *LedgerMemory) InsertUtxo(ctx context.Context, utxo *models.Utxo) error 
 }
 
 func (m *LedgerMemory) QueueTX(ctx context.Context, tx *models.MempoolTransaction) error {
-	txid := ledger.TXID{}
+	txid := ledger_models.TXID{}
 	copy(txid[:], tx.Txid[0])
 	m.mempool[txid] = tx
 	return nil

@@ -1,0 +1,11 @@
+[sqlite3]
+  dbname = "./chain.db"
+  blacklist = ["chain-migrations"]
+
+[[types]]
+  [types.match]
+    name = "txid"
+  [types.replace]
+    type = "models.TXID"
+  [types.imports]
+    third_party = ['"github.com/cachecashproject/go-cachecash/ledger/models"']
