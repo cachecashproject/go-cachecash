@@ -93,3 +93,29 @@ func (r *Replicator) FetchBlocks(ctx context.Context) error {
 
 	return nil
 }
+
+// IsSynced queries the ledger for the highest blocked and compares that to the local DB to report whether the chain is
+// up to date or not. 'synced' is poorly defined for a distributed system, but here it means that this local database
+// has replicated all the information that the ledger it is connected to has to give it.
+func (r *Replicator) IsSynced(ctx context.Context) (bool, error) {
+	r.l.Info("Fetching latest block info")
+	resp, err := r.GrpcClient.GetBlocks(ctx, &ccmsg.GetBlocksRequest{
+		StartDepth: int64(-1),
+		Limit:      1,
+	})
+	if err != nil {
+		return false, errors.Wrap(err, "failed to fetch blocks")
+	}
+
+	if len(resp.Blocks) == 0 {
+		return false, errors.New("Empty chain")
+	}
+	_, err = r.storage.GetBlock(ctx, resp.Blocks[0].BlockID())
+	if err != nil {
+		if err == ledger.ErrBlockNotFound {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "failed to check for block")
+	}
+	return true, nil
+}

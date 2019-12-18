@@ -103,7 +103,9 @@ func (store *ChainStorageSQL) GetBlock(ctx context.Context, blkid BlockID) (*Blo
 	query := qm.Where("blockid = ?", blkid[:])
 	executor := dbtx.ExecutorFromContext(ctx)
 	dbBlock, err := store.OneBlock(ctx, executor, query)
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, 0, ErrBlockNotFound
+	} else if err != nil {
 		return nil, 0, err
 	}
 	block := &Block{}

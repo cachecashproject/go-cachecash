@@ -86,7 +86,7 @@ push-base-image: base-image
 pull-base-image:
 	docker pull cachecash/go-cachecash-build:latest
 
-gen:
+gen: all
 	@echo >&2
 	@echo >&2 'If this errors, `make pull-base-image`'
 	@echo >&2

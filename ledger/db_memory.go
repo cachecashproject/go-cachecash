@@ -2,7 +2,6 @@ package ledger
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -34,7 +33,7 @@ func (cdb *ChainStorageMemory) Height(ctx context.Context) (uint64, error) {
 func (cdb *ChainStorageMemory) GetBlock(ctx context.Context, blkid BlockID) (*Block, uint64, error) {
 	blk, ok := cdb.blocks[blkid]
 	if !ok {
-		return nil, 0, fmt.Errorf("block not in database: %v", blkid)
+		return nil, 0, ErrBlockNotFound
 	}
 	return blk, 0, nil
 }

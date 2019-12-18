@@ -119,7 +119,8 @@ func (m *PostTransactionResponse) GetError() *Error {
 // dataset. Blocks are returned in height and block id ascending order, unless start_depth is -1, in which case blocks
 // are returned in height and block id descending order.
 //
-// Returning blocks in descending order is a blockexplorer support feature; long
+// Returning blocks in descending order is a blockexplorer support feature as
+// well as being useful mechanism for determining whether a replica is up to date; long
 // term block explorer will likely switch to replicating rather than having the
 // ledger support the browser-friendly index, but as a short term priority we
 // want to deliver the explorer to people right now. tl;dr: please do not make

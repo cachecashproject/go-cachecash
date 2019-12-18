@@ -3,12 +3,17 @@ package ledger
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/pkg/errors"
 
 	"github.com/cachecashproject/go-cachecash/dbtx"
 	"github.com/cachecashproject/go-cachecash/ledger/models"
 	"github.com/cachecashproject/go-cachecash/ledger/txscript"
+)
+
+var (
+	ErrBlockNotFound = fmt.Errorf("chaindb: block not found")
 )
 
 // Position is the location of a transaction: the Nth transaction in a specific block.
@@ -139,6 +144,11 @@ func (chain *Database) AddBlock(ctx context.Context, blk *Block) (height uint64,
 	}
 
 	return height, nil
+}
+
+func (chain *Database) GetBlock(ctx context.Context, blockID BlockID) (*Block, error) {
+	blk, _, err := chain.storage.GetBlock(ctx, blockID)
+	return blk, err
 }
 
 type txVisitor func(tx *Transaction) (bool, error)
