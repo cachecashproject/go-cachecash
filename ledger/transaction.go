@@ -815,7 +815,7 @@ type GlobalConfigTransaction struct {
 
 	ListUpdates []GlobalConfigListUpdate
 
-	// SigPublicKey is a 32-byte Ed25519 public key.  Must be one of the keys listed in theGCP `GlobalConfigKeys`.
+	// SigPublicKey is a 32-byte Ed25519 public key.  Must be one of the keys listed in the GCP `GlobalConfigKeys`.
 	SigPublicKey []byte
 
 	// Signature is a 64-byte Ed25519 signature over the transaction produced by the private key corresponding to

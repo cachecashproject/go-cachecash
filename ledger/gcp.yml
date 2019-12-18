@@ -1,0 +1,7 @@
+version: 1
+parameters:
+  - name: GlobalConfigSigningKeys
+    category: list
+    default:
+      - ""
+    type: "[]byte"

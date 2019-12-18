@@ -13,12 +13,14 @@ package ledger
 // - Delete of element that doesn't exist
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/crypto/ed25519"
 )
 
 type GlobalConfigTestSuite struct {
@@ -268,4 +270,63 @@ func (suite *GlobalConfigTestSuite) TestListDeletion() {
 		assert.Equal(t, tt.expected, st2.Lists["FuzzyWombats"],
 			fmt.Sprintf("[case %v] unexpected value for list after applying update", i))
 	}
+}
+
+func TestPatchithTransaction(t *testing.T) {
+	var err error
+	gc := NewGlobalConfigState()
+	gc.Lists["GlobalConfigSigningKeys"] = make([][]byte, 1)
+	gc.Lists["GlobalConfigSigningKeys"][0] = []byte("123456")
+	assert.NoError(t, err)
+
+	assert.Nil(t, err)
+
+	// The schema this operates on is code generated.
+	i := []byte(`
+delay: 5
+parameters:
+- name:	GlobalConfigSigningKeys
+  deletions:
+  - 0
+  insertions:
+  - index: 0
+    value: YWJjZGVmZwo=
+`)
+	p, err := NewGlobalConfigPatch(i)
+	assert.Nil(t, err)
+
+	ctx := context.Background()
+
+	// Make a genesis block
+	pubCLA, privCLA, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("failed to generate CLA keypair: %v", err)
+	}
+	_ = pubCLA
+
+	// Block 0
+	txs := []*Transaction{
+		{
+			Version: 0x01,
+			Flags:   0x0000,
+			Body: &GenesisTransaction{
+				Outputs: []TransactionOutput{},
+			},
+		},
+	}
+
+	block0, err := NewBlock(privCLA, BlockID{}, txs)
+	assert.NoError(t, err)
+	db := NewDatabase(NewChainStorageMemory(block0))
+	gct, err := p.ToTransaction(ctx, db)
+	assert.Nil(t, err)
+
+	gc, err = gc.Apply(gct)
+	assert.Nil(t, err)
+
+	gcsy, err := gc.ToYAML()
+	assert.Nil(t, err)
+
+	assert.Equal(t, gcsy.Lists["GlobalConfigSigningKeys"][0], "YWJjZGVmZwo=")
+	assert.Equal(t, len(gcsy.Lists["GlobalConfigSigningKeys"]), 1)
 }
