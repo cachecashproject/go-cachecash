@@ -39,6 +39,13 @@ all:
 
 restart: stop build start
 
+cachecash-curl: 
+	GO111MODULE=on GOBIN=$(PREFIX)/bin go install -mod=vendor \
+		-gcflags="all=-trimpath=${GOPATH}" \
+		-asmflags="all=-trimpath=${GOPATH}" \
+		-ldflags="-X github.com/cachecashproject/go-cachecash.CurrentVersion=$(GIT_VERSION)" \
+		./cmd/cachecash-curl/...
+
 stop:
 	docker-compose rm -f
 
