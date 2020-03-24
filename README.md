@@ -97,7 +97,7 @@ docker logs "daemon name"
 ## Build tools
 
 After the network is up locally, you need tools to test the network.
-In this case we're going to build the `cachecash-curl` program.'cachecash-curl' is a tool that tests the ability to transfer data between publisher and client.
+In this case we're going to build the `cachecash-curl` program. 'cachecash-curl' is a tool that tests the ability to transfer data between publisher and client.
 
 Run:
 
