@@ -105,7 +105,7 @@ Run:
 make cachecash-curl
 ```
 
-## Test Network Locally
+## Test CacheCash Content Retrieval Locally
 
 We're going to use the `cachecash-curl` program at local publisher to try fetch data. The resulting file
 (here, `output.bin`) should exactly match the original artifact (here, `testdata/content/file0.bin`).
