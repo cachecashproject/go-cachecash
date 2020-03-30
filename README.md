@@ -111,9 +111,10 @@ We're going to use the `cachecash-curl` program at local publisher to try fetch 
 (here, `output.bin`) should exactly match the original artifact (here, `testdata/content/file0.bin`).
 
 The `-logLevel` option can be changed to control output verbosity for each program.
+And we have to diable TLS checking on local running cachecash-curl, so we have to set CACHECASH_INSECURE=true.
 
 ```bash
-./bin/cachecash-curl -o output.bin -logLevel=debug -trace http://localhost:14268 cachecash://localhost:7070/file0.bin
+CACHECASH_INSECURE=true ./bin/cachecash-curl -o output.bin -logLevel=debug -trace http://localhost:14268 cachecash://localhost:7070/file0.bin
 diff output.bin testdata/content/file0.bin
 ```
 
