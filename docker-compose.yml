@@ -31,6 +31,7 @@ services:
     image: postgres:11
     environment:
     - POSTGRES_DB=kvstore
+    - POSTGRES_HOST_AUTH_METHOD=trust
 
   ledger:
     image: cachecash/go-cachecash
@@ -51,6 +52,7 @@ services:
     - 5433:5432
     environment:
     - POSTGRES_DB=ledger
+    - POSTGRES_HOST_AUTH_METHOD=trust
 
   upstream:
     image: nginx
@@ -114,6 +116,7 @@ services:
     - 5434:5432
     environment:
     - POSTGRES_DB=publisher
+    - POSTGRES_HOST_AUTH_METHOD=trust
 
   bootstrapd:
     image: cachecash/go-cachecash
