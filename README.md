@@ -5,6 +5,8 @@
 [![Coverage Status](https://coveralls.io/repos/github/cachecashproject/go-cachecash/badge.svg?t=0cosgH)](https://coveralls.io/github/cachecashproject/go-cachecash)
 
 Go-Cachecash is a project focusing on decentralized content distribution.
+## Please Notice: This implementation of cachecash runs best on Linux. Trying to run this software on other kinds of platform might generate unexpected errors.
+
 ## Cloning the git repository
 
 This repository uses `git-lfs` for large test data artifacts, among other things; you'll need to install it:
@@ -78,8 +80,8 @@ docker-compose up
 
 It's going to take 1-2 minutes until everything is initialized, this includes the postgres initialization, the caches
 announcing themselves to the bootstrap service, the publisher requesting a list of all caches from the bootstrap service
-and finally the publisher and the caches negotiating an escrow, and a distributed tracing backend store. 
-
+and finally the publisher and the caches negotiating an escrow, and a distributed tracing backend store. After the escrow
+is setup you can download from the caches using `cachecash-curl` or [typescript-cachecash]:
 ## Debug Cachecash network
 If you are having trouble launching the network after building, or if the daemons keep showing errors, you need to examine the network by pull up the network in the background and see the docker containers' status.
 Use the following command to run the network in background.
