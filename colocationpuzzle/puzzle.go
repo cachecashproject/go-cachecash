@@ -7,8 +7,8 @@ package colocationpuzzle
 import (
 	"bytes"
 	"crypto/aes"
-	"crypto/sha512"
 	"crypto/md5"
+	"crypto/sha512"
 	"encoding/binary"
 	"math/rand"
 	"time"
@@ -207,7 +207,7 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 
 		prevLoc = curLoc
 		//digest := sha512.Sum384(append(curLoc, piece...))
-		digest := md5.sum(append(curLoc, piece...))
+		digest := md5.Sum(append(curLoc, piece...))
 		curLoc = digest[:]
 		offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 	}
