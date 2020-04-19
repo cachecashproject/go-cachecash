@@ -7,7 +7,6 @@ package colocationpuzzle
 import (
 	"bytes"
 	"crypto/aes"
-	"crypto/md5"
 	"crypto/sha512"
 	"encoding/binary"
 	"math/rand"
@@ -194,8 +193,8 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 
 	// Initializing this to all zeroes allows this code to function with two rounds and a single cache.  Obviously, in
 	// that situation the puzzle does not do anything anyhow, so having a predictable secret does not hurt us.
-	//curLoc = make([]byte, sha512.Size384)
-	curLoc = make([]byte, md5.Size)
+	curLoc = make([]byte, sha512.Size384)
+	//curLoc = make([]byte, md5.Size)
 
 	for i := uint32(0); i < uint32((rounds*chunkQty)-1); i++ {
 		chunkIdx := i % chunkQty
@@ -207,8 +206,8 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 		// assert len(piece) == aes.BlockSize
 
 		prevLoc = curLoc
-		//digest := sha512.Sum384(append(curLoc, piece...))
-		digest := md5.Sum(append(curLoc, piece...))
+		digest := sha512.Sum384(append(curLoc, piece...))
+		//digest := md5.Sum(append(curLoc, piece...))
 		curLoc = digest[:]
 		offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 	}
