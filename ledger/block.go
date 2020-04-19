@@ -1,7 +1,6 @@
 package ledger
 
 import (
-	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
@@ -171,10 +170,8 @@ func (block *Block) BlockID() BlockID {
 	binary.LittleEndian.PutUint32(buf, block.Header.Timestamp)
 	buf = append(buf, a...)
 
-	//d := sha256.Sum256(buf)
-	//d = sha256.Sum256(d[:])
-	d := md5.Sum(buf)
-	d = md5.Sum(d[:])
+	d := sha256.Sum256(buf)
+	d = sha256.Sum256(d[:])
 	return BlockID(d)
 }
 
@@ -189,10 +186,8 @@ func (block *Block) CanonicalDigest() []byte {
 	n += copy(buf[n:], block.Header.MerkleRoot)
 	binary.LittleEndian.PutUint32(buf[n:], block.Header.Timestamp)
 
-	//d := sha256.Sum256(buf)
-	//d = sha256.Sum256(d[:])
-	d := md5.Sum(buf)
-	d = md5.Sum(d[:])
+	d := sha256.Sum256(buf)
+	d = sha256.Sum256(d[:])
 	return d[:]
 }
 
@@ -223,10 +218,8 @@ func (block *Block) MerkleRoot() ([]byte, error) {
 			}
 			hi := append(dd[i*2], dd[bi]...)
 
-			//d := sha256.Sum256(hi)
-			//d = sha256.Sum256(d[:])
-			d := md5.Sum(hi)
-			d = md5.Sum(d[:])
+			d := sha256.Sum256(hi)
+			d = sha256.Sum256(d[:])
 			next[i] = d[:]
 		}
 		dd = next

@@ -2,7 +2,8 @@ package publisher
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"fmt"
 	"math"
@@ -519,8 +520,8 @@ func (p *ContentPublisher) getChunkID(obj *catalog.ObjectMetadata, chunkIdx uint
 	}
 
 	var id common.ChunkID
-	//digest := sha512.Sum384(data)
-	digest := md5.Sum(data)
+	digest := sha512.Sum384(data)
+	//digest := md5.Sum(data)
 	copy(id[:], digest[0:common.ChunkIDSize])
 
 	p.l.WithFields(logrus.Fields{
@@ -625,8 +626,8 @@ func (p *ContentPublisher) AddEscrowToDatabase(ctx context.Context, escrow *Escr
 // problems.  We also must account for the fact that the object stored at a path may change (e.g. when the mtime/etag
 // are updated).
 func generateObjectID(path string) (common.ObjectID, error) {
-	//digest := sha256.Sum256([]byte(path))
-	digest := md5.Sum([]byte(path))
+	digest := sha256.Sum256([]byte(path))
+	//digest := md5.Sum([]byte(path))
 	return common.BytesToObjectID(digest[0:common.ObjectIDSize])
 }
 
