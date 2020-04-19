@@ -521,7 +521,6 @@ func (p *ContentPublisher) getChunkID(obj *catalog.ObjectMetadata, chunkIdx uint
 
 	var id common.ChunkID
 	digest := sha512.Sum384(data)
-	//digest := md5.Sum(data)
 	copy(id[:], digest[0:common.ChunkIDSize])
 
 	p.l.WithFields(logrus.Fields{
@@ -627,7 +626,6 @@ func (p *ContentPublisher) AddEscrowToDatabase(ctx context.Context, escrow *Escr
 // are updated).
 func generateObjectID(path string) (common.ObjectID, error) {
 	digest := sha256.Sum256([]byte(path))
-	//digest := md5.Sum([]byte(path))
 	return common.BytesToObjectID(digest[0:common.ObjectIDSize])
 }
 

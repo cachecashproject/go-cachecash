@@ -206,6 +206,7 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 
 		prevLoc = curLoc
 		digest := sha512.Sum384(append(curLoc, piece...))
+		//digest := md5.sum(append(curLoc, piece...))
 		curLoc = digest[:]
 		offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 	}
