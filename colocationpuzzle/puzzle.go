@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/md5"
+	"crypto/sha512"
 	"encoding/binary"
 	"math/rand"
 	"time"
@@ -125,12 +126,12 @@ func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, err
 	if len(chunks) == 0 {
 		return nil, 0, errors.New("must have at least one chunk")
 	}
-	// if len(goal) != sha512.Size384 {
-	// 	return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
-	// }
-	if len(goal) != md5.Size {
-		return nil, 0, errors.New("goal value must be a md5 size digest; its length is wrong")
+	if len(goal) != sha512.Size384 {
+		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
+	// if len(goal) != md5.Size {
+	// 	return nil, 0, errors.New("goal value must be a md5 size digest; its length is wrong")
+	// }
 	if params.Rounds*uint32(len(chunks)) <= 1 {
 		// XXX: Using a single round and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
 		return nil, 0, errors.New("must use at least two puzzle iterations; increase number of rounds or caches")
@@ -163,12 +164,12 @@ func VerifySolution(params Parameters, chunks [][]byte, goal []byte, offset uint
 	if len(chunks) == 0 {
 		return nil, 0, errors.New("must have at least one chunk")
 	}
-	// if len(goal) != sha512.Size384 {
-	// 	return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
-	// }
-	if len(goal) != md5.Size {
-		return nil, 0, errors.New("goal value must be a md5 size digest; its length is wrong")
+	if len(goal) != sha512.Size384 {
+		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
+	// if len(goal) != md5.Size {
+	// 	return nil, 0, errors.New("goal value must be a md5 size digest; its length is wrong")
+	// }
 	if params.Rounds*uint32(len(chunks)) <= 1 {
 		// XXX: Using a single ruond and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
 		return nil, 0, errors.New("must use at least two puzzle iterations; increase number of rounds or caches")
@@ -212,8 +213,8 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 		// assert len(piece) == aes.BlockSize
 
 		prevLoc = curLoc
-		//digest := sha512.Sum384(append(curLoc, piece...))
-		digest := md5.Sum(append(curLoc, piece...))
+		digest := sha512.Sum384(append(curLoc, piece...))
+		//digest := md5.Sum(append(curLoc, piece...))
 		curLoc = digest[:]
 		offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 	}

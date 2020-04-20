@@ -3,7 +3,7 @@ package colocationpuzzle
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/sha512"
+	"crypto/md5"
 	"fmt"
 	"testing"
 
@@ -92,9 +92,10 @@ func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEn
 		return
 	}
 
-	assert.Equal(t, sha512.Size384, len(puzzle.Secret), "unexpected secret length")
-	assert.Equal(t, sha512.Size384, len(puzzle.Goal), "unxpected goal length")
-
+	// assert.Equal(t, sha512.Size384, len(puzzle.Secret), "unexpected secret length")
+	// assert.Equal(t, sha512.Size384, len(puzzle.Goal), "unxpected goal length")
+	assert.Equal(t, md5.Size, len(puzzle.Secret), "unexpected secret length")
+	assert.Equal(t, md5.Size, len(puzzle.Goal), "unexpected goal length")
 	secret, offset, err := Solve(suite.params, suite.ciphertextBlocks[rangeBegin:rangeEnd], puzzle.Goal)
 	if !assert.Nil(t, err, "failed to solve puzzle") {
 		return
