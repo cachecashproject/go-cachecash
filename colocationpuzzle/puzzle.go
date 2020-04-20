@@ -126,6 +126,7 @@ func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, err
 	if len(chunks) == 0 {
 		return nil, 0, errors.New("must have at least one chunk")
 	}
+
 	if len(goal) != sha512.Size384 {
 		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
