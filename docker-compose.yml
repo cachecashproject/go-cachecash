@@ -18,7 +18,7 @@ services:
   logpiped:
     image: cachecash/go-cachecash
     build: .
-    command: logpiped -spooldir /var/spool/logpiped -esconfig /config/esconfig.json test
+    command: logpiped -dsn 'host=kvstore-db port=5432 user=postgres password=postgresCacheCash dbname=kvstore sslmode=disable' -spooldir /var/spool/logpiped -esconfig /config/esconfig.json test
     environment:
     - CACHECASH_INSECURE=true
     ports:
@@ -31,6 +31,8 @@ services:
     image: postgres:11
     environment:
     - POSTGRES_DB=kvstore
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=postgresCacheCash
 
   ledger:
     image: cachecash/go-cachecash
@@ -41,7 +43,7 @@ services:
     - 9091:8100  # Status
     environment:
     - CACHECASH_INSECURE=true
-    - LEDGER_DATABASE=host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable
+    - LEDGER_DATABASE=host=ledger-db port=5432 user=postgres password=postgresCacheCash dbname=ledger sslmode=disable
     volumes:
     - ./data/ledger:/data
 
@@ -51,6 +53,8 @@ services:
     - 5433:5432
     environment:
     - POSTGRES_DB=ledger
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=postgresCacheCash
 
   upstream:
     image: nginx
@@ -104,7 +108,7 @@ services:
     - PUBLISHER_PUBLISHER_ADDR=publisher:7070
     - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
     - PUBLISHER_BOOTSTRAP_ADDR=bootstrapd:7777
-    - PUBLISHER_DATABASE=host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable
+    - PUBLISHER_DATABASE=host=publisher-db port=5432 user=postgres password=postgresCacheCash dbname=publisher sslmode=disable
     volumes:
     - ./data/publisher:/data
 
@@ -114,6 +118,8 @@ services:
     - 5434:5432
     environment:
     - POSTGRES_DB=publisher
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=postgresCacheCash
 
   bootstrapd:
     image: cachecash/go-cachecash
@@ -241,11 +247,22 @@ services:
     - 9300:9300
     environment:
     - discovery.type=single-node
+    - xpack.security.enabled=true
+    - ELASTIC_USERNAME=elastic
+    - ELASTIC_PASSWORD=elasticachecash
 
   kibana:
     image: kibana:7.3.0
+    command: bash /setup/kibana.sh
+    volumes:
+      - ./deploy/elasticsearch-kibana/:/setup/
     ports:
     - 5601:5601
+    environment:
+      - xpack.security.enabled=true
+      - ELASTICSEARCH_USERNAME=kibana
+      - ELASTICSEARCH_PASSWORD=testkibana
+      - INITIAL_PASSWORD=elasticachecash
 
   metrics:
     image: cachecash/go-cachecash
