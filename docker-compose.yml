@@ -250,10 +250,10 @@ services:
     - xpack.security.enabled=true
     - ELASTIC_USERNAME=elastic
     - ELASTIC_PASSWORD=elasticachecash
-
+    
   kibana:
     image: kibana:7.3.0
-    command: bash /setup/kibana.sh
+    command: /bin/sh -c /setup/kibana.sh
     volumes:
       - ./deploy/elasticsearch-kibana/:/setup/
     ports:
