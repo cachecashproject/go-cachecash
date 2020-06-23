@@ -19,6 +19,8 @@ services:
     image: cachecash/go-cachecash
     build: .
     command: /setup/logpiped.sh
+    environment:
+    - CACHECASH_INSECURE=true
     ports:
     - 9005:9005
     volumes:
