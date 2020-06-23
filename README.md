@@ -40,7 +40,7 @@ git lfs checkout
 ## Running a local test network
 
 The easiest way to get cachecash up and running is starting the test network with docker-compose. The first step is
-building all images:
+creating required secrets according to the [template files](deploy/secrets). Then you can build all images:
 
 ```bash
 docker-compose build

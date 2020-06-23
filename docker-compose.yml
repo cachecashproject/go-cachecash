@@ -18,7 +18,7 @@ services:
   logpiped:
     image: cachecash/go-cachecash
     build: .
-    command: logpiped -spooldir /var/spool/logpiped -esconfig /config/esconfig.json test
+    command: /setup/logpiped.sh
     environment:
     - CACHECASH_INSECURE=true
     ports:
@@ -26,11 +26,14 @@ services:
     volumes:
     - ./data/logpiped:/var/spool/logpiped
     - ./testdata/config:/config
+    - ./deploy/:/setup/
+    env_file:
+      - ./deploy/secrets/logpiped.secret
 
   kvstore-db:
     image: postgres:11
-    environment:
-    - POSTGRES_DB=kvstore
+    env_file:
+      - ./deploy/secrets/logpiped.secret
 
   ledger:
     image: cachecash/go-cachecash
@@ -41,16 +44,17 @@ services:
     - 9091:8100  # Status
     environment:
     - CACHECASH_INSECURE=true
-    - LEDGER_DATABASE=host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable
     volumes:
     - ./data/ledger:/data
+    env_file:
+      - ./deploy/secrets/ledger.secret
 
   ledger-db:
     image: postgres:11
     ports:
     - 5433:5432
-    environment:
-    - POSTGRES_DB=ledger
+    env_file:
+      - ./deploy/secrets/ledger.secret
 
   upstream:
     image: nginx
@@ -104,16 +108,17 @@ services:
     - PUBLISHER_PUBLISHER_ADDR=publisher:7070
     - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
     - PUBLISHER_BOOTSTRAP_ADDR=bootstrapd:7777
-    - PUBLISHER_DATABASE=host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable
     volumes:
     - ./data/publisher:/data
+    env_file:
+      - ./deploy/secrets/publisher.secret
 
   publisher-db:
     image: postgres:11
     ports:
     - 5434:5432
-    environment:
-    - POSTGRES_DB=publisher
+    env_file:
+      - ./deploy/secrets/publisher.secret
 
   bootstrapd:
     image: cachecash/go-cachecash
@@ -236,16 +241,29 @@ services:
 
   elasticsearch:
     image: elasticsearch:7.3.0
+    volumes:
+      - ./deploy/:/setup/
     ports:
     - 9200:9200
     - 9300:9300
     environment:
     - discovery.type=single-node
+    - xpack.security.enabled=true
+    env_file:
+      - ./deploy/secrets/elasticsearch.secret
 
   kibana:
     image: kibana:7.3.0
+    command: /bin/sh -c /setup/elasticsearch-kibana/kibana.sh
+    volumes:
+      - ./deploy/:/setup/
     ports:
     - 5601:5601
+    environment:
+      - xpack.security.enabled=true
+    env_file:
+      - ./deploy/secrets/kibana.secret
+      - ./deploy/secrets/elasticsearch.secret
 
   metrics:
     image: cachecash/go-cachecash
@@ -256,6 +274,5 @@ services:
     ports:
     - 8000:8000
     - 8102:8100
-
 
 ...
