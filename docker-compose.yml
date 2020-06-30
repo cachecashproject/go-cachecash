@@ -1,278 +1,264 @@
 ---
-version: '3.7'
-services:
-  blockexplorerd:
-    image: cachecash/go-cachecash
-    build: .
-    command: blockexplorerd -logLevel debug -trace http://jaeger:14268
-    ports:
-    # www
-    - 8080:8080
-    # status
-    - 8103:8100
-    environment:
-    - CACHECASH_INSECURE=true
-    - BLOCKEXPLORER_LEDGER_ADDR=ledger:7778
-    - BLOCKEXPLORER_ROOT=http://localhost:8080/
-
-  logpiped:
-    image: cachecash/go-cachecash
-    build: .
-    command: /setup/logpiped.sh
-    environment:
-    - CACHECASH_INSECURE=true
-    ports:
-    - 9005:9005
-    volumes:
-    - ./data/logpiped:/var/spool/logpiped
-    - ./testdata/config:/config
-    - ./deploy/:/setup/
-    env_file:
-      - ./deploy/secrets/logpiped.secret
-
-  kvstore-db:
-    image: postgres:11
-    env_file:
-      - ./deploy/secrets/logpiped.secret
-
-  ledger:
-    image: cachecash/go-cachecash
-    build: .
-    command: ledgerd -logLevel debug -mine-blocks -mine-interval 15
-    ports:
-    - 7778:7778  # Ledger service
-    - 9091:8100  # Status
-    environment:
-    - CACHECASH_INSECURE=true
-    volumes:
-    - ./data/ledger:/data
-    env_file:
-      - ./deploy/secrets/ledger.secret
-
-  ledger-db:
-    image: postgres:11
-    ports:
-    - 5433:5432
-    env_file:
-      - ./deploy/secrets/ledger.secret
-
-  upstream:
-    image: nginx
-    ports:
-    - 8081:80
-    volumes:
-    - ./testdata/content:/usr/share/nginx/html
-
-  upstream-apache:
-    image: httpd
-    ports:
-    - 8091:80
-    volumes:
-    - ./testdata/content:/usr/local/apache2/htdocs
-
-  upstream-lighttpd:
-    build: deploy/httpds/lighttpd
-    ports:
-    - 8092:80
-    volumes:
-    - ./testdata/content:/var/www/localhost/htdocs
-
-  upstream-caddy:
-    build: deploy/httpds/caddy
-    ports:
-    - 8093:80
-    volumes:
-    - ./testdata/content:/var/www
-
-  upstream-python:
-    image: python:3-alpine
-    command: python -m http.server -d /var/www 80
-    init: true
-    ports:
-    - 8094:80
-    volumes:
-    - ./testdata/content:/var/www
-
-  publisher:
-    image: cachecash/go-cachecash
-    build: .
-    command: publisherd -logLevel debug -trace http://jaeger:14268
-    ports:
-    - 7070:7070
-    - 8043:8043
-    # status
-    - 8100:8100
-    environment:
-    - CACHECASH_INSECURE=true
-    - PUBLISHER_ORIGIN=http://localhost:1234
-    - PUBLISHER_PUBLISHER_ADDR=publisher:7070
-    - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
-    - PUBLISHER_BOOTSTRAP_ADDR=bootstrapd:7777
-    volumes:
-    - ./data/publisher:/data
-    env_file:
-      - ./deploy/secrets/publisher.secret
-
-  publisher-db:
-    image: postgres:11
-    ports:
-    - 5434:5432
-    env_file:
-      - ./deploy/secrets/publisher.secret
-
-  bootstrapd:
-    image: cachecash/go-cachecash
-    build: .
-    command: bootstrapd -logLevel debug -trace http://jaeger:14268
-    environment:
-    - CACHECASH_INSECURE=true
-    ports:
-    - 7777:7777
-    # status
-    - 8101:8100
-    volumes:
-    - ./data/bootstrapd:/data
-
-  faucetd:
-    image: cachecash/go-cachecash
-    build: .
-    #command: faucetd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
-    command: faucetd -logLevel debug -keypair /ledger/ledger.keypair.json
-    environment:
-    - CACHECASH_INSECURE=true
-    - FAUCET_LEDGER_ADDR=ledger:7778
-    ports:
-    - 7781:7781
-    volumes:
-    - ./data/faucetd:/data
-    # mount ledger keypair
-    - ./data/ledger:/ledger
-
-  cache-0:
-    image: cachecash/go-cachecash
-    build: .
-    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
-    ports:
-    - 9000:9000
-    - 9443:9443
-    # status
-    - 7100:9100
-    environment:
-    - CACHECASH_INSECURE=true
-    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
-    - CACHE_METRICS_ENDPOINT=metrics:8000
-    volumes:
-    - ./data/cache-0:/data
-
-  cache-1:
-    image: cachecash/go-cachecash
-    build: .
-    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
-    ports:
-    - 9001:9000
-    - 9444:9443
-    # status
-    - 7101:9100
-    environment:
-    - CACHECASH_INSECURE=true
-    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
-    - CACHE_METRICS_ENDPOINT=metrics:8000
-    volumes:
-    - ./data/cache-1:/data
-
-  cache-2:
-    image: cachecash/go-cachecash
-    build: .
-    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
-    ports:
-    - 9002:9000
-    - 9445:9443
-    # status
-    - 7102:9100
-    environment:
-    - CACHECASH_INSECURE=true
-    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
-    - CACHE_METRICS_ENDPOINT=metrics:8000
-    volumes:
-    - ./data/cache-2:/data
-
-  cache-3:
-    image: cachecash/go-cachecash
-    build: .
-    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
-    ports:
-    - 9003:9000
-    - 9446:9443
-    - 7103:9100
-    environment:
-    - CACHECASH_INSECURE=true
-    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
-    - CACHE_METRICS_ENDPOINT=metrics:8000
-    volumes:
-    - ./data/cache-3:/data
-
-  cache-4:
-    image: cachecash/go-cachecash
-    build: .
-    command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
-    ports:
-    - 9004:9000
-    - 9447:9443
-    # status
-    - 7104:9100
-    environment:
-    - CACHECASH_INSECURE=true
-    - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
-    - CACHE_METRICS_ENDPOINT=metrics:8000
-    volumes:
-    - ./data/cache-4:/data
-
-  jaeger:
-    image: jaegertracing/all-in-one:1.8
-    ports:
-    - 5775:5775/udp
-    - 6831:6831/udp
-    - 6832:6832/udp
-    - 5778:5778
-    # UI
-    - 16686:16686
-    - 14268:14268
-    - 9411:9411
-
-  elasticsearch:
-    image: elasticsearch:7.3.0
-    volumes:
-      - ./deploy/:/setup/
-    ports:
-    - 9200:9200
-    - 9300:9300
-    environment:
-    - discovery.type=single-node
-    - xpack.security.enabled=true
-    env_file:
-      - ./deploy/secrets/elasticsearch.secret
-
-  kibana:
-    image: kibana:7.3.0
-    command: /bin/sh -c /setup/elasticsearch-kibana/kibana.sh
-    volumes:
-      - ./deploy/:/setup/
-    ports:
-    - 5601:5601
-    environment:
-      - xpack.security.enabled=true
-    env_file:
-      - ./deploy/secrets/kibana.secret
-      - ./deploy/secrets/elasticsearch.secret
-
-  metrics:
-    image: cachecash/go-cachecash
-    build: .
-    command: metrics-proxy -logLevel debug -trace http://jaeger:14268
-    environment:
-    - CACHECASH_INSECURE=true
-    ports:
-    - 8000:8000
-    - 8102:8100
-
-...
+  version: '3.7'
+  services:
+    blockexplorerd:
+      image: cachecash/go-cachecash
+      build: .
+      command: blockexplorerd -logLevel debug -trace http://jaeger:14268
+      ports:
+      # www
+      - 8080:8080
+      # status
+      - 8103:8100
+      environment:
+      - CACHECASH_INSECURE=true
+      - BLOCKEXPLORER_LEDGER_ADDR=ledger:7778
+      - BLOCKEXPLORER_ROOT=http://localhost:8080/
+   
+    logpiped:
+      image: cachecash/go-cachecash
+      build: .
+      command: logpiped -spooldir /var/spool/logpiped -esconfig /config/esconfig.json test
+      environment:
+      - CACHECASH_INSECURE=true
+      ports:
+      - 9005:9005
+      volumes:
+      - ./data/logpiped:/var/spool/logpiped
+      - ./testdata/config:/config
+  
+    kvstore-db:
+      image: postgres:11
+      environment:
+      - POSTGRES_DB=kvstore
+      - POSTGRES_HOST_AUTH_METHOD=trust
+  
+    ledger:
+      image: cachecash/go-cachecash
+      build: .
+      command: ledgerd -logLevel debug -mine-blocks -mine-interval 15
+      ports:
+      - 7778:7778  # Ledger service
+      - 9091:8100  # Status
+      environment:
+      - CACHECASH_INSECURE=true
+      - LEDGER_DATABASE=host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable
+      volumes:
+      - ./data/ledger:/data
+  
+    ledger-db:
+      image: postgres:11
+      ports:
+      - 5433:5432
+      environment:
+      - POSTGRES_DB=ledger
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    upstream:
+      image: nginx
+      ports:
+      - 8081:80
+      volumes:
+      - ./testdata/content:/usr/share/nginx/html
+  
+    upstream-apache:
+      image: httpd
+      ports:
+      - 8091:80
+      volumes:
+      - ./testdata/content:/usr/local/apache2/htdocs
+  
+    upstream-lighttpd:
+      build: deploy/httpds/lighttpd
+      ports:
+      - 8092:80
+      volumes:
+      - ./testdata/content:/var/www/localhost/htdocs
+  
+    upstream-caddy:
+      build: deploy/httpds/caddy
+      ports:
+      - 8093:80
+      volumes:
+      - ./testdata/content:/var/www
+  
+    upstream-python:
+      image: python:3-alpine
+      command: python -m http.server -d /var/www 80
+      init: true
+      ports:
+      - 8094:80
+      volumes:
+      - ./testdata/content:/var/www
+  
+    publisher:
+      image: cachecash/go-cachecash
+      build: .
+      command: publisherd -logLevel debug -trace http://jaeger:14268
+      ports:
+      - 7070:7070
+      - 8043:8043
+      # status
+      - 8100:8100
+      environment:
+      - CACHECASH_INSECURE=true
+      - PUBLISHER_ORIGIN=http://localhost:1234
+      - PUBLISHER_PUBLISHER_ADDR=publisher:7070
+      - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
+      - PUBLISHER_BOOTSTRAP_ADDR=bootstrapd:7777
+      - PUBLISHER_DATABASE=host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable
+      volumes:
+      - ./data/publisher:/data
+  
+    publisher-db:
+      image: postgres:11
+      ports:
+      - 5434:5432
+      environment:
+      - POSTGRES_DB=publisher
+      - POSTGRES_HOST_AUTH_METHOD=trust
+  
+    bootstrapd:
+      image: cachecash/go-cachecash
+      build: .
+      command: bootstrapd -logLevel debug -trace http://jaeger:14268
+      environment:
+      - CACHECASH_INSECURE=true
+      ports:
+      - 7777:7777
+      # status
+      - 8101:8100
+      volumes:
+      - ./data/bootstrapd:/data
+  
+    faucetd:
+      image: cachecash/go-cachecash
+      build: .
+      #command: faucetd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+      command: faucetd -logLevel debug -keypair /ledger/ledger.keypair.json
+      environment:
+      - CACHECASH_INSECURE=true
+      - FAUCET_LEDGER_ADDR=ledger:7778
+      ports:
+      - 7781:7781
+      volumes:
+      - ./data/faucetd:/data
+      # mount ledger keypair
+      - ./data/ledger:/ledger
+  
+    cache-0:
+      image: cachecash/go-cachecash
+      build: .
+      command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+      ports:
+      - 9000:9000
+      - 9443:9443
+      # status
+      - 7100:9100
+      environment:
+      - CACHECASH_INSECURE=true
+      - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+      - CACHE_METRICS_ENDPOINT=metrics:8000
+      volumes:
+      - ./data/cache-0:/data
+  
+    cache-1:
+      image: cachecash/go-cachecash
+      build: .
+      command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+      ports:
+      - 9001:9000
+      - 9444:9443
+      # status
+      - 7101:9100
+      environment:
+      - CACHECASH_INSECURE=true
+      - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+      - CACHE_METRICS_ENDPOINT=metrics:8000
+      volumes:
+      - ./data/cache-1:/data
+  
+    cache-2:
+      image: cachecash/go-cachecash
+      build: .
+      command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+      ports:
+      - 9002:9000
+      - 9445:9443
+      # status
+      - 7102:9100
+      environment:
+      - CACHECASH_INSECURE=true
+      - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+      - CACHE_METRICS_ENDPOINT=metrics:8000
+      volumes:
+      - ./data/cache-2:/data
+  
+    cache-3:
+      image: cachecash/go-cachecash
+      build: .
+      command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+      ports:
+      - 9003:9000
+      - 9446:9443
+      - 7103:9100
+      environment:
+      - CACHECASH_INSECURE=true
+      - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+      - CACHE_METRICS_ENDPOINT=metrics:8000
+      volumes:
+      - ./data/cache-3:/data
+  
+    cache-4:
+      image: cachecash/go-cachecash
+      build: .
+      command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+      ports:
+      - 9004:9000
+      - 9447:9443
+      # status
+      - 7104:9100
+      environment:
+      - CACHECASH_INSECURE=true
+      - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+      - CACHE_METRICS_ENDPOINT=metrics:8000
+      volumes:
+      - ./data/cache-4:/data
+  
+    jaeger:
+      image: jaegertracing/all-in-one:1.8
+      ports:
+      - 5775:5775/udp
+      - 6831:6831/udp
+      - 6832:6832/udp
+      - 5778:5778
+      # UI
+      - 16686:16686
+      - 14268:14268
+      - 9411:9411
+  
+    elasticsearch:
+      image: elasticsearch:7.3.0
+      ports:
+      - 9200:9200
+      - 9300:9300
+      environment:
+      - discovery.type=single-node
+  
+    kibana:
+      image: kibana:7.3.0
+      ports:
+      - 5601:5601
+  
+    metrics:
+      image: cachecash/go-cachecash
+      build: .
+      command: metrics-proxy -logLevel debug -trace http://jaeger:14268
+      environment:
+      - CACHECASH_INSECURE=true
+      ports:
+      - 8000:8000
+      - 8102:8100
+  
+  
+  ...
+  
