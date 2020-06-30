@@ -1,12 +1,13 @@
-# go-cachecash
+# Go-Cachecash
 
 [![Build Status](https://travis-ci.com/cachecashproject/go-cachecash.svg?token=utLK2DGqpJaDNkKeJ4fh&branch=master)](https://travis-ci.com/cachecashproject/go-cachecash)
 
 [![Coverage Status](https://coveralls.io/repos/github/cachecashproject/go-cachecash/badge.svg?t=0cosgH)](https://coveralls.io/github/cachecashproject/go-cachecash)
 
+Go-Cachecash is a project focusing on decentralized content distribution.
 ## Cloning the git repository
 
-This repository uses `git-lfs` for test data artifacts, among other things; you'll need to install it:
+This repository uses `git-lfs` for large test data artifacts, among other things; you'll need to install it:
 
 ```bash
 # Ubuntu
@@ -37,37 +38,15 @@ git lfs fetch
 git lfs checkout
 ```
 
-## Running a local test network
-
-The easiest way to get cachecash up and running is starting the test network with docker-compose. The first step is
-creating required secrets according to the [template files](deploy/secrets). Then you can build all images:
-
+## Setting up database secret
+Go to /deploy/secret and create new .secret file named after each database container based on template files provided.
+For example, this is my ledger.secret:
 ```bash
-docker-compose build
+POSTGRES_USER=cachecash
+POSTGRES_PASSWORD=cachecashPW
+POSTGRES_DB=ledger
+LEDGER_DATABASE=host=ledger-db port=5432 user=cachecash password=cachecashPW dbname=ledger sslmode=disable
 ```
-
-Next, bring up the network:
-
-```bash
-docker-compose up
-```
-
-It's going to take 1-2 minutes until everything is initialized, this includes the postgres initialization, the caches
-announcing themselves to the bootstrap service, the publisher requesting a list of all caches from the bootstrap service
-and finally the publisher and the caches negotiating an escrow, and a distributed tracing backend store. After the escrow
-is setup you can download from the caches using `cachecash-curl` or [typescript-cachecash]:
-
-In this case we're going to use the `cachecash-curl` program at this publisher to see it fetch data. The resulting file
-(here, `output.bin`) should exactly match the original artifact (here, `testdata/content/file0.bin`).
-
-The `-logLevel` option can be changed to control output verbosity for each program.
-
-```bash
-make cachecash-curl && ./bin/cachecash-curl -o output.bin -logLevel=debug -trace http://localhost:14268 cachecash://localhost:7070/file0.bin
-diff output.bin testdata/content/file0.bin
-```
-
-[typescript-cachecash]: https://github.com/cachecashproject/typescript-cachecash
 
 ## Setting up a development environment
 
@@ -90,6 +69,62 @@ To generate documentation from the proto files:
 ```bash
 make gen-docs
 ```
+To generate all the binaries:
+```bash
+make all
+```
+
+## Running a local test network
+
+`Please notice you need to update your docker-compose to the latest version. Download it here: https://docs.docker.com/compose/compose-file/`
+
+For the first time of running, you need to build all images:
+
+
+```bash
+docker-compose build
+```
+
+Next, bring up the network:
+
+```bash
+docker-compose up
+```
+
+It's going to take 1-2 minutes until everything is initialized, this includes the postgres initialization, the caches
+announcing themselves to the bootstrap service, the publisher requesting a list of all caches from the bootstrap service
+and finally the publisher and the caches negotiating an escrow, and a distributed tracing backend store. 
+
+## Debug Cachecash network
+If you are having trouble launching the network after building, or if the daemons keep showing errors, you need to examine the network by pull up the network in the background and see the docker containers' status.
+Use the following command to run the network in background.
+```bash
+docker-compose up -d
+```
+Then examine the container's status
+```bash
+docker ps
+```
+If any containers exit with code 1, please check the logs
+```bash
+docker logs "daemon name"
+```
+## Test Network Locally
+It's going to take 1-2 minutes until everything is initialized, this includes the postgres initialization, the caches
+announcing themselves to the bootstrap service, the publisher requesting a list of all caches from the bootstrap service
+and finally the publisher and the caches negotiating an escrow, and a distributed tracing backend store. After that, we can test our network.
+In this case we're going to build the `cachecash-curl` program.'cachecash-curl' is a tool that tests the ability to transfer data between publisher and client.The resulting file
+(here, `output.bin`) should exactly match the original artifact (here, `testdata/content/file0.bin`).
+
+The `-logLevel` option can be changed to control output verbosity for each program.
+
+```bash
+./bin/cachecash-curl -o output.bin -logLevel=debug -trace http://localhost:14268 cachecash://localhost:7070/file0.bin
+diff output.bin testdata/content/file0.bin
+```
+
+[typescript-cachecash]: https://github.com/cachecashproject/typescript-cachecash
+
 
 ## Using the base image
 
