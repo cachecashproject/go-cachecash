@@ -7,6 +7,7 @@ package colocationpuzzle
 import (
 	"bytes"
 	"crypto/aes"
+	"crypto/md5"
 	"crypto/sha512"
 	"encoding/binary"
 	"math/rand"
@@ -125,7 +126,8 @@ func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, err
 	if len(chunks) == 0 {
 		return nil, 0, errors.New("must have at least one chunk")
 	}
-	if len(goal) != sha512.Size384 {
+	if len(goal) != (md5.Size * 3) {
+		//md5 has a size of 16
 		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
 	if params.Rounds*uint32(len(chunks)) <= 1 {
@@ -160,7 +162,7 @@ func VerifySolution(params Parameters, chunks [][]byte, goal []byte, offset uint
 	if len(chunks) == 0 {
 		return nil, 0, errors.New("must have at least one chunk")
 	}
-	if len(goal) != sha512.Size384 {
+	if len(goal) != (md5.Size * 3) {
 		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
 	if params.Rounds*uint32(len(chunks)) <= 1 {
@@ -205,8 +207,15 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 		// assert len(piece) == aes.BlockSize
 
 		prevLoc = curLoc
-		digest := sha512.Sum384(append(curLoc, piece...))
-		curLoc = digest[:]
+		var md5Digest []byte
+		hashSum := md5.Sum(append(curLoc, piece...))
+		hashSumS := hashSum[:]
+		for j := uint32(0); j < uint32(4); j++ {
+			md5Digest = append(md5Digest, hashSumS...)
+		}
+		//digest := sha512.Sum384(append(curLoc, piece...))
+		//digest := md5Digest
+		curLoc = md5Digest
 		offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 	}
 
