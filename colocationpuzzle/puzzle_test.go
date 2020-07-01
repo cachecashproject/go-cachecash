@@ -78,11 +78,9 @@ func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolveWithOffset() {
 	// offset by 4).
 	suite.testGenerateAndSolve(4, 8)
 }
-
 func (suite *ColocationPuzzleTestSuite) TestGenerateAndSolveSingleBlock() {
 	suite.testGenerateAndSolve(0, 1)
 }
-
 func (suite *ColocationPuzzleTestSuite) testGenerateAndSolve(rangeBegin, rangeEnd int) {
 	t := suite.T()
 

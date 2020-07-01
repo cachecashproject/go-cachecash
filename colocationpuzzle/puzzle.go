@@ -11,6 +11,7 @@ import (
 	"crypto/sha512"
 	"encoding/binary"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -127,8 +128,8 @@ func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, err
 		return nil, 0, errors.New("must have at least one chunk")
 	}
 	if len(goal) != (md5.Size * 3) {
-		//md5 has a size of 16
-		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
+		msg := "goal value must be a SHA-384 digest; its length is wrong, the current size is " + strconv.Itoa(len(goal))
+		return nil, 0, errors.New(msg)
 	}
 	if params.Rounds*uint32(len(chunks)) <= 1 {
 		// XXX: Using a single round and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
@@ -163,7 +164,8 @@ func VerifySolution(params Parameters, chunks [][]byte, goal []byte, offset uint
 		return nil, 0, errors.New("must have at least one chunk")
 	}
 	if len(goal) != (md5.Size * 3) {
-		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
+		msg := "goal value must be a SHA-384 digest; its length is wrong, the current size is " + strconv.Itoa(len(goal))
+		return nil, 0, errors.New(msg)
 	}
 	if params.Rounds*uint32(len(chunks)) <= 1 {
 		// XXX: Using a single ruond and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
