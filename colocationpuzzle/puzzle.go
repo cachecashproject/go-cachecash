@@ -210,7 +210,7 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 		var md5Digest []byte
 		hashSum := md5.Sum(append(curLoc, piece...))
 		hashSumS := hashSum[:]
-		for j := uint32(0); j < uint32(4); j++ {
+		for j := uint32(0); j < uint32(3); j++ {
 			md5Digest = append(md5Digest, hashSumS...)
 		}
 		//digest := sha512.Sum384(append(curLoc, piece...))
