@@ -32,6 +32,8 @@ func mainC() error {
 	l := log.NewCLILogger("cachecash-curl", log.CLIOpt{})
 	flag.Parse()
 
+	startTime := time.Now()
+
 	p, err := common.NewConfigParser(&l.Logger, "cachecash-curl")
 	if err != nil {
 		return err
@@ -123,8 +125,10 @@ func mainC() error {
 			return errors.Wrap(err, "failed to write data to file")
 		}
 	}
-
+	endTime := time.Now()
+	elapsed := endTime.Sub(startTime)
 	l.Info("fetch complete; shutting down client")
+	l.Info("elapsedTime: ", elapsed)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 999*time.Second)
 	defer shutdownCancel()
 	if err := cl.Close(shutdownCtx); err != nil {
