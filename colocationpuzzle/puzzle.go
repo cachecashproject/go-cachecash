@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/md5"
+	"crypto/sha512"
 	"encoding/binary"
 	"math/rand"
 	"strconv"
@@ -208,15 +209,16 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 		// assert len(piece) == aes.BlockSize
 
 		prevLoc = curLoc
-		var md5Digest []byte
+		/*var md5Digest []byte
 		hashSum := md5.Sum(append(curLoc, piece...))
-		hashSumS := hashSum[:]
-		for j := uint32(0); j < uint32(3); j++ {
+		hashSumS := hashSum[:]*/
+		/*for j := uint32(0); j < uint32(3); j++ {
 			md5Digest = append(md5Digest, hashSumS...)
-		}
-		//digest := sha512.Sum384(append(curLoc, piece...))
+		}*/
+		digest := sha512.Sum384(append(curLoc, piece...))
 		//digest := md5Digest
-		curLoc = md5Digest
+		//curLoc = md5Digest
+		curLoc = digest[:]
 		offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 	}
 
