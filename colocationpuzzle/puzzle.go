@@ -7,11 +7,9 @@ package colocationpuzzle
 import (
 	"bytes"
 	"crypto/aes"
-	"crypto/md5"
 	"crypto/sha512"
 	"encoding/binary"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -127,9 +125,8 @@ func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, err
 	if len(chunks) == 0 {
 		return nil, 0, errors.New("must have at least one chunk")
 	}
-	if len(goal) != (md5.Size * 3) {
-		msg := "goal value must be a SHA-384 digest; its length is wrong, the current size is " + strconv.Itoa(len(goal))
-		return nil, 0, errors.New(msg)
+	if len(goal) != sha512.Size384 {
+		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
 	if params.Rounds*uint32(len(chunks)) <= 1 {
 		// XXX: Using a single round and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
@@ -163,9 +160,8 @@ func VerifySolution(params Parameters, chunks [][]byte, goal []byte, offset uint
 	if len(chunks) == 0 {
 		return nil, 0, errors.New("must have at least one chunk")
 	}
-	if len(goal) != (md5.Size * 3) {
-		msg := "goal value must be a SHA-384 digest; its length is wrong, the current size is " + strconv.Itoa(len(goal))
-		return nil, 0, errors.New(msg)
+	if len(goal) != sha512.Size384 {
+		return nil, 0, errors.New("goal value must be a SHA-384 digest; its length is wrong")
 	}
 	if params.Rounds*uint32(len(chunks)) <= 1 {
 		// XXX: Using a single ruond and a single cache is a silly idea, but `runPuzzle` will fail with those inputs.
@@ -197,7 +193,7 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 
 	// Initializing this to all zeroes allows this code to function with two rounds and a single cache.  Obviously, in
 	// that situation the puzzle does not do anything anyhow, so having a predictable secret does not hurt us.
-	curLoc = make([]byte, md5.Size*3)
+	curLoc = make([]byte, sha512.Size384)
 
 	for i := uint32(0); i < uint32((rounds*chunkQty)-1); i++ {
 		chunkIdx := i % chunkQty
@@ -209,15 +205,7 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 		// assert len(piece) == aes.BlockSize
 
 		prevLoc = curLoc
-		/*var md5Digest []byte
-		hashSum := md5.Sum(append(curLoc, piece...))
-		hashSumS := hashSum[:]*/
-		/*for j := uint32(0); j < uint32(3); j++ {
-			md5Digest = append(md5Digest, hashSumS...)
-		}*/
 		digest := sha512.Sum384(append(curLoc, piece...))
-		//digest := md5Digest
-		//curLoc = md5Digest
 		curLoc = digest[:]
 		offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 	}
