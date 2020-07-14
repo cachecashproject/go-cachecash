@@ -7,10 +7,14 @@ package colocationpuzzle
 import (
 	"bytes"
 	"crypto/aes"
+	"crypto/md5"
 	"crypto/sha512"
 	"encoding/binary"
+	"encoding/hex"
+	"hash/crc32"
 	"math/rand"
 	"time"
+	"unsafe"
 
 	"github.com/pkg/errors"
 
@@ -19,7 +23,8 @@ import (
 
 const (
 	IVSize  = aes.BlockSize
-	KeySize = 16 // XXX: This shouldn't go here.
+	KeySize = 16      // XXX: This shouldn't go here.
+	dCrypto = "crc32" // XXX: This is only for testing which algorithm is faster.
 )
 
 type Parameters struct {
@@ -103,7 +108,7 @@ func Generate(params Parameters, chunks [][]byte, innerKeys [][]byte, innerIVs [
 		return util.EncryptCipherBlock(plaintext, innerKeys[i], innerIVs[i], offset)
 	}
 
-	goal, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), startOffset, getBlockFn)
+	goal, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), startOffset, getBlockFn, dCrypto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate outputs of colocation puzzle")
 	}
@@ -119,6 +124,8 @@ func Generate(params Parameters, chunks [][]byte, innerKeys [][]byte, innerIVs [
 // params, enc-chunks, goal -> secret, offset
 // (offset is not necessary, but having it is useful for testing/debugging)
 func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, error) {
+	debugResult := make([]byte, len(goal))
+
 	if err := params.Validate(); err != nil {
 		return nil, 0, errors.Wrap(err, "invalid parameters")
 	}
@@ -140,16 +147,17 @@ func Solve(params Parameters, chunks [][]byte, goal []byte) ([]byte, uint32, err
 
 	// Try all possible starting offsets and look for one that produces the result/goal value we're looking for.
 	for offset := uint32(0); offset < uint32(len(chunks[0])/aes.BlockSize); offset++ {
-		result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getBlockFn)
+		result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getBlockFn, dCrypto)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to run puzzle")
 		}
 		if bytes.Equal(goal, result) {
 			return secret, offset, nil
 		}
+		debugResult = result
 	}
 
-	return nil, 0, errors.New("no solution found")
+	return nil, 0, errors.New("\n" + hex.Dump(goal) + "\n" + hex.Dump(debugResult))
 
 }
 
@@ -173,19 +181,25 @@ func VerifySolution(params Parameters, chunks [][]byte, goal []byte, offset uint
 		return chunks[chunkIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
 	}
 
-	result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getBlockFn)
+	result, secret, err := runPuzzle(params.Rounds, uint32(len(chunks)), offset, getBlockFn, dCrypto)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "failed to run puzzle")
 	}
+	if secret == nil {
+		return nil, 0, errors.New("Secret Unsolved")
+	}
 	if bytes.Equal(goal, result) {
+		if secret == nil {
+			return nil, 0, errors.New("invalid result")
+		}
 		return secret, offset, nil
 	}
-
-	return nil, 0, errors.New("no solution found")
+	// XXX: some code needs to be cleaned up after all the stuff work
+	return nil, 0, errors.New("no solution found, goal and result are: " + "\n" + hex.Dump(goal) + "\n" + hex.Dump(result))
 
 }
 
-func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte, []byte, error) {
+func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT, method string) ([]byte, []byte, error) {
 	// XXX: Do we actually need to compute this 'curLoc'?  I think that we can just check that rounds and len(chunks)
 	//   are large enough that we'll never return it as prevLoc.
 	// XXX: Is 'location' the best name for curLoc/prevLoc?
@@ -193,24 +207,81 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT) ([]byte,
 
 	// Initializing this to all zeroes allows this code to function with two rounds and a single cache.  Obviously, in
 	// that situation the puzzle does not do anything anyhow, so having a predictable secret does not hurt us.
-	curLoc = make([]byte, sha512.Size384)
 
-	for i := uint32(0); i < uint32((rounds*chunkQty)-1); i++ {
-		chunkIdx := i % chunkQty
-		piece, err := getBlockFn(chunkIdx, offset)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to get piece")
+	curLoc = make([]byte, sha512.Size384) //Using length of 32 no matter what the method is
+	if method == "sha384" {
+		for i := uint32(0); i < uint32((rounds*chunkQty)-1); i++ {
+			chunkIdx := i % chunkQty
+			piece, err := getBlockFn(chunkIdx, offset)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to get piece")
+			}
+			// piece := p.chunks[chunkIdx].data[offset*aes.BlockSize : (offset+1)*aes.BlockSize]
+			// assert len(piece) == aes.BlockSize
+
+			prevLoc = curLoc
+			digest := sha512.Sum384(append(curLoc, piece...))
+			curLoc = digest[:]
+			offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 		}
-		// piece := p.chunks[chunkIdx].data[offset*aes.BlockSize : (offset+1)*aes.BlockSize]
-		// assert len(piece) == aes.BlockSize
-
-		prevLoc = curLoc
-		digest := sha512.Sum384(append(curLoc, piece...))
-		curLoc = digest[:]
-		offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
+		return curLoc, prevLoc, nil
 	}
 
-	return curLoc, prevLoc, nil
+	if method == "md5" {
+		for i := uint32(0); i < uint32((rounds*chunkQty)-1); i++ {
+			var md5Digest []byte
+
+			chunkIdx := i % chunkQty
+			piece, err := getBlockFn(chunkIdx, offset)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to get piece")
+			}
+
+			prevLoc = curLoc
+			hashSum := md5.Sum(append(curLoc, piece...))
+			hashSumS := hashSum[:]
+			for j := uint32(0); j < uint32(3); j++ {
+				md5Digest = append(md5Digest, hashSumS...)
+			}
+			curLoc = md5Digest
+			offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
+			//DEBUG START
+			//println("DEBUG DATA"+ "\n" + hex.EncodeToString(curLoc) + "\n" + hex.EncodeToString(prevLoc) + "\n")
+			if i > 0 && prevLoc == nil {
+				return nil, nil, errors.New("Something goes wrong")
+			}
+			if curLoc == nil {
+				return nil, nil, errors.New("Something goes wrong")
+			}
+			//DEBUG END
+		}
+		return curLoc, prevLoc, nil
+	}
+
+	if method == "crc32" {
+		for i := uint32(0); i < uint32((rounds*chunkQty)-1); i++ {
+			var crcDigest []byte
+			chunkIdx := i % chunkQty
+			piece, err := getBlockFn(chunkIdx, offset)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to get piece")
+			}
+			// piece := p.chunks[chunkIdx].data[offset*aes.BlockSize : (offset+1)*aes.BlockSize]
+			// assert len(piece) == aes.BlockSize
+
+			prevLoc = curLoc
+			hashSum := crc32.ChecksumIEEE(append(curLoc, piece...))
+			hashSumS := (*[4]byte)(unsafe.Pointer(&hashSum))[:] //crc32 CheckSum returns uint32 type
+			for j := uint32(0); j < uint32(12); j++ {           //crc32's checksum has a size of 4
+				crcDigest = append(crcDigest, hashSumS...)
+			}
+			curLoc = crcDigest
+			offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
+		}
+		return curLoc, prevLoc, nil
+	}
+
+	return nil, nil, errors.New("Method not defined")
 }
 
 func getCipherBlock(chunk []byte, cipherBlockIdx uint32) ([]byte, error) {
