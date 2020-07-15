@@ -16,7 +16,7 @@ make ccc
 
 echo "Start Testing..."
 
-fileSize=stat -c %s ./testdata/content/file0.bin
+fileSize=$(stat -c %s ./testdata/content/file0.bin)
 echo "Test data size is $fileSize"
 cat > ./testutil/crc32.txt
 echo "Result Generated is in ./testutil/crc32.txt"
@@ -50,7 +50,7 @@ make ccc
 
 echo "Start Testing..."
 
-fileSize=stat -c %s ./testdata/content/file0.bin
+fileSize=$(stat -c %s ./testdata/content/file0.bin)
 echo "Test data size is $fileSize"
 cat > ./testutil/md5.txt
 echo "Result Generated is in ./testutil/md5.txt"
@@ -84,7 +84,7 @@ make ccc
 
 echo "Start Testing..."
 
-fileSize=stat -c %s ./testdata/content/file0.bin
+fileSize=$(stat -c %s ./testdata/content/file0.bin)
 echo "Test data size is $fileSize"
 cat > ./testutil/sha384.txt
 echo "Result Generated is in ./testutil/md5.txt"
