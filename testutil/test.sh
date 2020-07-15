@@ -34,7 +34,8 @@ done
 echo "CRC32 benchmark is done"
 
 echo "Shutting down containers..." 
- 
+docker-compose down
+
 echo "md5..."
 sed -i 's/dCrypto = "crc32"/dCrypto = "md5"/g' ./colocationpuzzle/puzzle.go
 
@@ -67,7 +68,8 @@ done
 echo "MD5 benchmark is done"
 
 echo "Shutting down containers..." 
- 
+docker-compose down
+
 echo "SHA384..."
 sed -i 's/dCrypto = "md5"/dCrypto = "sha384"/g' ./colocationpuzzle/puzzle.go
 
@@ -96,3 +98,9 @@ do
     echo -e "$DIFF \n" >> sha384.txt
     echo "\n"
 done
+
+echo "ALL BENCHMARK FINISHED"
+echo "Shutting down containers..."
+
+docker-compose down
+
