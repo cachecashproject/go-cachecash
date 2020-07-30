@@ -24,6 +24,11 @@ var (
 	traceAPI   = flag.String("trace", "", "Jaeger API for tracing")
 )
 
+const (
+	dCrypt   = "crc32"
+	filePath = "crc32.txt"
+)
+
 func main() {
 	common.Main(mainC)
 }
@@ -34,6 +39,15 @@ func mainC() error {
 
 	startTime := time.Now()
 
+	//BENCHMARK USAGE START
+	/*
+	var benchFile, fileErr = os.Openfile(filePath, os.O_RDWR|os.O_CREATE, 0755)
+	if isError(fileErr) {
+		return fileErr
+	}
+	defer benchFile.Close()
+	//BENCHMARK USAGE END
+	*/
 	p, err := common.NewConfigParser(&l.Logger, "cachecash-curl")
 	if err != nil {
 		return err
@@ -72,7 +86,7 @@ func mainC() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	interruptCh := make(chan os.Signal, 1)
+	interruptCh := make(chan os.Signal, 1) //TODO: OUTPUT TO FILE
 	signal.Notify(interruptCh, os.Interrupt)
 	go func() {
 		select {
