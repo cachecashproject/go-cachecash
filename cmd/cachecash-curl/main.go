@@ -39,15 +39,6 @@ func mainC() error {
 
 	startTime := time.Now()
 
-	//BENCHMARK USAGE START
-	/*
-	var benchFile, fileErr = os.Openfile(filePath, os.O_RDWR|os.O_CREATE, 0755)
-	if isError(fileErr) {
-		return fileErr
-	}
-	defer benchFile.Close()
-	//BENCHMARK USAGE END
-	*/
 	p, err := common.NewConfigParser(&l.Logger, "cachecash-curl")
 	if err != nil {
 		return err

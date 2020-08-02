@@ -123,7 +123,7 @@ func (suite *ColocationPuzzleTestSuite) TestRunPuzzle() {
 		offset = offset % uint32(len(chunks[chunkIdx])/aes.BlockSize)
 		return chunks[chunkIdx][offset*aes.BlockSize : (offset+1)*aes.BlockSize], nil
 	}
-	goal, secret, err := runPuzzle(rounds, uint32(len(chunks)), offset, getBlockFn)
+	goal, secret, err := runPuzzle(rounds, uint32(len(chunks)), offset, getBlockFn, dCrypto)
 
 	assert.Nil(t, err)
 	assert.Equal(t, expectedGoal, goal, "goal mismatched")

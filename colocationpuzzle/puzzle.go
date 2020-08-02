@@ -11,6 +11,7 @@ import (
 	"crypto/sha512"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"hash/crc32"
 	"math/rand"
 	"time"
@@ -23,8 +24,8 @@ import (
 
 const (
 	IVSize  = aes.BlockSize
-	KeySize = 16      // XXX: This shouldn't go here.
-	dCrypto = "crc32" // XXX: This is only for testing which algorithm is faster.
+	KeySize = 16       // XXX: This shouldn't go here.
+	dCrypto = "sha384" // XXX: This is only for testing which algorithm is faster.
 )
 
 type Parameters struct {
@@ -210,6 +211,7 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT, method s
 
 	curLoc = make([]byte, sha512.Size384) //Using length of 32 no matter what the method is
 	if method == "sha384" {
+
 		for i := uint32(0); i < uint32((rounds*chunkQty)-1); i++ {
 			chunkIdx := i % chunkQty
 			piece, err := getBlockFn(chunkIdx, offset)
@@ -240,9 +242,15 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT, method s
 			prevLoc = curLoc
 			hashSum := md5.Sum(append(curLoc, piece...))
 			hashSumS := hashSum[:]
+			//BENCHMARK USAGE
+			startTime := time.Now()
 			for j := uint32(0); j < uint32(3); j++ {
 				md5Digest = append(md5Digest, hashSumS...)
 			}
+			endTime := time.Now()
+			elapsed := endTime.Sub(startTime)
+			fmt.Println(elapsed)
+			//BENCHMARK USAGE END
 			curLoc = md5Digest
 			offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 			//DEBUG START
@@ -272,9 +280,14 @@ func runPuzzle(rounds, chunkQty, offset uint32, getBlockFn getBlockFnT, method s
 			prevLoc = curLoc
 			hashSum := crc32.ChecksumIEEE(append(curLoc, piece...))
 			hashSumS := (*[4]byte)(unsafe.Pointer(&hashSum))[:] //crc32 CheckSum returns uint32 type
-			for j := uint32(0); j < uint32(12); j++ {           //crc32's checksum has a size of 4
+			//BENCHMARK USAGE
+			startTime := time.Now()
+			for j := uint32(0); j < uint32(12); j++ { //crc32's checksum has a size of 4
 				crcDigest = append(crcDigest, hashSumS...)
 			}
+			endTime := time.Now()
+			elapsed := endTime.Sub(startTime)
+			fmt.Println(elapsed)
 			curLoc = crcDigest
 			offset = binary.LittleEndian.Uint32(curLoc[len(curLoc)-4:])
 		}
