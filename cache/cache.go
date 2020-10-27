@@ -488,23 +488,36 @@ func VerifyRequest(m *ccmsg.ClientCacheRequest) error {
 	return nil
 }
 
-func getPublisherAddr(ctx context.Context, publisherAddr string) (string, error) {
-	// XXX. if an ip/hostname is set, try to use that. This could be an address in a private ip range though
-	if !strings.HasPrefix(publisherAddr, ":") {
-		return publisherAddr, nil
-	}
-
-	peer, ok := peer.FromContext(ctx)
-	if !ok {
-		return "", errors.New("failed to get grpc peer from ctx")
-	}
-
+func (c *Cache) getPublisherAddr(ctx context.Context, publisherAddr string) (string, error) {
 	var srcIP net.IP
-	switch addr := peer.Addr.(type) {
-	case *net.UDPAddr:
-		srcIP = addr.IP
-	case *net.TCPAddr:
-		srcIP = addr.IP
+	// give priority to publisher address if set properly
+	l := c.l.WithFields(logrus.Fields{
+		"publisherAddr": publisherAddr,
+	})
+	ip, _, err := net.SplitHostPort(publisherAddr)
+	if err == nil {
+		addrs, err := net.LookupIP(ip)
+		if err != nil {
+			l.Info("could not lookup hostname ip from publisher address")
+		}
+		// use the first address found
+		if len(addrs) > 0 {
+			srcIP = addrs[0]
+		}
+	}
+
+	if srcIP == nil {
+		peer, ok := peer.FromContext(ctx)
+		if !ok {
+			return "", errors.New("failed to get grpc peer from ctx")
+		}
+
+		switch addr := peer.Addr.(type) {
+		case *net.UDPAddr:
+			srcIP = addr.IP
+		case *net.TCPAddr:
+			srcIP = addr.IP
+		}
 	}
 
 	addr := strings.Split(publisherAddr, ":")
@@ -530,7 +543,7 @@ func (c *Cache) OfferEscrow(ctx context.Context, req *ccmsg.EscrowOfferRequest) 
 	})
 	l.Info("starting to create escrow...")
 
-	publisherAddr, err := getPublisherAddr(ctx, req.PublisherAddr)
+	publisherAddr, err := c.getPublisherAddr(ctx, req.PublisherAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get PublisherAddr")
 	}
