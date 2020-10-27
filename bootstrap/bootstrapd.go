@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"time"
 
 	"github.com/cachecashproject/go-cachecash/bootstrap/models"
@@ -60,17 +61,41 @@ func (b *Bootstrapd) verifyCacheIsReachable(ctx context.Context, srcIP net.IP, p
 func (b *Bootstrapd) HandleCacheAnnounceRequest(ctx context.Context, req *ccmsg.CacheAnnounceRequest) (*ccmsg.CacheAnnounceResponse, error) {
 	startupTime := time.Unix(req.StartupTime, 0)
 
-	peer, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("failed to get grpc peer from ctx")
+	var srcIP net.IP
+	// give priority to cache's contact url if set properly
+	if req.ContactUrl != "" {
+		l := b.l.WithFields(logrus.Fields{
+			"contactUrl": req.ContactUrl,
+		})
+		contactUrl, err := url.Parse(req.ContactUrl)
+		if err != nil || contactUrl.Host == "" {
+			if srcIP = net.ParseIP(req.ContactUrl); srcIP == nil {
+				l.Info("invalid contact url form")
+			}
+		} else {
+			addrs, err := net.LookupIP(contactUrl.Host)
+			if err != nil {
+				l.Info("could not lookup hostname ip from contact url")
+			}
+			// use the first address found
+			if len(addrs) > 0 {
+				srcIP = addrs[0]
+			}
+		}
 	}
 
-	var srcIP net.IP
-	switch addr := peer.Addr.(type) {
-	case *net.UDPAddr:
-		srcIP = addr.IP
-	case *net.TCPAddr:
-		srcIP = addr.IP
+	if srcIP == nil {
+		peer, ok := peer.FromContext(ctx)
+		if !ok {
+			return nil, errors.New("failed to get grpc peer from ctx")
+		}
+
+		switch addr := peer.Addr.(type) {
+		case *net.UDPAddr:
+			srcIP = addr.IP
+		case *net.TCPAddr:
+			srcIP = addr.IP
+		}
 	}
 
 	err := b.verifyCacheIsReachable(ctx, srcIP, req.Port)
