@@ -104,7 +104,11 @@ services:
     - 8100:8100
     environment:
     - CACHECASH_INSECURE=true
+    # Configure the publisher origin to avoid CORS errors.
     - PUBLISHER_ORIGIN=http://localhost:1234
+    # If there is any cache running outside of a local network shared by the daemons,
+    # update the publisher address to include the IP address or domain name of
+    # the machine where the publisher is running to make the publisher reachable.
     - PUBLISHER_PUBLISHER_ADDR=publisher:7070
     - PUBLISHER_UPSTREAM=${PUBLISHER_UPSTREAM:-http://upstream:80}
     - PUBLISHER_BOOTSTRAP_ADDR=bootstrapd:7777
@@ -126,6 +130,7 @@ services:
     command: bootstrapd -logLevel debug -trace http://jaeger:14268
     environment:
     - CACHECASH_INSECURE=true
+    - BOOTSTRAP_PROXY_PROTOCOL=false
     ports:
     - 7777:7777
     # status
@@ -136,7 +141,7 @@ services:
   faucetd:
     image: cachecash/go-cachecash
     build: .
-    #command: faucetd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
+    # command: faucetd -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     command: faucetd -logLevel debug -keypair /ledger/ledger.keypair.json
     environment:
     - CACHECASH_INSECURE=true
@@ -151,15 +156,28 @@ services:
   cache-0:
     image: cachecash/go-cachecash
     build: .
+    # If the cache runs outside of a local network shared by the jaeger and logpipe,
+    # replace jaeger:14268, and logpiped:9005 accordingly to reach them.
     command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
     - 9000:9000
     - 9443:9443
     # status
-    - 7100:9100
+    - 7100:7100
     environment:
     - CACHECASH_INSECURE=true
+    - CACHE_GRPC_ADDR=cache-0:9000
+    - CACHE_HTTP_ADDR=cache-0:9443
+    - CACHE_STATUS_ADDR=cache-0:7100
+    # If the cache does not run as part of a local network shared by the daemons,
+    # replace cache-0 with the IP address or domain name of the machine
+    # where the cache is running to make the cache reachable.
+    # - CACHE_CONTACT_URL=http://cache-0
+    # If the same situation above applies, change bootstrap, ledger, and metrics
+    # to include the IP address or domain name of the machine(s) where they are
+    # running to reach them.
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_LEDGER_ADDR=ledger:7778
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-0:/data
@@ -169,13 +187,18 @@ services:
     build: .
     command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
-    - 9001:9000
-    - 9444:9443
+    - 9001:9001
+    - 9444:9444
     # status
-    - 7101:9100
+    - 7101:7101
     environment:
     - CACHECASH_INSECURE=true
+    - CACHE_GRPC_ADDR=cache-1:9001
+    - CACHE_HTTP_ADDR=cache-1:9444
+    - CACHE_STATUS_ADDR=cache-1:7101
+    # - CACHE_CONTACT_URL=http://cache-1
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_LEDGER_ADDR=ledger:7778
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-1:/data
@@ -185,13 +208,18 @@ services:
     build: .
     command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
-    - 9002:9000
-    - 9445:9443
+    - 9002:9002
+    - 9445:9445
     # status
-    - 7102:9100
+    - 7102:7102
     environment:
     - CACHECASH_INSECURE=true
+    - CACHE_GRPC_ADDR=cache-2:9002
+    - CACHE_HTTP_ADDR=cache-2:9445
+    - CACHE_STATUS_ADDR=cache-2:7102
+    # - CACHE_CONTACT_URL=http://cache-2
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_LEDGER_ADDR=ledger:7778
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-2:/data
@@ -201,12 +229,17 @@ services:
     build: .
     command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
-    - 9003:9000
-    - 9446:9443
-    - 7103:9100
+    - 9003:9003
+    - 9446:9446
+    - 7103:7103
     environment:
     - CACHECASH_INSECURE=true
+    - CACHE_GRPC_ADDR=cache-3:9003
+    - CACHE_HTTP_ADDR=cache-3:9446
+    - CACHE_STATUS_ADDR=cache-3:7103
+    # - CACHE_CONTACT_URL=http://cache-3
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_LEDGER_ADDR=ledger:7778
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-3:/data
@@ -216,13 +249,18 @@ services:
     build: .
     command: cached -logLevel debug -trace http://jaeger:14268 -logAddress logpiped:9005
     ports:
-    - 9004:9000
-    - 9447:9443
+    - 9004:9004
+    - 9447:9447
     # status
-    - 7104:9100
+    - 7104:7104
     environment:
     - CACHECASH_INSECURE=true
+    - CACHE_GRPC_ADDR=cache-4:9004
+    - CACHE_HTTP_ADDR=cache-4:9447
+    - CACHE_STATUS_ADDR=cache-4:7104
+    # - CACHE_CONTACT_URL=http://cache-4
     - CACHE_BOOTSTRAP_ADDR=bootstrapd:7777
+    - CACHE_LEDGER_ADDR=ledger:7778
     - CACHE_METRICS_ENDPOINT=metrics:8000
     volumes:
     - ./data/cache-4:/data
