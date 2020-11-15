@@ -7,6 +7,6 @@ development:
 
 docker-tests:
   dialect: postgres
-  datasource: "host=publisher-db port=5432 user=postgres dbname=publisher sslmode=disable"
-  dir: "publisher/migrations/"
+  datasource: host=publisher-db port=5432 user=cachecash password=publisherDB dbname=publisher sslmode=disable 
+  dir: publisher/migrations/
   table: migrations

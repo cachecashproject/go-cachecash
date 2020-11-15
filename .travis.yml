@@ -8,19 +8,26 @@ go:
 # Don't test developer branches
 branches:
   only:
-  - master
+    - master
 
 # Test only on the most recent stable release.
 matrix:
   include:
-  - os: linux
-    env:
-    - BUILD_MODE=e2e
-  - os: linux
-    env:
-    - BUILD_MODE=test
-    # Coveralls.io token
-    - secure: "TDm6L+hiTIs1CP3sm3eBxfcz7MgDN6nAb4+TbPiQOY6xjaVd53J1fvi9orcQZtvacWIh4ZFSxkCggwzezmIp6ZEad/6kVdCfwmbYTK2jEdx9eAxF6dnX3nNOJLiGqws6RPZB81byqIZD269Llrq36Zq5Xwc9mm9kbNFfHbDfAvPTw5VSkbrV6LTH452U5apkIcapbhI/Ll/aa3uVoDH8lbeudA0V5reTBP+BSNob/FrLjXEpkbpW3QzqzZm+RWBM5xKqIX51Vd5IkwYQZGi9mwf92c+9FcolNjhdFajJBWDEU9WUZyv/wWkijUV2aTj2RYKF2QEwJO2EbDsJLJHQvi1l8jD2xu9Pa+ef0Ia/Js4KkLr9TB9m6tY+3ShMUvxQGfKeGeAmvzYDVPfo2Cu0qTO01nClMZfZM3rM9Sm9l7kN3LaZUrvLDl/kvQVMCMvzcypbcWfI6Eh5uw5WMUjH4QgBxUUaaI6fVFK6dTsmdGYtbiDPqkUMKT/45UpbMoxKrHYB7GSP1lLR6CfifOa9p91Tpcwq+CsOl78do6KEzcKZWA0ojMMAWX9PDtLPr4TwXN9ENDH/IityQAI3cCwfV1LmUZNx0HffznoG7v+bnvi4NfNumUMSmOE+HobDO4vPmW2rpHWprA4AQO3lY/fwZatzhH933maQRH4FRBQfw2M="
+    - os: linux
+      env:
+        - BUILD_MODE=e2e
+    - os: linux
+      env:
+        - BUILD_MODE=test
+        # Coveralls.io token
+        - secure: "TDm6L+hiTIs1CP3sm3eBxfcz7MgDN6nAb4+TbPiQOY6xjaVd53J1fvi9orcQZtvacWIh4ZFSxkCggwzezmIp6ZEad/6kVdCfwmbYTK2jEdx9eAxF6dnX3nNOJLiGqws6RPZB81byqIZD269Llrq36Zq5Xwc9mm9kbNFfHbDfAvPTw5VSkbrV6LTH452U5apkIcapbhI/Ll/aa3uVoDH8lbeudA0V5reTBP+BSNob/FrLjXEpkbpW3QzqzZm+RWBM5xKqIX51Vd5IkwYQZGi9mwf92c+9FcolNjhdFajJBWDEU9WUZyv/wWkijUV2aTj2RYKF2QEwJO2EbDsJLJHQvi1l8jD2xu9Pa+ef0Ia/Js4KkLr9TB9m6tY+3ShMUvxQGfKeGeAmvzYDVPfo2Cu0qTO01nClMZfZM3rM9Sm9l7kN3LaZUrvLDl/kvQVMCMvzcypbcWfI6Eh5uw5WMUjH4QgBxUUaaI6fVFK6dTsmdGYtbiDPqkUMKT/45UpbMoxKrHYB7GSP1lLR6CfifOa9p91Tpcwq+CsOl78do6KEzcKZWA0ojMMAWX9PDtLPr4TwXN9ENDH/IityQAI3cCwfV1LmUZNx0HffznoG7v+bnvi4NfNumUMSmOE+HobDO4vPmW2rpHWprA4AQO3lY/fwZatzhH933maQRH4FRBQfw2M="
+
+# Cache LFS objects between builds.
+cache:
+  directories:
+    - .git/lfs
+git:
+  lfs_skip_smudge: true
 
 # Skip the install step. Don't `go get` dependencies. Only build with the code in vendor/.
 install: true
@@ -33,10 +40,10 @@ notifications:
     secure: OxmwasI3jV/ZzZ+FyAHjUHQlOdfJGqyKRaCST5H77Gt9kOD03UXYOpvO/NoDMazyDPnDJad3p0nG1vwxBDOfo9kH/wh8puu1qCUL/me6Oq1fxPS2DL3jDv8+GAuQadjxTHa1iOovgACnzdPupwLqfiuGp0jxA9Tya9QvFG9ExoaNLlBFlkbN3OKo3RWapG0ZyJ1C6Gai5SDIIfYCTj5AYROhh9Hn+ZI6bbouPjOmrIPu4kAFjBP5q7E5SDYXh0FvdNt5TdiCnz/Y9EMHUXRH0Gsm9KpmlqC9STxwg+m4+vhPQJrLnLd9tiqRVJRLE9cY7eAxiPhAHMPeETgVw6nNk2fuHPQq4B5KoNQyNY742aJKj02k33k3+zBBAiaVEg9MA7qyFZ/qwOv+zTq8z3z8hNeSKW2wvootZeqHCwSGNW3M+GVHIPl2HbKnx/6RKzmi+yLNt88eHBEbCY/uWQyvSJ8IY9gFI2Ow9KmFXlbg9Um3ZkpALTPCW1JkQNbNTflQVnjUDd8Z9e6CJIpFwiwgMcnjBmQ9/Bcof8s/9Ocm7Bwva1ErIw1UGgirVMMucG1Xoie51g1YQ2KxmMqHeuHSCTuMq3vLVVGxWHJjpL91ZLH1B8MsbK7HRTJCqVuG7VHq76vskCKQVqCAW1TU+KekqIF7YxuO+i09/U6kE1RXw+M=
 
 before_script:
-- date -u
-- git lfs pull
-- sudo service postgresql stop
-- ci/setup.sh
+  - date -u
+  - git lfs pull
+  - sudo service postgresql stop
+  - ci/setup.sh
 
 script:
-- ci/run.sh
+  - ci/run.sh

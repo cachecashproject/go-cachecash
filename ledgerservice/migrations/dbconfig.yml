@@ -7,6 +7,6 @@ development:
 
 docker-tests:
   dialect: postgres
-  datasource: "host=ledger-db port=5432 user=postgres dbname=ledger sslmode=disable"
+  datasource: "host=ledger-db port=5432 user=cachecash password=ledgerDB dbname=ledger sslmode=disable"
   dir: "ledgerservice/migrations/"
   table: migrations

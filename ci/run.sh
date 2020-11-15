@@ -8,7 +8,12 @@ run_test() {
     -e GOPROXY=off -e GO111MODULE=on -e PSQL_HOST="$PSQL_HOST" -e PSQL_DBNAME="$PSQL_DBNAME" \
     -v $(pwd):/go/src/github.com/cachecashproject/go-cachecash \
     cachecash-ci \
-    go test -mod=vendor -v -race "$@"
+    /bin/bash -c "
+    mkfifo /tmp/fifo-$$ &&
+    grep -v 'no test files' </tmp/fifo-$$ & go test -mod=vendor -v -race "$@" >/tmp/fifo-$$ &&
+    RES=$? &&
+    rm /tmp/fifo-$$ &&
+    exit $RES"
 }
 
 case "$BUILD_MODE" in

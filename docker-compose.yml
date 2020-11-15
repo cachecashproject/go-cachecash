@@ -28,12 +28,12 @@ services:
     - ./testdata/config:/config
     - ./deploy/:/setup/
     env_file:
-      - ./deploy/secrets/logpiped.secret
+      - ./deploy/secrets/kvstore.secret
 
   kvstore-db:
     image: postgres:11
     env_file:
-      - ./deploy/secrets/logpiped.secret
+      - ./deploy/secrets/kvstore.secret
 
   ledger:
     image: cachecash/go-cachecash
