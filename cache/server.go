@@ -116,9 +116,13 @@ type clientProtocolServer struct {
 var _ common.StarterShutdowner = (*clientProtocolServer)(nil)
 
 func newClientProtocolServer(l *logrus.Logger, c *Cache, db *sql.DB, conf *ConfigFile, r *ledgerclient.Replicator) (*clientProtocolServer, error) {
-	grpcServer := common.NewDBGRPCServer(db)
+	// Cache security is currently delivered solely via the cachecash crypto
+	// guarantees. TLS certs will be added in future.
+	grpcServer := common.NewDBGRPCServer(true, db)
 	ccmsg.RegisterClientCacheServer(grpcServer, &grpcClientCacheServer{cache: c})
 	ccmsg.RegisterPublisherCacheServer(grpcServer, &grpcPublisherCacheServer{cache: c})
+	// Enable to observe gRPC latency
+	// grpc_prometheus.EnableHandlingTimeHistogram()
 	grpc_prometheus.Register(grpcServer)
 
 	httpServer := wrapGrpc(grpcServer)

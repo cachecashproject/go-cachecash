@@ -197,8 +197,8 @@ func (lp *LogPipe) Close(timeout time.Duration) error {
 // is stopped. It will close the `ready` channel you pass when ready to serve.
 func (lp *LogPipe) Boot(ready chan struct{}, db *sql.DB) error {
 	lp.connMutex.Lock()
-
-	lp.server = common.NewDBGRPCServer(db)
+	// LogPipe configuration for secure communication missing
+	lp.server = common.NewDBGRPCServer(true, db)
 	log.RegisterLogPipeServer(lp.server, lp)
 	lp.processContext, lp.processCancel = context.WithCancel(context.Background())
 

@@ -101,7 +101,8 @@ func NewClient(serverAddress, service, logDir string, debug, insecure bool, conf
 	}
 
 	if c.config.DeliverLogs {
-		conn, err := common.GRPCDial(serverAddress, insecure)
+		// LogPipe configuration for secure communication missing
+		conn, err := common.GRPCDial(serverAddress, true)
 		if err != nil {
 			return nil, err
 		}

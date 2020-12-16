@@ -106,9 +106,11 @@ type publisherServer struct {
 var _ common.StarterShutdowner = (*publisherServer)(nil)
 
 func newPublisherServer(l *logrus.Logger, p *ContentPublisher, db *sql.DB, conf *ConfigFile, r *ledgerclient.Replicator) (*publisherServer, error) {
-	grpcServer := common.NewDBGRPCServer(db)
+	grpcServer := common.NewDBGRPCServer(conf.Insecure, db)
 	ccmsg.RegisterCachePublisherServer(grpcServer, &grpcPublisherServer{publisher: p})
 	ccmsg.RegisterClientPublisherServer(grpcServer, &grpcPublisherServer{publisher: p})
+	// Enable to observe gRPC latency
+	// grpc_prometheus.EnableHandlingTimeHistogram()
 	grpc_prometheus.Register(grpcServer)
 
 	httpServer := wrapGrpc(grpcServer, conf)

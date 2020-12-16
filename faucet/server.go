@@ -73,7 +73,7 @@ type faucetServer struct {
 var _ common.StarterShutdowner = (*faucetServer)(nil)
 
 func newFaucetServer(l *logrus.Logger, f *Faucet, db *sql.DB, conf *ConfigFile) (*faucetServer, error) {
-	grpcServer := common.NewDBGRPCServer(db)
+	grpcServer := common.NewDBGRPCServer(conf.Insecure, db)
 	ccmsg.RegisterFaucetServer(grpcServer, &grpcFaucetServer{faucet: f})
 
 	return &faucetServer{
